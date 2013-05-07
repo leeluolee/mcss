@@ -57,7 +57,7 @@ this.tokenizer = {
     },
     "must ignored the whitespace": function(t){
         var token = tk("/*hellotest*/ {   \t}")
-        testToken(token, ["COMMENT","WS", "{",  "}"], t);
+        testToken(token, ["COMMENT","{",  "}"], t);
         t.done()
     },
     "must eat the flag": function(t){

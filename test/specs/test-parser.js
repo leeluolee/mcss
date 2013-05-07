@@ -9,6 +9,7 @@ this.parser = {
 }
 
 http('../data/parse.mcss',function(text){
-    // console.log(tk(text).pump())
-    console.log(ps(text));
+    var parser = ps(text);
+    console.log(parser.parse())
+
 });

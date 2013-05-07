@@ -1,2 +1,9 @@
 #hash.classname[attr] > :hover > :before{
+    left: (10px + 6/4)*10 loset;
+    background-image : url('hahahah') !important;
 }
+
+@var hello zhenghaibo
+$hello dabaichi, haha , 10px;
+
+@extend hello;
