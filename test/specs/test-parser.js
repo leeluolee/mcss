@@ -8,14 +8,14 @@ var it = mcss.interpreter;
 this.parser = {}
 
 
-http('../data/parse.mcss',function(text){
+http('../data/simple.mcss',function(text){
     var date = +new Date()
     var node = ps.parse(text);
+    var node = it.interpret(node)
     // console.log(node)
-    // tl.translate(node, {
-    //     hooks: ['csscomb', 'prefixr']
-    // });
-    console.log(it.interpret(node));
+    tl.translate(node, {
+        hooks: ['csscomb', 'prefixr']
+    });
     console.log(+new Date - date)
 
 });

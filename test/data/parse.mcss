@@ -1,19 +1,32 @@
 @var haha zhenghaibo1
-@mixin hello1 (hello, heihei){
+@var test 30px
+@mixin hello1 (hello){
   @var haha zhenghaibo2
-  font: hello;
+  @var $border 10px solid 10px;
+  border: $border;
+  font: haha;
   color: heihei;
+  @include mx2(font, heihei);
 }
 
-.clearfix {
-  @include hello1(heelo, dada)
+@mixin mx2 (p1, p2){
+  @var p2 120px
+  border: 10px;
+  color: p1;
+  color2: p2;
+}
+
+a, b {
+  @include mx2()
+  @include hello1(haha)
   font: 10px;
   *zoom: 1;
-  height: zhenghaibo;
+  height: test;
   border-top: 10px;
   border:10px;
-  border:hover hello{
-      .classname{
+  c, d{
+      @include mx2(10px, 20px);
+      .classname, classname2{
         hello: 18px;
       } 
   }

@@ -1,6 +1,8 @@
 
 audio:not([controls]) {
   display: none;
+  url: url('https://helo.com');
+  url: fn('dadad');
 }
 
 html {
