@@ -13,17 +13,18 @@ var mcss;
 }({
     '0': function (require, module, exports, global) {
         var tokenizer = require('1');
-        var parser = require('5');
+        var parser = require('3');
         var translator = require('8');
         var util = require('2');
+        var interpreter = require('i');
         exports.tokenizer = tokenizer;
         exports.parser = parser;
         exports.util = util;
         exports.translator = translator;
+        exports.interpreter = interpreter;
     },
     '1': function (require, module, exports, global) {
         var util = require('2');
-        var mcssFunctions = require('3').names;
         var slice = [].slice, _uid = 0, debug = true, tokenCache = {};
         uid = function (type, cached) {
             _uid++;
@@ -41,7 +42,7 @@ var mcss;
                 return new Tokenizer(input, options);
             };
         function createToken(type, val, lineno) {
-            if (!val) {
+            if (val === undefined) {
                 tokenCache[type] = { type: type };
             }
             var token = tokenCache[type] || {
@@ -52,7 +53,6 @@ var mcss;
             return token;
         }
         var isUnit = toAssert2('% em ex ch rem vw vh vmin vmax cm mm in pt pc px deg grad rad turn s ms Hz kHz dpi dpcm dppx');
-        var isMcssFunction = toAssert2(mcssFunctions);
         function atKeyword(val) {
             if (val === 'keyframe')
                 return createToken(KEYFRAME);
@@ -118,14 +118,14 @@ var mcss;
                 }
             },
             {
-                regexp: /url[ \t]*\((['"]?)([^\r\n\f]*)\1\)/,
+                regexp: /url[ \t]*\((['"]?)([^\r\n\f]*?)\1\)/,
                 action: function (yytext, quote, url) {
                     this.yyval = url;
                     return 'URI';
                 }
             },
             {
-                regexp: /(?:-?[_A-Za-z][_\w]*)(?=[ \t]*\()/,
+                regexp: /(?:-?[_A-Za-z][-_\w]*)(?=[ \t]*\()/,
                 action: function (yytext) {
                     this.yyval = yytext;
                     return 'FUNCTION';
@@ -159,7 +159,7 @@ var mcss;
                 }
             },
             {
-                regexp: /(-?(?:\d+\.\d+|\d+))(\w*|%)?/,
+                regexp: /(-?(?:\d*\.\d+|\d+))(\w*|%)?/,
                 action: function (yytext, val, unit) {
                     if (unit && !isUnit(unit)) {
                         this.error('Unexcept unit: "' + unit + '"');
@@ -172,7 +172,7 @@ var mcss;
                 }
             },
             {
-                regexp: ':([\\w\\u00A1-\\uFFFF-]+)' + '(?:\\(' + '([^\\(\\)]*' + '|(?:' + '\\([^\\)]+\\)' + '|[^\\(\\)]*' + ')+)' + '\\))?',
+                regexp: ':([-_a-zA-Z][\\w\\u00A1-\\uFFFF-]*)' + '(?:\\(' + '([^\\(\\)]*' + '|(?:' + '\\([^\\)]+\\)' + '|[^\\(\\)]*' + ')+)' + '\\))?',
                 action: function (yytext) {
                     this.yyval = yytext;
                     return 'PSEUDO_CLASS';
@@ -207,9 +207,9 @@ var mcss;
                 }
             },
             {
-                regexp: /(['"])([^\r\n\f]*)\1/,
+                regexp: /(['"])([^\r\n\f]*?)\1/,
                 action: function (yytext, quote, val) {
-                    this.yyval = yytext;
+                    this.yyval = val || '';
                     return 'STRING';
                 }
             },
@@ -388,166 +388,7 @@ var mcss;
         module.exports = _;
     },
     '3': function (require, module, exports, global) {
-        var fs = null;
-        var path = null;
-        var slice = [].slice;
-        var tree = require('4');
-        var functions = {
-                add: function (options) {
-                    return options.args.reduce(function (a, b) {
-                        return a + b;
-                    });
-                },
-                base64: function (options) {
-                    var dirname = options.dirname;
-                    if (!fs) {
-                        return 'url(' + options.args[0] + ')';
-                    } else {
-                    }
-                },
-                u: function (string, options) {
-                    return string;
-                }
-            };
-        exports.functions = functions;
-        exports.names = Object.keys(functions);
-        var mediatypes = {
-                '.eot': 'application/vnd.ms-fontobject',
-                '.gif': 'image/gif',
-                '.ico': 'image/vnd.microsoft.icon',
-                '.jpg': 'image/jpeg',
-                '.jpeg': 'image/jpeg',
-                '.otf': 'application/x-font-opentype',
-                '.png': 'image/png',
-                '.svg': 'image/svg+xml',
-                '.ttf': 'application/x-font-ttf',
-                '.webp': 'image/webp',
-                '.woff': 'application/x-font-woff'
-            };
-        function converToBase64(imagePath) {
-            imagePath = imagePath.replace(/[?#].*/g, '');
-            var extname = path.extname(imagePath), stat, img;
-            try {
-                stat = fs.statSync(imagePath);
-                if (stat.size > 4096) {
-                    return false;
-                }
-                img = fs.readFileSync(imagePath, 'base64');
-                return 'data:' + mediatypes[extname] + ';base64,' + img;
-            } catch (e) {
-                return false;
-            }
-        }
-    },
-    '4': function (require, module, exports, global) {
-        function Stylesheet() {
-            this.body = [];
-        }
-        function SelectorList() {
-            this.list = [];
-        }
-        function ComplexSelector() {
-            this.string;
-        }
-        function RuleSet(selector, block) {
-            this.selector = selector;
-            this.block = block;
-        }
-        function Block(list) {
-            this.list = list || [];
-        }
-        function Declaration(property, value) {
-            this.property = property;
-            this.value = value || [];
-        }
-        function ComponentValues() {
-            this.list = [];
-        }
-        function FunctionCall(name, params) {
-            this.params = params || [];
-            this.name = name;
-        }
-        function Unrecognized(name) {
-            this.name = name;
-        }
-        Unrecognized.prototype = {
-            toString: function () {
-                return this.name;
-            }
-        };
-        function RGBA(color) {
-            this.color = color;
-        }
-        function Token(tk) {
-            tk = tk || {};
-            this.val = tk.val;
-            this.type = tk.type;
-        }
-        function Variable(name, value, kind) {
-            this.kind = kind || 'var';
-            this.name = name;
-            this.value = value || [];
-        }
-        function Mixin(name, params, body) {
-            this.name = name;
-            this.body = body;
-            this.refs = [];
-        }
-        function Params(params) {
-            this.list = params || [];
-        }
-        Params.prototype.isEmpty = function () {
-            return this.list.length === 0;
-        };
-        function Param(name) {
-            this.name = name;
-        }
-        function Include(mixin, args) {
-            this.mixin = mixin;
-            this.args = args || [];
-        }
-        function Extend(mixin) {
-            this.mixin = mixin;
-        }
-        exports.Stylesheet = Stylesheet;
-        exports.SelectorList = SelectorList;
-        exports.ComplexSelector = ComplexSelector;
-        exports.RuleSet = RuleSet;
-        exports.Block = Block;
-        exports.Declaration = Declaration;
-        exports.ComponentValues = ComponentValues;
-        exports.FunctionCall = FunctionCall;
-        exports.Unrecognized = Unrecognized;
-        exports.Mixin = Mixin;
-        exports.Include = Include;
-        exports.Extend = Extend;
-        exports.Variable = Variable;
-        exports.Token = Token;
-        exports.RGBA = RGBA;
-        exports.Params = Params;
-        function FontFace() {
-        }
-        function Media(name, mediaList) {
-            this.name = name;
-            this.media = mediaList;
-        }
-        function Import(href, mediaList, block) {
-            this.href = href;
-            this.media = mediaList;
-            this.block = block;
-        }
-        function Page() {
-        }
-        function Charset() {
-        }
-        function NameSpace() {
-        }
-        exports.inspect = function (node) {
-            return node.constructor.name.toLowerCase();
-        };
-    },
-    '5': function (require, module, exports, global) {
-        var tk = require('1'), tree = require('4'), functions = require('3'), Color = require('6'), _ = require('2'), symtab = require('7'), slice = [].slice;
+        var tk = require('1'), tree = require('4'), functions = require('5'), Color = require('6'), _ = require('2'), symtab = require('7'), perror = new Error(), test_t, slice = [].slice;
         var combos = [
                 'WS',
                 '>',
@@ -575,6 +416,8 @@ var mcss;
         var isCssAtKeyword = _.makePredicate('import page keyframe media font-face charset');
         var isShorthandProp = _.makePredicate('background font margin border border-top border-right border-bottom border-left border-width border-color border-style transition padding list-style border-radius.');
         var isWSOrNewLine = _.makePredicate('WS NEWLINE');
+        var isCommaOrParen = _.makePredicate(', )');
+        var mayNotPsedudoClass = /^:-?[_A-Za-z][-_\w]*$/;
         var isBuildInFunction = function (name) {
             return !!biFunctions[name];
         };
@@ -594,26 +437,19 @@ var mcss;
             setInput: function (input, options) {
                 this.options = options || {};
                 this.tokenizer = tk(input, _.extend(options || {}, { ignoreComment: true }));
-                this.lookahead = [
-                    this.tokenizer.lex(),
-                    this.tokenizer.lex(),
-                    this.tokenizer.lex()
-                ];
+                this.lookahead = this.tokenizer.pump();
                 this.p = 0;
+                this.length = this.lookahead.length;
                 this.states = ['accept'];
                 this.state = 'accept';
                 this.scope = this.options.scope || new symtab.Scope();
-                this.selectors = [];
+                this.rulesets = [];
+                this.marked = null;
                 return this;
             },
             next: function (k) {
                 k = k || 1;
-                var cur = this.p;
                 this.p += k;
-                for (var i = 0; i < k; i++) {
-                    this.lookahead[(cur + i) % 3] = this.tokenizer.lex();
-                }
-                this.skip('COMMENT');
             },
             pushState: function (condition) {
                 this.states.push(condition);
@@ -637,14 +473,15 @@ var mcss;
                 } else if (this.eat('NEWLINE')) {
                     return true;
                 } else {
-                    this.error('expect: "NEWLINE" or ";"' + '->got: ' + ll.type);
+                    this.error('expect: "NEWLINE" or ";"' + '->got: ' + this.ll().type);
                 }
             },
             ll: function (k) {
                 k = k || 1;
-                if (k > 3)
-                    this.error('max lookahead 3 tokens');
-                return this.lookahead[(this.p + k - 1) % 3];
+                if (this.p + k > this.length) {
+                    return this.lookahead[this.length - 1];
+                }
+                return this.lookahead[this.p + k - 1];
             },
             la: function (k) {
                 return this.ll(k).type;
@@ -653,8 +490,12 @@ var mcss;
                 return this.la(pos) === tokenType;
             },
             mark: function () {
+                this.marked = this.p;
             },
-            release: function () {
+            restore: function () {
+                if (this.marked != undefined)
+                    this.p = this.marked;
+                this.marked = null;
             },
             eat: function (tokenType) {
                 if (this.la() === tokenType) {
@@ -682,24 +523,46 @@ var mcss;
                 return this.skip(isWSOrNewLine);
             },
             error: function (msg) {
+                console.log(this.stylesheet, this.ll(-3), this.ll(-1), this.ll(1), this.ll(2));
                 throw Error(msg + ' on line:' + this.ll().lineno);
             },
-            down: function (selectorList) {
-                if (selectorList)
-                    this.selectors.push(selectorList);
+            down: function (ruleset) {
+                if (ruleset)
+                    this.rulesets.push(ruleset);
                 this.scope = new symtab.Scope(this.scope);
             },
-            up: function (popSelector) {
-                if (popSelector)
-                    this.selectors.pop();
+            up: function (ruleset) {
+                if (ruleset)
+                    this.rulesets.pop();
                 this.scope = this.scope.getOuterScope();
+            },
+            concatSelector: function (selectorList) {
+                var ss = this.rulesets;
+                if (!ss.length)
+                    return selectorList;
+                var parentList = ss[ss.length - 1].selector, slist = selectorList.list, plist = parentList.list, slen = slist.length, plen = plist.length, sstring, pstring, rstring, s, p, res;
+                var res = new tree.SelectorList();
+                for (p = 0; p < plen; p++) {
+                    pstring = plist[p].string;
+                    for (s = 0; s < slen; s++) {
+                        sstring = slist[s].string;
+                        if (~sstring.indexOf('&')) {
+                            rstring = sstring.replace(/&/g, pstring);
+                        } else {
+                            rstring = pstring + ' ' + sstring;
+                        }
+                        res.list.push(new tree.ComplexSelector(rstring));
+                    }
+                }
+                return res;
             },
             stylesheet: function () {
                 var node = new tree.Stylesheet();
+                this.stylesheet = node;
                 while (this.la(1) !== 'EOF') {
                     this.skipStart();
                     var stmt = this.stmt();
-                    node.body.push(stmt);
+                    node.list.push(stmt);
                     this.skipStart();
                 }
                 return node;
@@ -718,6 +581,7 @@ var mcss;
                 if (isSelectorSep(la)) {
                     return this.ruleset(true);
                 }
+                this.error('invliad statementstart');
             },
             atrule: function () {
                 var lv = this.ll().val.toLowerCase();
@@ -738,57 +602,43 @@ var mcss;
                 this.match('IDENT');
                 this.match('WS');
                 node.name = ll.val;
-                while (true) {
-                    ll = this.ll(1);
-                    la = ll.type;
-                    if (la === 'NEWLINE' || la === ';') {
-                        this.skipStart();
-                        break;
-                    } else {
-                        node.value.push(this.componentValue());
-                    }
-                }
+                node.value = this.componentValues();
+                this.matcheNewLineOrSemeColon();
                 this.scope.define(node.name, node);
                 return node;
+            },
+            css: function () {
             },
             mixin: function () {
                 this.match('AT_KEYWORD');
                 this.match('WS');
-                var ll = this.ll();
-                var la = ll.type;
-                this.match('IDENT');
-                var node = new tree.Mixin();
-                node.name = ll.val;
+                var name = this.ll().val;
+                this.match('FUNCTION');
+                var node = new tree.Mixin(name);
                 this.eat('WS');
-                if (this.la() === '(') {
-                    node.params = this.params();
-                }
-                this.skipWSorNewlne();
-                this.down();
-                node.body = this.block();
-                this.up();
-                this.scope.define(node.name, node);
-                return node;
-            },
-            params: function () {
-                this.match('(');
-                var node = new tree.Params();
-                while (this.la() !== ')') {
-                    node.list.push(this.param());
-                    if (!this.eat(','))
-                        break;
+                node.formalParams = [];
+                if (this.eat('(')) {
+                    this.skipWSorNewlne();
+                    if (this.la() !== ')') {
+                        do {
+                            node.formalParams.push(this.param());
+                            this.skipWSorNewlne();
+                        } while (this.eat(','));
+                    }
                 }
                 this.match(')');
+                this.skipWSorNewlne();
+                this.down();
+                node.scope = this.scope;
+                node.block = this.block();
+                this.up();
+                this.scope.define(node.name, node);
                 return node;
             },
             param: function () {
                 var ll = this.ll();
                 this.match('IDENT');
-                return { name: ll.val };
-            },
-            arguments: function () {
-            },
-            css: function () {
+                return new tree.Param(ll.val);
             },
             extend: function () {
                 this.match('AT_KEYWORD');
@@ -814,19 +664,24 @@ var mcss;
                 this.error('invalid extend at rule');
             },
             include: function () {
-                this.match('AT_KEYWORD', 'include');
-                this.match('WS');
                 var node = new tree.Include();
-                var ll = this.ll(), la = ll.type;
-                if (la === 'IDENT' || la === 'CLASS') {
-                    var mixin = this.scope.resolve(ll.val);
-                    if (!mixin || tree.inspect(mixin) !== 'mixin') {
-                        this.error('invalid include atrule');
+                this.match('AT_KEYWORD');
+                this.match('WS');
+                node.name = this.ll().val;
+                this.match('FUNCTION');
+                if (this.eat('(')) {
+                    this.skipWSorNewlne();
+                    if (this.la() !== ')') {
+                        do {
+                            node.params.push(this.componentValues(isCommaOrParen));
+                            if (this.la() === ')')
+                                break;
+                        } while (this.eat(','));
                     }
-                } else {
-                    this.error('invalid include atrule');
+                    this.match(')');
                 }
-                this.next();
+                this.matcheNewLineOrSemeColon();
+                node.scope = this.scope;
                 return node;
             },
             import: function () {
@@ -849,28 +704,44 @@ var mcss;
             },
             ruleset: function () {
                 var node = new tree.RuleSet(), rule;
-                node.selector = this.selectorList();
+                node.selector = this.concatSelector(this.selectorList());
                 this.skipWSorNewlne();
-                node.block = this.block(node.selector);
+                this.down(node);
+                node.block = this.block();
+                this.up(node);
                 return node;
             },
-            block: function (selector) {
+            block: function () {
                 var node = new tree.Block();
                 this.match('{');
-                this.down(selector);
+                this.skipStart();
                 while (this.la() !== '}') {
                     this.skipStart();
+                    if (this.ll(1).type == '*' && this.ll(2).type == 'IDENT') {
+                        this.ll(2).val = '*' + this.ll(2).val;
+                        this.next();
+                    }
                     var ll1 = this.ll(1);
                     var ll2 = this.ll(2);
-                    if (ll1.type == 'IDENT' && ll2.type == ':' || ll1.type == '*' && ll2.type == 'IDENT' && this.ll(3).type === ':') {
-                        node.list.push(this.declaration());
+                    if (ll1.type === 'IDENT' && (ll2.type === ':' || ll2.type == 'PSEUDO_CLASS')) {
+                        try {
+                            this.mark();
+                            var declaration = this.declaration();
+                            node.list.push(declaration);
+                        } catch (_e) {
+                            if (_e.code === 1987) {
+                                this.restore();
+                                node.list.push(this.stmt());
+                            } else {
+                                throw _e;
+                            }
+                        }
                     } else {
                         node.list.push(this.stmt());
                     }
                     this.skipStart();
                 }
                 this.match('}');
-                this.up(selector);
                 return node;
             },
             selectorList: function () {
@@ -901,35 +772,43 @@ var mcss;
                 return node;
             },
             declaration: function (checked) {
-                if (this.ll().type == '*') {
-                    this.next();
-                    this.ll(1).val = '*' + this.ll(1).val;
-                }
                 var node = new tree.Declaration(), ll1 = this.ll(1), ll2 = this.ll(2);
-                if (checked || (this.ll(1).type = 'IDENT' && this.ll(2).type == ':')) {
-                    node.property = ll1.val;
-                    this.next(2);
-                }
+                node.property = ll1.val;
+                this.next(2);
                 node.value = this.componentValues();
+                this.matcheNewLineOrSemeColon();
+                if (ll2.type !== ':')
+                    node.value.list.unshift({
+                        type: 'IDENT',
+                        val: ll2.val.slice(1)
+                    });
                 return node;
             },
-            componentValues: function () {
-                var node = new tree.ComponentValues(), ll, la;
-                while (true) {
+            componentValues: function (end) {
+                if (end) {
+                    var test = typeof end === 'string' ? function (type) {
+                            type === end;
+                        } : end;
+                }
+                var node = new tree.ComponentValues(), ll, la, i = 10;
+                while (i++) {
                     ll = this.ll(1);
                     la = ll.type;
+                    if (i > 100)
+                        throw Error('dada');
                     if (la === 'IMPORTANT') {
                         this.next();
                         node.important = true;
                         this.matcheNewLineOrSemeColon();
                         break;
                     }
-                    if (la === 'NEWLINE' || la === ';') {
-                        this.next();
+                    if (test && test(la) || (la === 'NEWLINE' || la === ';')) {
                         break;
                     } else {
                         var componentValue = this.componentValue();
-                        if (componentValue !== null)
+                        if (componentValue instanceof tree.ComponentValues) {
+                            node.list = node.list.concat(componentValue.list);
+                        } else if (componentValue !== null)
                             node.list.push(componentValue);
                     }
                 }
@@ -939,85 +818,98 @@ var mcss;
                 var ll1 = this.ll(1);
                 var node, val = ll1.val, res;
                 switch (ll1.type) {
-                case 'IDENT':
+                case '{':
+                    perror.code = 1987;
+                    throw perror;
+                    break;
+                case ',':
+                case '=':
                     this.next();
-                    var ref = this.scope.resolve(ll1.val);
-                    if (ref && ref.kind === 'var') {
-                        return ref;
-                    } else {
-                        return ll1;
-                    }
+                    return ll1;
                 case 'WS':
                     this.next();
                     return null;
-                case 'RGBA':
-                case 'STRING':
-                case ',':
-                case 'URI':
-                    this.next();
-                    return ll1;
-                case 'FUNCTION':
-                    this.match('(');
-                    var params = [];
-                    var fn = ll1.val;
-                    while (this.la() != ')') {
-                        node.params.push(this.expression());
-                    }
-                    this.match(')');
-                    return node;
-                case 'DIMENSION':
-                case '(':
-                    var node = this.additive();
-                    return node;
-                case 'HASH':
-                    val = ll1.val;
-                    if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(val)) {
-                        node = new tree.RGBA(new Color(val));
-                        this.next();
-                        return node;
-                    } else {
-                        return tree.Unregniezed(ll1);
-                    }
-                    break;
                 default:
-                    this.error('Unregniezed component Value with Token start: ' + ll1.type);
+                    return this.expression();
                 }
             },
             expression: function (prefix) {
-                var ll = this.ll(1);
-                var la = ll.type;
+                var ll = this.ll(1), la = ll.type, node;
                 switch (ll.type) {
                 case '(':
-                    var node = this.parenExpression();
+                    node = this.parenExpression();
                     break;
                 case 'DIMENSION':
-                    var node = this.additive();
+                    node = this.additive();
                     break;
                 case '+':
                 case '-':
                     if (this.ll(2) !== 'ws') {
-                        var node = this.expression(ll.type);
+                        node = this.expression(ll.type);
                     } else {
                         node = ll;
                     }
+                case 'WS':
+                case 'NEWLINE':
+                    this.next();
+                    node = this.expression();
+                    break;
+                case 'IDENT':
                 case 'STRING':
                 case 'RGBA':
-                case 'function':
+                case 'URI':
                     this.next();
-                    return ll;
+                    node = ll;
+                    break;
+                case 'HASH':
+                    this.next();
+                    val = ll.val;
+                    if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(val)) {
+                        node = new tree.RGBA(new Color(val));
+                    } else {
+                        node = new tree.Unknown(ll.val);
+                    }
+                    break;
+                case 'FUNCTION':
+                    this.next();
+                    this.match('(');
+                    var fn = functions[ll.val];
+                    if (!fn) {
+                        node = new tree.CssFunction(ll.val);
+                        node.value = this.componentValues(')');
+                        this.match(')');
+                    } else {
+                        var params = [];
+                        this.skipWSorNewlne();
+                        if (this.la() !== ')') {
+                            do {
+                                params.push(this.expression());
+                            } while (this.la() === ',');
+                        }
+                        this.match(')');
+                        node = fn.apply(this, params);
+                        if (typeof node === 'string') {
+                            node = new tree.Unknown(node);
+                        }
+                    }
+                    break;
                 default:
+                    this.error('invalid expression start:' + ll.type);
                 }
                 if (node && node.type === 'DIMENSION') {
                     if (prefix === '-') {
                         node.val.number = 0 - node.val.number;
                     }
                 }
+                return node;
             },
             additive: function (options) {
                 var left = this.multive(), right;
+                this.eat('WS');
                 var op = this.ll();
                 if (op.type === '+' || op.type === '-') {
                     this.next();
+                    this.eat('WS');
                     right = this.additive();
                     return this._add(left, right, op.type);
                 } else {
@@ -1065,6 +957,8 @@ var mcss;
                 if (op === '*') {
                     number = val1.number * val2.number;
                 } else {
+                    if (val2.number === 0)
+                        this.error('can"t divid by zero');
                     number = val1.number / val2.number;
                 }
                 return {
@@ -1074,10 +968,6 @@ var mcss;
                         unit: unit
                     }
                 };
-            },
-            _addColor: function (c1, c2, op) {
-            },
-            _multColor: function (c1, dimension, op) {
             },
             primary: function () {
                 var ll = this.ll();
@@ -1105,6 +995,221 @@ var mcss;
                 }).join(',');
             }
         };
+    },
+    '4': function (require, module, exports, global) {
+        function Stylesheet(list) {
+            this.list = list || [];
+        }
+        Stylesheet.prototype.clone = function () {
+            var clone = new Stylesheet();
+            clone.list = cloneNode(this.list);
+            return clone;
+        };
+        function SelectorList(list) {
+            this.list = list || [];
+        }
+        SelectorList.prototype.clone = function () {
+            var clone = new SelectorList();
+            clone.list = cloneNode(this.list);
+            return clone;
+        };
+        function ComplexSelector(string) {
+            this.string = string;
+        }
+        ComplexSelector.prototype.clone = function () {
+            var clone = new ComplexSelector();
+            return clone;
+        };
+        function RuleSet(selector, block) {
+            this.selector = selector;
+            this.block = block;
+        }
+        RuleSet.prototype.remove = function (ruleset) {
+        };
+        RuleSet.prototype.clone = function () {
+            var clone = new RuleSet(cloneNode(this.selector), cloneNode(this.block));
+            return clone;
+        };
+        function Block(list) {
+            this.list = list || [];
+        }
+        Block.prototype.clone = function () {
+            var clone = new Block(cloneNode(this.list));
+            return clone;
+        };
+        function Declaration(property, value) {
+            this.property = property;
+            this.value = value;
+        }
+        Declaration.prototype.clone = function () {
+            var clone = new Declaration(this.property, cloneNode(this.value));
+            return clone;
+        };
+        function ComponentValues() {
+            this.list = [];
+        }
+        ComponentValues.prototype.clone = function () {
+            var clone = new ComponentValues(cloneNode(this.list));
+            return clone;
+        };
+        function FunctionCall(name, params) {
+            this.params = params || [];
+            this.name = name;
+        }
+        FunctionCall.prototype.clone = function () {
+            var clone = new FunctionCall(this.name, cloneNode(this.params));
+            return clone;
+        };
+        function Unknown(name) {
+            this.name = name;
+        }
+        Unknown.prototype.clone = function () {
+            var clone = new Unknown(this.name);
+            return clone;
+        };
+        function RGBA(channels) {
+            this.channels = channels || [];
+        }
+        RGBA.prototype.clone = function () {
+            var clone = new RGBA(cloneNode(this.channels));
+            return clone;
+        };
+        function Token(tk) {
+            tk = tk || {};
+            this.val = tk.val;
+            this.type = tk.type;
+        }
+        function Variable(name, value, kind) {
+            this.kind = kind || 'var';
+            this.name = name;
+            this.value = value || [];
+        }
+        function Mixin(name, params, block) {
+            this.name = name;
+            this.formalParams = params || [];
+            this.block = block;
+        }
+        function Param(name, value) {
+            this.name = name;
+            this.default = value;
+        }
+        function Include(mixin, params) {
+            this.name = name;
+            this.params = params || [];
+        }
+        function Extend(mixin) {
+            this.mixin = mixin;
+        }
+        function CssFunction(name, value) {
+            this.name = name;
+            this.value = value;
+        }
+        exports.Stylesheet = Stylesheet;
+        exports.SelectorList = SelectorList;
+        exports.ComplexSelector = ComplexSelector;
+        exports.RuleSet = RuleSet;
+        exports.Block = Block;
+        exports.Declaration = Declaration;
+        exports.ComponentValues = ComponentValues;
+        exports.FunctionCall = FunctionCall;
+        exports.Unknown = Unknown;
+        exports.Mixin = Mixin;
+        exports.Include = Include;
+        exports.Extend = Extend;
+        exports.Variable = Variable;
+        exports.Token = Token;
+        exports.RGBA = RGBA;
+        exports.Param = Param;
+        exports.CssFunction = CssFunction;
+        function FontFace() {
+        }
+        function Media(name, mediaList) {
+            this.name = name;
+            this.media = mediaList;
+        }
+        function Import(href, mediaList, block) {
+            this.href = href;
+            this.media = mediaList;
+            this.block = block;
+        }
+        function Page() {
+        }
+        function Charset() {
+        }
+        function NameSpace() {
+        }
+        exports.inspect = function (node) {
+            return node.constructor.name.toLowerCase();
+        };
+        var cloneNode = exports.cloneNode = function (node) {
+                if (node.clone)
+                    return node.clone();
+                if (Array.isArray(node))
+                    return node.map(cloneNode);
+                if (node.type)
+                    return {
+                        type: node.type,
+                        val: node.val
+                    };
+                if (typeof node !== 'object')
+                    return node;
+            };
+    },
+    '5': function (require, module, exports, global) {
+        var fs = null;
+        var path = null;
+        var slice = [].slice;
+        var tree = require('4');
+        var Color = require('6');
+        exports.add = function () {
+            return options.args.reduce(function (a, b) {
+                return a + b;
+            });
+        };
+        exports.base64 = function () {
+            var dirname = options.dirname;
+            if (!fs) {
+                return 'url(' + options.args[0] + ')';
+            } else {
+            }
+        };
+        exports.u = function (string) {
+            if (string.type !== 'STRING') {
+                throw Error('mcss function "u" only accept string');
+            }
+            return string.val;
+        };
+        exports.lighen = function () {
+        };
+        exports.darken = function () {
+        };
+        var mediatypes = {
+                '.eot': 'application/vnd.ms-fontobject',
+                '.gif': 'image/gif',
+                '.ico': 'image/vnd.microsoft.icon',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.otf': 'application/x-font-opentype',
+                '.png': 'image/png',
+                '.svg': 'image/svg+xml',
+                '.ttf': 'application/x-font-ttf',
+                '.webp': 'image/webp',
+                '.woff': 'application/x-font-woff'
+            };
+        function converToBase64(imagePath) {
+            imagePath = imagePath.replace(/[?#].*/g, '');
+            var extname = path.extname(imagePath), stat, img;
+            try {
+                stat = fs.statSync(imagePath);
+                if (stat.size > 4096) {
+                    return false;
+                }
+                img = fs.readFileSync(imagePath, 'base64');
+                return 'data:' + mediatypes[extname] + ';base64,' + img;
+            } catch (e) {
+                return false;
+            }
+        }
     },
     '6': function (require, module, exports, global) {
         'use strict';
@@ -1306,6 +1411,9 @@ var mcss;
                 this.symtable = {};
             };
         Scope.prototype = {
+            getSpace: function () {
+                return this.symtable;
+            },
             resolve: function (name) {
                 var scope = this;
                 while (scope) {
@@ -1315,7 +1423,6 @@ var mcss;
                     else
                         scope = scope.parentScope;
                 }
-                return this.symtable[name];
             },
             define: function (name, value) {
                 this.symtable[name] = value;
@@ -1328,15 +1435,25 @@ var mcss;
     },
     '8': function (require, module, exports, global) {
         var Translator = require('9');
-        exports.translate = function (tree, options) {
-            return new Translator().translate(tree, options);
+        var Parser = require('3');
+        var hook = require('b');
+        exports.translate = function (ast, options) {
+            if (typeof ast == 'string') {
+                ast = Parser.parse(ast);
+            }
+            ast = hook.hook(ast, options);
+            return new Translator(options).translate(ast);
         };
     },
     '9': function (require, module, exports, global) {
         var Walker = require('a');
-        function Translator() {
+        var event = null;
+        function Translator(options) {
+            this.parser = parser;
+            this.tokenizer = tokenizer;
         }
         var _ = Translator.prototype = new Walker();
+        var walk = _.walk;
         _.translate = function (tree) {
             this.tree = tree;
             this.walk(tree);
@@ -1359,8 +1476,8 @@ var mcss;
             return tree.string;
         };
         _.walk_block = function (tree) {
-            var text = this.walk(tree.list).join('; ') + ';';
-            return '{' + text + '}';
+            var text = '\t' + this.walk(tree.list).join('\n\t');
+            return '{\n' + text + '\n}';
         };
         _.walk_componentvalues = function (tree) {
             var text = this.walk(tree.list).join(' ');
@@ -1369,10 +1486,9 @@ var mcss;
         _.walk_declaration = function (tree) {
             var text = tree.property;
             var value = this.walk(tree.value);
-            return text + ': ' + value;
+            return text + ': ' + value + ';';
         };
         _.walk_ident = function (tree) {
-            console.log(tree);
             return tree.val;
         };
         _.walk_string = function (tree) {
@@ -1381,22 +1497,27 @@ var mcss;
         _['walk_,'] = function (tree) {
             return ',';
         };
-        _.walk_rgba = function (tree) {
+        _['walk_='] = function (tree) {
+            return '=';
         };
         _.walk_unknown = function (tree) {
+            return tree.name;
         };
-        _.walk_e = function () {
+        _.walk_cssfunction = function (tree) {
+            return tree.name + '(' + this.walk(tree.value) + ')';
         };
         _.walk_uri = function (tree) {
             return 'url(' + tree.val + ')';
         };
         _.walk_rgba = function (tree) {
-            console.log(tree.color);
             return tree.color.css();
         };
         _.walk_dimension = function (tree) {
             var val = tree.val;
             return val.number + (val.unit ? val.unit : '');
+        };
+        _.walk_variable = function () {
+            return '';
         };
         module.exports = Translator;
     },
@@ -1419,19 +1540,20 @@ var mcss;
                 } else if (node.type && this.walk_token) {
                     return this.walk_token(node);
                 } else {
-                    throw Error('no' + this._inspect(node) + ' specify node walker defined');
+                    console.error('no "' + this._inspect(node) + '" walk defined');
                 }
             },
             _walkArray: function (nodes) {
                 var self = this;
-                return nodes.map(function (node) {
-                    return self._walk(node);
+                var res = [];
+                nodes.forEach(function (node) {
+                    if (node)
+                        res.push(self._walk(node));
                 });
+                return res;
             },
             _walk: function (node) {
-                var sign = this._inspect(node);
-                var name = 'walk_' + sign;
-                _.log(name, 'visit');
+                var sign = this._inspect(node), name = 'walk_' + sign;
                 if (this[name])
                     return this[name](node);
                 else
@@ -1439,8 +1561,574 @@ var mcss;
             },
             _inspect: function (node) {
                 return node.type ? node.type.toLowerCase() : node.constructor.name.toLowerCase();
+            },
+            error: function (e) {
+                throw e;
             }
         };
         module.exports = Walker;
+    },
+    'b': function (require, module, exports, global) {
+        var Hook = require('c');
+        exports.hook = function (ast, options) {
+            new Hook(options).walk(ast);
+            return ast;
+        };
+    },
+    'c': function (require, module, exports, global) {
+        var Walker = require('a');
+        var Event = require('d');
+        var hooks = require('e');
+        function Hook(options) {
+            options = options || {};
+            this.load(options.hooks);
+        }
+        var _ = Hook.prototype = new Walker();
+        Event.mixTo(_);
+        var on = _.on;
+        var walk = _._walk;
+        _.load = function (names) {
+            if (!names)
+                return;
+            var name;
+            if (!(names instanceof Array)) {
+                names = [names];
+            }
+            for (var i = 0, len = names.length; i < len; i++) {
+                name = names[i];
+                if (typeof name === 'string') {
+                    this.on(hooks[name]);
+                } else {
+                    this.on(name);
+                }
+            }
+        };
+        _.on = function (name) {
+            if (typeof name === 'string' && !~name.indexOf(':')) {
+                name = name + ':up';
+            }
+            on.apply(this, arguments);
+        };
+        _._walk = function (tree) {
+            var name = this._inspect(tree);
+            if (name)
+                this.trigger(name + ':' + 'down', tree);
+            var res = walk.apply(this, arguments);
+            if (name)
+                this.trigger(name + ':' + 'up', tree);
+            return res;
+        };
+        _.walk_stylesheet = function (tree) {
+            this.walk(tree.body);
+        };
+        _.walk_ruleset = function (tree) {
+            this.walk(tree.block);
+        };
+        _.walk_selectorlist = function (tree) {
+            this.walk(tree.list);
+        };
+        _.walk_complexselector = function (tree) {
+        };
+        _.walk_block = function (tree) {
+            this.walk(tree.list);
+        };
+        _.walk_componentvalues = function (tree) {
+            this.walk(tree.list);
+        };
+        _.walk_declaration = function (tree) {
+            this.walk(tree.value);
+        };
+        _.walk_ident = function (tree) {
+            return tree.val;
+        };
+        _.walk_string = function (tree) {
+            return '"' + tree.val + '"';
+        };
+        _['walk_,'] = function (tree) {
+            return ',';
+        };
+        _['walk_='] = function (tree) {
+            return '=';
+        };
+        _.walk_unknown = function (tree) {
+            return tree.name;
+        };
+        _.walk_cssfunction = function (tree) {
+            return tree.name + '(' + this.walk(tree.value) + ')';
+        };
+        _.walk_uri = function (tree) {
+            return 'url(' + tree.val + ')';
+        };
+        _.walk_rgba = function (tree) {
+            return tree.color.css();
+        };
+        _.walk_dimension = function (tree) {
+            var val = tree.val;
+            return val.number + (val.unit ? val.unit : '');
+        };
+        _.walk_variable = function () {
+            return '';
+        };
+        module.exports = Hook;
+    },
+    'd': function (require, module, exports, global) {
+        var slice = [].slice, ex = function (o1, o2, override) {
+                for (var i in o2)
+                    if (o1[i] == null || override) {
+                        o1[i] = o2[i];
+                    }
+            };
+        var API = {
+                on: function (event, fn) {
+                    if (typeof event === 'object') {
+                        for (var i in event) {
+                            this.on(i, event[i]);
+                        }
+                    } else {
+                        var handles = this._handles || (this._handles = {}), calls = handles[event] || (handles[event] = []);
+                        calls.push(fn);
+                    }
+                    return this;
+                },
+                off: function (event, fn) {
+                    if (event)
+                        this._handles = [];
+                    if (!this._handles)
+                        return;
+                    var handles = this._handles, calls;
+                    if (calls = handles[event]) {
+                        if (!fn) {
+                            handles[event] = [];
+                            return this;
+                        }
+                        for (var i = 0, len = calls.length; i < len; i++) {
+                            if (fn === calls[i]) {
+                                calls.splice(i, 1);
+                                return this;
+                            }
+                        }
+                    }
+                    return this;
+                },
+                trigger: function (event) {
+                    var args = slice.call(arguments, 1), handles = this._handles, calls;
+                    if (!handles || !(calls = handles[event]))
+                        return this;
+                    for (var i = 0, len = calls.length; i < len; i++) {
+                        calls[i].apply(this, args);
+                    }
+                    return this;
+                }
+            };
+        function Event(handles) {
+            if (arguments.length)
+                this.on.apply(this, arguments);
+        }
+        ;
+        ex(Event.prototype, API);
+        Event.mixTo = function (obj) {
+            obj = typeof obj == 'function' ? obj.prototype : obj;
+            ex(obj, API);
+        };
+        module.exports = Event;
+    },
+    'e': function (require, module, exports, global) {
+        module.exports = {
+            prefixr: require('f'),
+            csscomb: require('h')
+        };
+    },
+    'f': function (require, module, exports, global) {
+        var prefixs = require('g').prefixs;
+        module.exports = {
+            block: function (tree) {
+            }
+        };
+    },
+    'g': function (require, module, exports, global) {
+        exports.orders = {
+            'position': 1,
+            'z-index': 1,
+            'top': 1,
+            'right': 1,
+            'bottom': 1,
+            'left': 1,
+            'display': 2,
+            'visibility': 2,
+            'float': 2,
+            'clear': 2,
+            'overflow': 2,
+            'overflow-x': 2,
+            'overflow-y': 2,
+            '-ms-overflow-x': 2,
+            '-ms-overflow-y': 2,
+            'clip': 2,
+            'zoom': 2,
+            'flex-direction': 2,
+            'flex-order': 2,
+            'flex-pack': 2,
+            'flex-align': 2,
+            '-webkit-box-sizing': 3,
+            '-moz-box-sizing': 3,
+            'box-sizing': 3,
+            'width': 3,
+            'min-width': 3,
+            'max-width': 3,
+            'height': 3,
+            'min-height': 3,
+            'max-height': 3,
+            'margin': 3,
+            'margin-top': 3,
+            'margin-right': 3,
+            'margin-bottom': 3,
+            'margin-left': 3,
+            'padding': 3,
+            'padding-top': 3,
+            'padding-right': 3,
+            'padding-bottom': 3,
+            'padding-left': 3,
+            'table-layout': 4,
+            'empty-cells': 4,
+            'caption-side': 4,
+            'border-spacing': 4,
+            'border-collapse': 6,
+            'list-style': 4,
+            'list-style-position': 4,
+            'list-style-type': 4,
+            'list-style-image': 4,
+            'content': 5,
+            'quotes': 5,
+            'counter-reset': 5,
+            'counter-increment': 5,
+            'resize': 5,
+            'cursor': 5,
+            'nav-index': 5,
+            'nav-up': 5,
+            'nav-right': 5,
+            'nav-down': 5,
+            'nav-left': 5,
+            '-webkit-transition': 5,
+            '-moz-transition': 5,
+            '-ms-transition': 5,
+            '-o-transition': 5,
+            'transition': 5,
+            '-webkit-transition-delay': 5,
+            '-moz-transition-delay': 5,
+            '-ms-transition-delay': 5,
+            '-o-transition-delay': 5,
+            'transition-delay': 5,
+            '-webkit-transition-timing-function': 5,
+            '-moz-transition-timing-function': 5,
+            '-ms-transition-timing-function': 5,
+            '-o-transition-timing-function': 5,
+            'transition-timing-function': 5,
+            '-webkit-transition-duration': 5,
+            '-moz-transition-duration': 5,
+            '-ms-transition-duration': 5,
+            '-o-transition-duration': 5,
+            'transition-duration': 5,
+            '-webkit-transition-property': 5,
+            '-moz-transition-property': 5,
+            '-ms-transition-property': 5,
+            '-o-transition-property': 5,
+            'transition-property': 5,
+            '-webkit-transform': 5,
+            '-moz-transform': 5,
+            '-ms-transform': 5,
+            '-o-transform': 5,
+            'transform': 5,
+            '-webkit-transform-origin': 5,
+            '-moz-transform-origin': 5,
+            '-ms-transform-origin': 5,
+            '-o-transform-origin': 5,
+            'transform-origin': 5,
+            '-webkit-animation': 5,
+            '-moz-animation': 5,
+            '-ms-animation': 5,
+            '-o-animation': 5,
+            'animation': 5,
+            '-webkit-animation-name': 5,
+            '-moz-animation-name': 5,
+            '-ms-animation-name': 5,
+            '-o-animation-name': 5,
+            'animation-name': 5,
+            '-webkit-animation-duration': 5,
+            '-moz-animation-duration': 5,
+            '-ms-animation-duration': 5,
+            '-o-animation-duration': 5,
+            'animation-duration': 5,
+            '-webkit-animation-play-state': 5,
+            '-moz-animation-play-state': 5,
+            '-ms-animation-play-state': 5,
+            '-o-animation-play-state': 5,
+            'animation-play-state': 5,
+            '-webkit-animation-timing-function': 5,
+            '-moz-animation-timing-function': 5,
+            '-ms-animation-timing-function': 5,
+            '-o-animation-timing-function': 5,
+            'animation-timing-function': 5,
+            '-webkit-animation-delay': 5,
+            '-moz-animation-delay': 5,
+            '-ms-animation-delay': 5,
+            '-o-animation-delay': 5,
+            'animation-delay': 5,
+            '-webkit-animation-iteration-count': 5,
+            '-moz-animation-iteration-count': 5,
+            '-ms-animation-iteration-count': 5,
+            '-o-animation-iteration-count': 5,
+            'animation-iteration-count': 5,
+            '-webkit-animation-direction': 5,
+            '-moz-animation-direction': 5,
+            '-ms-animation-direction': 5,
+            '-o-animation-direction': 5,
+            'animation-direction': 5,
+            'text-align': 5,
+            '-webkit-text-align-last': 5,
+            '-moz-text-align-last': 5,
+            '-ms-text-align-last': 5,
+            'text-align-last': 5,
+            'vertical-align': 5,
+            'white-space': 5,
+            'text-decoration': 5,
+            'text-emphasis': 5,
+            'text-emphasis-color': 5,
+            'text-emphasis-style': 5,
+            'text-emphasis-position': 5,
+            'text-indent': 5,
+            '-ms-text-justify': 5,
+            'text-justify': 5,
+            'text-transform': 5,
+            'letter-spacing': 5,
+            'word-spacing': 5,
+            '-ms-writing-mode': 5,
+            'text-outline': 5,
+            'text-wrap': 5,
+            'text-overflow': 5,
+            '-ms-text-overflow': 5,
+            'text-overflow-ellipsis': 5,
+            'text-overflow-mode': 5,
+            '-ms-word-wrap': 5,
+            'word-wrap': 5,
+            'word-break': 5,
+            '-ms-word-break': 5,
+            '-moz-tab-size': 5,
+            '-o-tab-size': 5,
+            'tab-size': 5,
+            '-webkit-hyphens': 5,
+            '-moz-hyphens': 5,
+            'hyphens': 5,
+            'pointer-events': 5,
+            'opacity': 6,
+            'filter:progid:DXImageTransform.Microsoft.Alpha(Opacity': 6,
+            '-ms-filter:\'progid:DXImageTransform.Microsoft.Alpha': 6,
+            '-ms-interpolation-mode': 6,
+            'color': 6,
+            'border': 6,
+            'border-width': 6,
+            'border-style': 6,
+            'border-color': 6,
+            'border-top': 6,
+            'border-top-width': 6,
+            'border-top-style': 6,
+            'border-top-color': 6,
+            'border-right': 6,
+            'border-right-width': 6,
+            'border-right-style': 6,
+            'border-right-color': 6,
+            'border-bottom': 6,
+            'border-bottom-width': 6,
+            'border-bottom-style': 6,
+            'border-bottom-color': 6,
+            'border-left': 6,
+            'border-left-width': 6,
+            'border-left-style': 6,
+            'border-left-color': 6,
+            '-webkit-border-radius': 6,
+            '-moz-border-radius': 6,
+            'border-radius': 6,
+            '-webkit-border-top-left-radius': 6,
+            '-moz-border-radius-topleft': 6,
+            'border-top-left-radius': 6,
+            '-webkit-border-top-right-radius': 6,
+            '-moz-border-radius-topright': 6,
+            'border-top-right-radius': 6,
+            '-webkit-border-bottom-right-radius': 6,
+            '-moz-border-radius-bottomright': 6,
+            'border-bottom-right-radius': 6,
+            '-webkit-border-bottom-left-radius': 6,
+            '-moz-border-radius-bottomleft': 6,
+            'border-bottom-left-radius': 6,
+            '-webkit-border-image': 6,
+            '-moz-border-image': 6,
+            '-o-border-image': 6,
+            'border-image': 6,
+            '-webkit-border-image-source': 6,
+            '-moz-border-image-source': 6,
+            '-o-border-image-source': 6,
+            'border-image-source': 6,
+            '-webkit-border-image-slice': 6,
+            '-moz-border-image-slice': 6,
+            '-o-border-image-slice': 6,
+            'border-image-slice': 6,
+            '-webkit-border-image-width': 6,
+            '-moz-border-image-width': 6,
+            '-o-border-image-width': 6,
+            'border-image-width': 6,
+            '-webkit-border-image-outset': 6,
+            '-moz-border-image-outset': 6,
+            '-o-border-image-outset': 6,
+            'border-image-outset': 6,
+            '-webkit-border-image-repeat': 6,
+            '-moz-border-image-repeat': 6,
+            '-o-border-image-repeat': 6,
+            'border-image-repeat': 6,
+            'outline': 6,
+            'outline-width': 6,
+            'outline-style': 6,
+            'outline-color': 6,
+            'outline-offset': 6,
+            'background': 6,
+            'filter:progid:DXImageTransform.Microsoft.AlphaImageLoader': 6,
+            'background-color': 6,
+            'background-image': 6,
+            'background-repeat': 6,
+            'background-attachment': 6,
+            'background-position': 6,
+            'background-position-x': 6,
+            '-ms-background-position-x': 6,
+            'background-position-y': 6,
+            '-ms-background-position-y': 6,
+            'background-clip': 6,
+            'background-origin': 6,
+            '-webkit-background-size': 6,
+            '-moz-background-size': 6,
+            '-o-background-size': 6,
+            'background-size': 6,
+            'box-decoration-break': 6,
+            '-webkit-box-shadow': 6,
+            '-moz-box-shadow': 6,
+            'box-shadow': 6,
+            'filter:progid:DXImageTransform.Microsoft.gradient': 6,
+            '-ms-filter:\'progid:DXImageTransform.Microsoft.gradient': 6,
+            'text-shadow': 6,
+            'font': 7,
+            'font-family': 7,
+            'font-size': 7,
+            'font-weight': 7,
+            'font-style': 7,
+            'font-variant': 7,
+            'font-size-adjust': 7,
+            'font-stretch': 7,
+            'font-effect': 7,
+            'font-emphasize': 7,
+            'font-emphasize-position': 7,
+            'font-emphasize-style': 7,
+            'font-smooth': 7,
+            'line-height': 7
+        };
+    },
+    'h': function (require, module, exports, global) {
+        var orders = require('g').orders;
+        module.exports = {
+            'block': function (tree) {
+                tree.list.sort(function (d1, d2) {
+                    return (orders[d1.property] || 100) - (orders[d2.property] || 100);
+                });
+            }
+        };
+    },
+    'i': function (require, module, exports, global) {
+        var Interpreter = require('j');
+        var Parser = require('3');
+        var Hook = require('b');
+        exports.interpret = function (ast, options) {
+            if (typeof ast === 'string') {
+                ast = Parser.parse(ast, options);
+            }
+            console.log(ast);
+            return new Interpreter(options).interpret(ast);
+        };
+        exports.Interpreter = Interpreter;
+    },
+    'j': function (require, module, exports, global) {
+        var Walker = require('a');
+        var tree = require('4');
+        var symtab = require('7');
+        function Interpreter(options) {
+        }
+        ;
+        var _ = Interpreter.prototype = new Walker();
+        _.interpret = function (ast) {
+            this.ast = ast;
+            this.scope = ast.scope;
+            this.istack = [];
+            this.rulesetStack = [];
+            this.walk(ast);
+        };
+        _.walk_stylesheet = function () {
+            var node = new tree.Stylesheet();
+        };
+        _.walk_ruleset = function (ast) {
+            this.walk(ast.block, ast);
+        };
+        _.walk_mixin = function (ast) {
+        };
+        _.walk_variable = function (tree) {
+        };
+        _.walk_include = function (tree) {
+            this.enter(tree.scope);
+            var mixin = this.scope.resolve(tree.name);
+            if (!mixin)
+                this.error('no ' + tree.name + 'defined');
+            var includeScope = new symtab.Scope(), params = tree.params;
+            for (var i = 0; i < params.length; i++) {
+                includeScope.define();
+            }
+            this.istack.push(includeScope);
+            var ast = tree.clone(this.walk(mixin.block));
+            this.leave();
+        };
+        _.walk_extend = function (ast) {
+        };
+        _.walk_block = function (ast) {
+            var block = new tree.Block();
+            var list = ast.list;
+            var res = [], r;
+            for (var i = 0, len = list.length; i < list.length; i++) {
+                if (list[i] && (r = this.walk(list[i])))
+                    res.push(r);
+            }
+            return res;
+        };
+        _.walk_declaration = function (ast) {
+        };
+        _.walk_declaration = function () {
+        };
+        _.invoke_include = function () {
+        };
+        _.getScope = function (id) {
+            var len, scope;
+            if (len = this.istack.length) {
+                if ((scope = this.istack[len - 1]) && scope.resolve(id)) {
+                    return scope;
+                }
+            }
+            if (this.scope.resolve(id)) {
+                return this.scope;
+            }
+            return null;
+        };
+        _.peekStack = function () {
+        };
+        _.enter = function (scope) {
+            if (!scope)
+                this.error('no scope pass in enter');
+            this.saveScope = this.scope;
+            this.scope = scope;
+        };
+        _.leave = function () {
+            this.scope = this.saveScope;
+        };
+        module.exports = Interpreter;
     }
 }));
