@@ -419,6 +419,12 @@ var mcss;
                 return;
             console.error.apply(console, arguments);
         };
+        _.uid = function () {
+            var _uid = 1;
+            return function () {
+                return _uid++;
+            };
+        }();
         module.exports = _;
     },
     '3': function (require, module, exports, global) {
@@ -776,13 +782,14 @@ var mcss;
                 this.state = 'accept';
                 this.scope = this.options.scope || new symtab.Scope();
                 this.marked = null;
-                this.tasks = 0;
+                this.tasks = 1;
                 this.callback = callback;
-                this.ast = this.stylesheet();
+                this.stylesheet();
                 this._complete();
             },
             _complete: function () {
-                if (this.tasks === 0) {
+                this.tasks--;
+                if (this.tasks == 0) {
                     this.callback(null, this.ast);
                 }
             },
@@ -876,7 +883,7 @@ var mcss;
             },
             stylesheet: function () {
                 var node = new tree.Stylesheet();
-                this.stylesheet = node;
+                this.ast = node;
                 while (this.la(1) !== 'EOF') {
                     this.skipStart();
                     var stmt = this.stmt();
@@ -1004,12 +1011,34 @@ var mcss;
                 }
                 this.eat('WS');
                 this.matcheNewLineOrSemeColon();
+                var uid = _.uid();
+                this.tasks += 1;
+                var self = this;
                 io.get(node.url, function (error, text) {
                     exports.parse(text, {}, function (err, ast) {
-                        console.log(ast);
+                        var list = self.ast.list, len = list.length;
+                        if (ast.list.length) {
+                            for (var i = 0; i < len; i++) {
+                                if (list[i] === uid) {
+                                    var args;
+                                    if (node.assign) {
+                                        var tmp = [new tree.Module(node.assign, new tree.Block(ast.list))];
+                                    } else {
+                                        tmp = ast.list;
+                                    }
+                                    args = [
+                                        i,
+                                        1
+                                    ].concat(tmp);
+                                    list.splice.apply(list, args);
+                                    break;
+                                }
+                            }
+                        }
+                        self._complete();
                     });
                 });
-                return node;
+                return uid;
             },
             module: function () {
                 var node = new tree.Module();
@@ -1359,7 +1388,7 @@ var mcss;
         };
         var http = function (url, callback) {
             var xhr = new XMLHttpRequest();
-            xhr.open('GET', url, false);
+            xhr.open('GET', url);
             xhr.onreadystatechange = function (e) {
                 if (xhr.readyState === 4 && xhr.status === 200) {
                     callback(null, xhr.responseText);

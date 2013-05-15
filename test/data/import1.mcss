@@ -1,7 +1,14 @@
 @var luobo 18px;
-.module1 {
-    font-size: 14px;
+@mixin tooltips (width, height, color) {
+  font-size: width;
+  float:float;
+  width: width;
+  height: height;
+  left:10px;
+  transition:left .1s ease-in-out;
 }
-.module2 {
-    font-size: 15px;
+
+.classname{
+    left: luobo;
+    width: luobo;
 }

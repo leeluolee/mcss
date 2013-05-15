@@ -1,5 +1,3 @@
-@import dada '../import2.mcss'
-@import url('../import1.mcss')
 
 @mixin args(){
   font: arguments;
@@ -53,6 +51,9 @@ a, b {
   border-top: 10px;
   border: 10px;
   border-radius: 10px;
+  &:hover{
+    left:10px;
+  }
   c, d:hover{
       @include mx2(10px, 20px, test)
       .c1:hover, .c2:active{
