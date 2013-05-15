@@ -1,0 +1,7 @@
+@var luobo 18px;
+.module1 {
+    font-size: 14px;
+}
+.module2 {
+    font-size: 15px;
+}

@@ -92,14 +92,14 @@ this.tokenizer = {
     }
 }
 
-http('../data/simple.mcss',function(text){
+// http('../data/parse.mcss',function(text){
 
-    (function(){
-        var token = tk(text, {ignoreComment:true});
-        while(t = token.lex()){
-            // console.log(t, token.lineno);
-            if(t.type == 'EOF') break;
-        }
-    })()
-});
+//     (function(){
+//         var token = tk(text, {ignoreComment:true});
+//         while(t = token.lex()){
+//             console.log(t, token.lineno);
+//             if(t.type == 'EOF') break;
+//         }
+//     })()
+// });
 

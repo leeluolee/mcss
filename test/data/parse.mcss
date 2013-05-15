@@ -1,33 +1,64 @@
-@var haha zhenghaibo1
-@var test 30px
-@mixin hello1 (hello){
-  @var haha zhenghaibo2
-  @var $border 10px solid 10px;
-  border: $border;
-  font: haha;
-  color: heihei;
-  @include mx2(font, heihei);
+@import dada '../import2.mcss'
+@import url('../import1.mcss')
+
+@mixin args(){
+  font: arguments;
+}
+
+
+@module $hello {
+  @var p1 30px;
+  @mixin test(float){
+    font-size:14px;
+    float:float;
+    left:10px;
+    transition:left .1s ease-in-out;
+    @include args(10px , 20px)
+  }
+}
+
+
+.dada:hello(dada){
+  dada:-moz-radial-gradient(dada);
+  font: $hello -> p1;
+  @include $hello -> test(float);
+}
+
+
+
+@var p1 30px;
+
+
+@mixin test(float){
+  font-size:14px;
+  float:float;
+  left:10px;
+  transition:left .1s ease-in-out;
+  @include mx2(10px , 20px)
 }
 
 @mixin mx2 (p1, p2){
   @var p2 120px
-  border: 10px;
-  color: p1;
-  color2: p2;
+  top:p1;
+  bottom: p2;
+  position: relative;
+  hole: arguments;
 }
 
 a, b {
-  @include mx2()
-  @include hello1(haha)
-  font: 10px;
-  *zoom: 1;
-  height: test;
+  @var p1 120px
+  @include test(right)
+  @include args(20px fontsize, test)
+  *zoom: 1
   border-top: 10px;
-  border:10px;
-  c, d{
-      @include mx2(10px, 20px);
-      .classname, classname2{
-        hello: 18px;
+  border: 10px;
+  border-radius: 10px;
+  c, d:hover{
+      @include mx2(10px, 20px, test)
+      .c1:hover, .c2:active{
+        left: 18px
+        right: p1
+        @include test(right)
       } 
   }
 }
