@@ -1450,7 +1450,7 @@ var mcss;
             if (typeof ast == 'string') {
                 ast = interpreter.interpret(ast);
             }
-            if (options.hook && options.hook.length)
+            if (options.hooks && options.hooks.length)
                 ast = hook.hook(ast, options);
             return new Translator(options).translate(ast);
         };
