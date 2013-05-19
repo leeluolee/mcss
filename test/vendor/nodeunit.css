@@ -1,16 +1,23 @@
-
 /*!
  * Styles taken from qunit.css
  */
 
 h1#nodeunit-header, h1.nodeunit-header {
-    padding: 15px;
-    font-size: large;
-    background-color: #06b;
+    padding
+
+
+                      : 
+    25px;
+    font-size: 
+    large;
+    background-color
+    : 
+    #86b;
     color: white;
     font-family: 'trebuchet ms', verdana, arial;
     margin: 0;
 }
+
 
 h1#nodeunit-header a {
     color: white;

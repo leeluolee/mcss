@@ -8,7 +8,7 @@ var it = mcss.interpreter;
 this.parser = {}
 
 
-http('../data/parse.mcss',function(text){
+http('../data/interpolate.mcss',function(text){
     var date = +new Date()
     var text = mcss.parse(text, {
         hooks: ['csscomb', 'prefixr']

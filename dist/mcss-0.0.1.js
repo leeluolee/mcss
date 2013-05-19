@@ -12,11 +12,11 @@ var mcss;
     mcss = require('0');
 }({
     '0': function (require, module, exports, global) {
-        var tokenizer = require('1');
-        var parser = require('6');
-        var translator = require('a');
-        var util = require('2');
-        var interpreter = require('d');
+        var tokenizer = null;
+        var parser = require('1');
+        var translator = require('9');
+        var util = require('3');
+        var interpreter = require('c');
         exports.tokenizer = tokenizer;
         exports.parser = parser;
         exports.util = util;
@@ -30,704 +30,14 @@ var mcss;
         };
     },
     '1': function (require, module, exports, global) {
-        var util = require('2');
-        var bifs = Object.keys(require('3'));
-        var slice = [].slice, _uid = 0, debug = true, tokenCache = {};
-        uid = function (type, cached) {
-            _uid++;
-            if (cached) {
-                tokenCache[type] = { type: _uid };
-            }
-            return _uid;
-        }, toAssert = function (str) {
-            var arr = typeof str == 'string' ? str.split(/\s+/) : str, regexp = new RegExp('^(?:' + arr.join('|') + ')$');
-            return function (word) {
-                return regexp.test(word);
-            };
-        }, toAssert2 = util.makePredicate;
-        exports.tokenize = function (input, options) {
-            return new Tokenizer(options).tokenize(input);
-        };
-        exports.Tokenizer = Tokenizer;
-        function createToken(type, val, lineno) {
-            if (val === undefined) {
-                tokenCache[type] = { type: type };
-            }
-            var token = tokenCache[type] || {
-                    type: type,
-                    val: val
-                };
-            token.lineno = lineno;
-            return token;
-        }
-        var isUnit = toAssert2('% em ex ch rem vw vh vmin vmax cm mm in pt pc px deg grad rad turn s ms Hz kHz dpi dpcm dppx');
-        var isBifs = toAssert2(bifs.concat([
-                'rgb',
-                'rgba',
-                'url',
-                'counter',
-                'attr',
-                'calc',
-                'min',
-                'max',
-                'cycle',
-                'linear-gradient',
-                'radial-gradient',
-                'repeating-linear-gradient',
-                'repeating-radial-gradient'
-            ]), true);
-        function atKeyword(val) {
-            if (val === 'keyframe')
-                return createToken(KEYFRAME);
-            return tokenCache[val];
-        }
-        var $rules = [];
-        var $links = {};
-        var addRules = function (rules) {
-            $rules = $rules.concat(rules);
-            var rule, reg, state, link, retain;
-            for (var i = 0; i < $rules.length; i++) {
-                rule = $rules[i];
-                reg = typeof rule.regexp !== 'string' ? String(rule.regexp).slice(1, -1) : rule.regexp;
-                reg.replace(/\{(\w+)}/, function (all, micro) {
-                    return String(macros[micro]);
-                });
-                if (!~reg.indexOf('^(?')) {
-                    rule.regexp = new RegExp('^(?:' + reg + ')');
-                }
-                state = rule.state || 'init';
-                link = $links[state] || ($links[state] = []);
-                link.push(i);
-            }
-            return this;
-        };
-        var macros = { nmchar: /[-\w$]/ };
-        addRules([
-            {
-                regexp: /$/,
-                action: function () {
-                    return 'EOF';
-                }
-            },
-            {
-                regexp: /(?:\r\n|[\n\r\f])[ \t]*/,
-                action: function () {
-                    return 'NEWLINE';
-                }
-            },
-            {
-                regexp: /\/\*([^\x00]+?)\*\//,
-                action: function (yytext, comment) {
-                    if (this.options.ignoreComment)
-                        return;
-                    this.yyval = comment;
-                    return 'COMMENT';
-                }
-            },
-            {
-                regexp: /\/\/([^\n\r$]*)/,
-                action: function (yytext, comment) {
-                    if (this.options.ignoreComment)
-                        return;
-                    this.yyval = comment;
-                    return 'S_COMMENT';
-                }
-            },
-            {
-                reg: /@css[\t ]+{/,
-                action: function (yytext) {
-                }
-            },
-            {
-                regexp: /@(-?[_A-Za-z][-_\w]*)/,
-                action: function (yytext, val) {
-                    this.yyval = val;
-                    return 'AT_KEYWORD';
-                }
-            },
-            {
-                regexp: /url[ \t]*\((['"]?)([^\r\n\f]*?)\1\)/,
-                action: function (yytext, quote, url) {
-                    this.yyval = url;
-                    return 'URL';
-                }
-            },
-            {
-                regexp: /(?:-?[_A-Za-z][-_\w]*)(?=[ \t]*\()/,
-                action: function (yytext) {
-                    this.yyval = yytext;
-                    return 'FUNCTION';
-                }
-            },
-            {
-                regexp: /(?:-?[_A-Za-z\$][-_\w]*)/,
-                action: function (yytext) {
-                    this.yyval = yytext;
-                    return 'IDENT';
-                }
-            },
-            {
-                regexp: /\$[a-zA-Z][-\w]/,
-                action: function (yytext) {
-                    this.yyval = yytext;
-                    return 'DOLLAR_IDENT';
-                }
-            },
-            {
-                regexp: /![ \t]*important/,
-                action: function (yytext) {
-                    return 'IMPORTANT';
-                }
-            },
-            {
-                regexp: /(-?(?:\d*\.\d+|\d+))(\w*|%)?/,
-                action: function (yytext, val, unit) {
-                    if (unit && !isUnit(unit)) {
-                        this.error('Unexcept unit: "' + unit + '"');
-                    }
-                    this.yyval = {
-                        number: parseFloat(val),
-                        unit: unit
-                    };
-                    return 'DIMENSION';
-                }
-            },
-            {
-                regexp: ':([-_a-zA-Z][\\w\\u00A1-\\uFFFF-]*)' + '(?:\\(' + '([^\\(\\)]*' + '|(?:' + '\\([^\\)]+\\)' + ')+)' + '\\))',
-                action: function (yytext, val) {
-                    if (~yytext.indexOf('(') && isBifs(val)) {
-                        return false;
-                    }
-                    this.yyval = yytext;
-                    return 'PSEUDO_CLASS';
-                }
-            },
-            {
-                regexp: '::([-\\w\\u00A1-\\uFFFF]+)',
-                action: function (yytext) {
-                    this.yyval = yytext;
-                    return 'PSEUDO_ELEMENT';
-                }
-            },
-            {
-                regexp: '\\[\\s*(?:[\\w\\u00A1-\\uFFFF-]+)(?:([*^$|~!]?=)[\'"]?(?:[^\'"\\[]+)[\'"]?)?\\s*\\]',
-                action: function (yytext) {
-                    this.yyval = yytext;
-                    return 'ATTRIBUTE';
-                }
-            },
-            {
-                regexp: /#([-\w\u0080-\uffff]+)/,
-                action: function (yytext, val) {
-                    this.yyval = yytext;
-                    return 'HASH';
-                }
-            },
-            {
-                regexp: /\.([-\w\u0080-\uffff]+)/,
-                action: function (yytext) {
-                    this.yyval = yytext;
-                    return 'CLASS';
-                }
-            },
-            {
-                regexp: /(['"])([^\r\n\f]*?)\1/,
-                action: function (yytext, quote, val) {
-                    this.yyval = val || '';
-                    return 'STRING';
-                }
-            },
-            {
-                regexp: /[\t ]*([{}();,:]|(?:->|[>=<!]?=)|[&><~\/])[\t ]*/,
-                action: function (yytext, punctuator) {
-                    return punctuator;
-                }
-            },
-            {
-                regexp: /[-*!+\/]/,
-                action: function (yytext) {
-                    return yytext;
-                }
-            },
-            {
-                regexp: /[ \t]+/,
-                action: function () {
-                    return 'WS';
-                }
-            }
-        ]);
-        function Tokenizer(options) {
-            this.options = options || {};
-            this.options.ignoreComment = true;
-        }
-        Tokenizer.prototype = {
-            constructor: Tokenizer,
-            tokenize: function (input) {
-                this.input = input;
-                this.remained = this.input;
-                this.length = this.input.length;
-                this.lineno = 1;
-                this.states = ['init'];
-                this.state = 'init';
-                return this.pump();
-            },
-            lex: function () {
-                var token = this.next();
-                if (typeof token !== 'undefined') {
-                    return token;
-                } else {
-                    return this.lex();
-                }
-            },
-            pump: function () {
-                var tokens = [];
-                while (t = this.lex()) {
-                    tokens.push(t);
-                    if (t.type == 'EOF')
-                        break;
-                }
-                return tokens;
-            },
-            next: function () {
-                var tmp, action, rule, tokenType, lines, state = this.state, rules = $rules, link = $links[state];
-                if (!link)
-                    throw Error('no state: ' + state + ' defined');
-                this.yyval = null;
-                var len = link.length;
-                for (var i = 0; i < len; i++) {
-                    var rule = $rules[link[i]];
-                    tmp = this.remained.match(rule.regexp);
-                    if (tmp) {
-                        action = rule.action;
-                        tokenType = action.apply(this, tmp);
-                        if (tokenType === false) {
-                            continue;
-                        } else
-                            break;
-                    }
-                }
-                if (tmp) {
-                    lines = tmp[0].match(/(?:\r\n|[\n\r\f]).*/g);
-                    if (lines)
-                        this.lineno += lines.length;
-                    this.remained = this.remained.slice(tmp[0].length);
-                    if (tokenType)
-                        return createToken(tokenType, this.yyval, this.lineno);
-                } else {
-                    this.error('Unrecognized');
-                }
-            },
-            pushState: function (condition) {
-                this.states.push(condition);
-                this.state = condition;
-            },
-            popState: function () {
-                this.states.pop();
-                this.state = this.states[this.states.length - 1];
-            },
-            error: function (message, options) {
-                var message = this._traceError(message);
-                var error = new Error(message || 'Lexical error');
-                throw error;
-            },
-            _traceError: function (message) {
-                var matchLength = this.length - this.remained.length;
-                var offset = matchLength - 10;
-                if (offset < 0)
-                    offset = 0;
-                var pointer = matchLength - offset;
-                var posMessage = this.input.slice(offset, offset + 20);
-                return 'Error on line ' + (this.lineno + 1) + ' ' + (message || '. Unrecognized input.') + '\n' + (offset === 0 ? '' : '...') + posMessage + '...\n' + new Array(pointer + (offset === 0 ? 0 : 3)).join(' ') + new Array(10).join('^');
-            }
-        };
-    },
-    '2': function (require, module, exports, global) {
-        var _ = {};
-        _.debugger = 1;
-        _.makePredicate = function (words, prefix) {
-            if (typeof words === 'string') {
-                words = words.split(' ');
-            }
-            var f = '', cats = [];
-            out:
-                for (var i = 0; i < words.length; ++i) {
-                    for (var j = 0; j < cats.length; ++j)
-                        if (cats[j][0].length == words[i].length) {
-                            cats[j].push(words[i]);
-                            continue out;
-                        }
-                    cats.push([words[i]]);
-                }
-            function compareTo(arr) {
-                if (arr.length == 1)
-                    return f += 'return str === \'' + arr[0] + '\';';
-                f += 'switch(str){';
-                for (var i = 0; i < arr.length; ++i)
-                    f += 'case \'' + arr[i] + '\':';
-                f += 'return true}return false;';
-            }
-            if (cats.length > 3) {
-                cats.sort(function (a, b) {
-                    return b.length - a.length;
-                });
-                f += 'var prefix = ' + (prefix ? 'true' : 'false') + ';if(prefix) str = str.replace(/^-(?:\\w+)-/,\'\');switch(str.length){';
-                for (var i = 0; i < cats.length; ++i) {
-                    var cat = cats[i];
-                    f += 'case ' + cat[0].length + ':';
-                    compareTo(cat);
-                }
-                f += '}';
-            } else {
-                compareTo(words);
-            }
-            return new Function('str', f);
-        };
-        _.makePredicate2 = function (words) {
-            if (typeof words !== 'string') {
-                words = words.join(' ');
-            }
-            return function (word) {
-                return ~words.indexOf(word);
-            };
-        };
-        _.perf = function (fn, times, args) {
-            var date = +new Date();
-            for (var i = 0; i < times; i++) {
-                fn.apply(this, args || []);
-            }
-            return +new Date() - date;
-        };
-        _.extend = function (o1, o2, override) {
-            for (var j in o2) {
-                if (o1[j] == null || override)
-                    o1[j] = o2[j];
-            }
-            return o1;
-        };
-        _.log = function () {
-            if (_.debugger < 3)
-                return;
-            console.log.apply(console, arguments);
-        };
-        _.warn = function () {
-            if (_.debugger < 2)
-                return;
-            console.warn.apply(console, arguments);
-        };
-        _.error = function () {
-            if (_.debugger < 1)
-                return;
-            console.error.apply(console, arguments);
-        };
-        _.uid = function () {
-            var _uid = 1;
-            return function () {
-                return _uid++;
-            };
-        }();
-        module.exports = _;
-    },
-    '3': function (require, module, exports, global) {
-        var fs = null;
-        var path = null;
-        var slice = [].slice;
-        var tree = require('4');
-        var Color = require('5');
-        exports.add = function () {
-            return options.args.reduce(function (a, b) {
-                return a + b;
-            });
-        };
-        exports.base64 = function () {
-            var dirname = options.dirname;
-            if (!fs) {
-                return 'url(' + options.args[0] + ')';
-            } else {
-            }
-        };
-        exports.u = function (string) {
-            if (string.type !== 'STRING') {
-                throw Error('mcss function "u" only accept string');
-            }
-            return string.val;
-        };
-        exports.lighen = function () {
-        };
-        exports.darken = function () {
-        };
-        var mediatypes = {
-                '.eot': 'application/vnd.ms-fontobject',
-                '.gif': 'image/gif',
-                '.ico': 'image/vnd.microsoft.icon',
-                '.jpg': 'image/jpeg',
-                '.jpeg': 'image/jpeg',
-                '.otf': 'application/x-font-opentype',
-                '.png': 'image/png',
-                '.svg': 'image/svg+xml',
-                '.ttf': 'application/x-font-ttf',
-                '.webp': 'image/webp',
-                '.woff': 'application/x-font-woff'
-            };
-        function converToBase64(imagePath) {
-            imagePath = imagePath.replace(/[?#].*/g, '');
-            var extname = path.extname(imagePath), stat, img;
-            try {
-                stat = fs.statSync(imagePath);
-                if (stat.size > 4096) {
-                    return false;
-                }
-                img = fs.readFileSync(imagePath, 'base64');
-                return 'data:' + mediatypes[extname] + ';base64,' + img;
-            } catch (e) {
-                return false;
-            }
-        }
-    },
-    '4': function (require, module, exports, global) {
-        var _ = require('2');
-        function Stylesheet(list) {
-            this.list = list || [];
-        }
-        Stylesheet.prototype.clone = function () {
-            var clone = new Stylesheet();
-            clone.list = cloneNode(this.list);
-            return clone;
-        };
-        function SelectorList(list) {
-            this.list = list || [];
-        }
-        SelectorList.prototype.clone = function () {
-            var clone = new SelectorList();
-            clone.list = cloneNode(this.list);
-            return clone;
-        };
-        function ComplexSelector(string) {
-            this.string = string;
-        }
-        ComplexSelector.prototype.clone = function () {
-            var clone = new ComplexSelector();
-            return clone;
-        };
-        function RuleSet(selector, block) {
-            this.selector = selector;
-            this.block = block;
-        }
-        RuleSet.prototype.remove = function (ruleset) {
-        };
-        RuleSet.prototype.clone = function () {
-            var clone = new RuleSet(cloneNode(this.selector), cloneNode(this.block));
-            return clone;
-        };
-        function Block(list) {
-            this.list = list || [];
-        }
-        Block.prototype.clone = function () {
-            var clone = new Block(cloneNode(this.list));
-            return clone;
-        };
-        function Declaration(property, value) {
-            this.property = property;
-            this.value = value;
-        }
-        Declaration.prototype.clone = function (name) {
-            var clone = new Declaration(name || this.property, cloneNode(this.value));
-            return clone;
-        };
-        function ComponentValues(list) {
-            this.list = list || [];
-        }
-        ComponentValues.prototype.clone = function () {
-            var clone = new ComponentValues(cloneNode(this.list));
-            return clone;
-        };
-        function FunctionCall(name, params) {
-            this.params = params || [];
-            this.name = name;
-        }
-        FunctionCall.prototype.clone = function () {
-            var clone = new FunctionCall(this.name, cloneNode(this.params));
-            return clone;
-        };
-        function Unknown(name) {
-            this.name = name;
-        }
-        Unknown.prototype.clone = function () {
-            var clone = new Unknown(this.name);
-            return clone;
-        };
-        function RGBA(channels) {
-            if (typeof channels === 'string') {
-                var string = channels.charAt(0) === '#' ? channels.slice(1) : channels;
-                if (string.length === 6) {
-                    channels = [
-                        parseInt(string.substr(0, 2), 16),
-                        parseInt(string.substr(2, 2), 16),
-                        parseInt(string.substr(4, 2), 16),
-                        1
-                    ];
-                } else {
-                    var r = string.substr(0, 1);
-                    var g = string.substr(1, 1);
-                    var b = string.substr(2, 1);
-                    channels = [
-                        parseInt(r + r, 16),
-                        parseInt(g + g, 16),
-                        parseInt(b + b, 16),
-                        1
-                    ];
-                }
-            }
-            this.channels = channels || [];
-        }
-        RGBA.prototype.clone = function () {
-            var clone = new RGBA(cloneNode(this.channels));
-            return clone;
-        };
-        RGBA.prototype.tocss = function () {
-            var chs = this.channels;
-            if (chs[3] === 1 || chs[3] === undefined) {
-                return 'rgb(' + chs[0] + ',' + chs[1] + ',' + chs[2] + ')';
-            }
-        };
-        function Token(tk) {
-            tk = tk || {};
-            this.val = tk.val;
-            this.type = tk.type;
-        }
-        function Variable(name, value, kind) {
-            this.kind = kind || 'var';
-            this.name = name;
-            this.value = value || [];
-        }
-        Variable.prototype.clone = function (name) {
-            var clone = new Variable(this.name, cloneNode(this.value), this.kind);
-            return clone;
-        };
-        function Mixin(name, params, block) {
-            this.name = name;
-            this.formalParams = params || [];
-            this.block = block;
-        }
-        Mixin.prototype.clone = function () {
-            var clone = new Mixin(this.name, this.formalParams, this.block);
-            return clone;
-        };
-        function Param(name, value) {
-            this.name = name;
-            this.default = value;
-        }
-        function Include(name, params) {
-            this.name = name;
-            this.params = params || [];
-        }
-        Include.prototype.clone = function () {
-            var clone = new Include(this.name, this.params);
-            return clone;
-        };
-        function Extend(selector) {
-            this.selector = selector;
-        }
-        Extend.prototype.clone = function () {
-            var clone = new Extend(this.selector);
-            return clone;
-        };
-        function Module(name, block) {
-            this.name = name;
-            this.block = block;
-        }
-        Module.prototype.clone = function () {
-            var clone = new Module(this.name, cloneNode(this.block));
-            return clone;
-        };
-        function Pointer(name, key) {
-            this.name = name;
-            this.key = key;
-        }
-        Pointer.prototype.clone = function () {
-            var clone = new Pointer(this.name, this.key);
-            return clone;
-        };
-        function Import(url, media, assign) {
-            this.url = url;
-            this.media = media;
-            this.assign = assign;
-        }
-        Import.prototype.clone = function () {
-            var clone = new Import(this.url, cloneNode(this.media), this.assign);
-            return clone;
-        };
-        function CssFunction(name, value) {
-            this.name = name;
-            this.value = value;
-        }
-        exports.Stylesheet = Stylesheet;
-        exports.SelectorList = SelectorList;
-        exports.ComplexSelector = ComplexSelector;
-        exports.RuleSet = RuleSet;
-        exports.Block = Block;
-        exports.Declaration = Declaration;
-        exports.ComponentValues = ComponentValues;
-        exports.FunctionCall = FunctionCall;
-        exports.Unknown = Unknown;
-        exports.Mixin = Mixin;
-        exports.Include = Include;
-        exports.Extend = Extend;
-        exports.Variable = Variable;
-        exports.Module = Module;
-        exports.Pointer = Pointer;
-        exports.Import = Import;
-        exports.Token = Token;
-        exports.RGBA = RGBA;
-        exports.Param = Param;
-        exports.CssFunction = CssFunction;
-        function FontFace() {
-        }
-        function Media(name, mediaList) {
-            this.name = name;
-            this.media = mediaList;
-        }
-        function Page() {
-        }
-        function Charset() {
-        }
-        function NameSpace() {
-        }
-        exports.inspect = function (node) {
-            return node.constructor.name.toLowerCase();
-        };
-        var cloneNode = exports.cloneNode = function (node) {
-                if (node.clone)
-                    return node.clone();
-                if (Array.isArray(node))
-                    return node.map(cloneNode);
-                if (node.type)
-                    return {
-                        type: node.type,
-                        val: node.val
-                    };
-                if (typeof node !== 'object')
-                    return node;
-                else {
-                    _.error(node);
-                    throw Error('con"t clone node');
-                }
-            };
-    },
-    '5': function (require, module, exports, global) {
-        module.exports = {
-            hsl2rgb: function () {
-            }
-        };
-    },
-    '6': function (require, module, exports, global) {
-        var tk = require('1');
-        var tree = require('4');
-        var functions = require('3');
+        var tk = null;
+        var tree = require('2');
+        var functions = require('4');
         var color = require('5');
-        var _ = require('2');
-        var io = require('7');
-        var symtab = require('9');
-        var state = require('8');
+        var _ = require('3');
+        var io = require('6');
+        var symtab = require('8');
+        var state = require('7');
         var perror = new Error();
         var slice = [].slice;
         var combos = [
@@ -795,12 +105,14 @@ var mcss;
             },
             enter: function (tks) {
                 this.plookahead = this.lookahead;
+                this.pp = this.p;
                 this.lookahead = tks;
                 this.p = 0;
             },
             leave: function () {
                 this.lookahead = this.plookahead;
                 this.plookahead = null;
+                this.p = this.pp;
             },
             next: function (k) {
                 k = k || 1;
@@ -814,10 +126,10 @@ var mcss;
                 this.states.pop();
                 this.state = this.states[this.states.length - 1];
             },
-            match: function (tokenType, val) {
-                if (!this.eat(tokenType, val)) {
+            match: function (tokenType) {
+                if (!this.eat.apply(this, arguments)) {
                     var ll = this.ll();
-                    this.error('expect:"' + tokenType + '" -> got: "' + ll.type + (ll.val ? String(ll.val) : '') + '"');
+                    this.error('expect:"' + tokenType + '" -> got: "' + ll.type + '"');
                 }
             },
             expect: function (tokenType, val) {
@@ -853,10 +165,12 @@ var mcss;
                 this.marked = null;
             },
             eat: function (tokenType) {
-                if (this.la() === tokenType) {
-                    this.next();
-                    return true;
+                var ll = this.ll();
+                for (var i = 0, len = arguments.length; i < len; i++) {
+                    if (ll.type === arguments[i])
+                        return ll;
                 }
+                return false;
             },
             skip: function (type) {
                 var skiped, la, test;
@@ -930,6 +244,8 @@ var mcss;
                 node.value = this.componentValues();
                 this.matcheNewLineOrSemeColon();
                 return node;
+            },
+            ident: function () {
             },
             css: function () {
             },
@@ -1061,6 +377,51 @@ var mcss;
                 }
                 return node;
             },
+            if: function () {
+            },
+            else: function () {
+            },
+            for: function () {
+            },
+            interpolate: function () {
+                var node;
+                this.match('INTERPOLATION');
+                var ll = this.ll();
+                if (ll.type === 'DIMENSION' && this.la(2) === '..') {
+                    node = this.range();
+                }
+                if (ll.type === 'DIMENSION' || ll.type === 'IDENT') {
+                    if (this.la(2) !== ',') {
+                        node = ll;
+                    } else {
+                        node = this.list();
+                    }
+                }
+                this.match('}');
+                return node;
+            },
+            literal: function () {
+            },
+            list: function () {
+                var ll = this.ll(), start;
+                var node = new tree.List();
+                do {
+                    if (ll = this.eat('DIMENSION', 'IDENT')) {
+                        node.list.push(ll);
+                    } else {
+                        this.error('invalid list literal');
+                    }
+                } while (this.eat(','));
+                return node;
+            },
+            range: function () {
+                var node = tree.Range();
+                node.start = this.ll().val.number, end;
+                this.match('DIMENSION');
+                this.match('..');
+                node.end = this.ll().val.number;
+                return node;
+            },
             media: function () {
             },
             media_query_list: function () {
@@ -1130,8 +491,12 @@ var mcss;
             complexSelector: function () {
                 var node = new tree.ComplexSelector();
                 var selectorString = '';
+                var i = 0;
                 while (true) {
                     var ll = this.ll();
+                    if (ll.type === 'INTERPOLATION') {
+                        selectorString += '@' + i++;
+                    }
                     if (ll.type == ':' && this.ll(2).type == 'ident') {
                         selectorString += ':' + this.ll(2).val;
                         this.next(2);
@@ -1370,10 +735,411 @@ var mcss;
             }
         };
     },
-    '7': function (require, module, exports, global) {
+    '2': function (require, module, exports, global) {
+        var _ = require('3');
+        function Stylesheet(list) {
+            this.list = list || [];
+        }
+        Stylesheet.prototype.clone = function () {
+            var clone = new Stylesheet();
+            clone.list = cloneNode(this.list);
+            return clone;
+        };
+        function SelectorList(list) {
+            this.list = list || [];
+        }
+        SelectorList.prototype.clone = function () {
+            var clone = new SelectorList();
+            clone.list = cloneNode(this.list);
+            return clone;
+        };
+        function ComplexSelector(string) {
+            this.string = string;
+        }
+        ComplexSelector.prototype.clone = function () {
+            var clone = new ComplexSelector();
+            return clone;
+        };
+        function RuleSet(selector, block) {
+            this.selector = selector;
+            this.block = block;
+        }
+        RuleSet.prototype.remove = function (ruleset) {
+        };
+        RuleSet.prototype.clone = function () {
+            var clone = new RuleSet(cloneNode(this.selector), cloneNode(this.block));
+            return clone;
+        };
+        function Block(list) {
+            this.list = list || [];
+        }
+        Block.prototype.clone = function () {
+            var clone = new Block(cloneNode(this.list));
+            return clone;
+        };
+        function Declaration(property, value) {
+            this.property = property;
+            this.value = value;
+        }
+        Declaration.prototype.clone = function (name) {
+            var clone = new Declaration(name || this.property, cloneNode(this.value));
+            return clone;
+        };
+        function ComponentValues(list) {
+            this.list = list || [];
+        }
+        ComponentValues.prototype.clone = function () {
+            var clone = new ComponentValues(cloneNode(this.list));
+            return clone;
+        };
+        function FunctionCall(name, params) {
+            this.params = params || [];
+            this.name = name;
+        }
+        FunctionCall.prototype.clone = function () {
+            var clone = new FunctionCall(this.name, cloneNode(this.params));
+            return clone;
+        };
+        function Unknown(name) {
+            this.name = name;
+        }
+        Unknown.prototype.clone = function () {
+            var clone = new Unknown(this.name);
+            return clone;
+        };
+        function RGBA(channels) {
+            if (typeof channels === 'string') {
+                var string = channels.charAt(0) === '#' ? channels.slice(1) : channels;
+                if (string.length === 6) {
+                    channels = [
+                        parseInt(string.substr(0, 2), 16),
+                        parseInt(string.substr(2, 2), 16),
+                        parseInt(string.substr(4, 2), 16),
+                        1
+                    ];
+                } else {
+                    var r = string.substr(0, 1);
+                    var g = string.substr(1, 1);
+                    var b = string.substr(2, 1);
+                    channels = [
+                        parseInt(r + r, 16),
+                        parseInt(g + g, 16),
+                        parseInt(b + b, 16),
+                        1
+                    ];
+                }
+            }
+            this.channels = channels || [];
+        }
+        RGBA.prototype.clone = function () {
+            var clone = new RGBA(cloneNode(this.channels));
+            return clone;
+        };
+        RGBA.prototype.tocss = function () {
+            var chs = this.channels;
+            if (chs[3] === 1 || chs[3] === undefined) {
+                return 'rgb(' + chs[0] + ',' + chs[1] + ',' + chs[2] + ')';
+            }
+        };
+        function Token(tk) {
+            tk = tk || {};
+            this.val = tk.val;
+            this.type = tk.type;
+        }
+        function Variable(name, value, kind) {
+            this.kind = kind || 'var';
+            this.name = name;
+            this.value = value || [];
+        }
+        Variable.prototype.clone = function (name) {
+            var clone = new Variable(this.name, cloneNode(this.value), this.kind);
+            return clone;
+        };
+        function Mixin(name, params, block) {
+            this.name = name;
+            this.formalParams = params || [];
+            this.block = block;
+        }
+        Mixin.prototype.clone = function () {
+            var clone = new Mixin(this.name, this.formalParams, this.block);
+            return clone;
+        };
+        function Param(name, value) {
+            this.name = name;
+            this.default = value;
+        }
+        function Include(name, params) {
+            this.name = name;
+            this.params = params || [];
+        }
+        Include.prototype.clone = function () {
+            var clone = new Include(this.name, this.params);
+            return clone;
+        };
+        function Extend(selector) {
+            this.selector = selector;
+        }
+        Extend.prototype.clone = function () {
+            var clone = new Extend(this.selector);
+            return clone;
+        };
+        function Module(name, block) {
+            this.name = name;
+            this.block = block;
+        }
+        Module.prototype.clone = function () {
+            var clone = new Module(this.name, cloneNode(this.block));
+            return clone;
+        };
+        function Pointer(name, key) {
+            this.name = name;
+            this.key = key;
+        }
+        Pointer.prototype.clone = function () {
+            var clone = new Pointer(this.name, this.key);
+            return clone;
+        };
+        function Import(url, media, assign) {
+            this.url = url;
+            this.media = media;
+            this.assign = assign;
+        }
+        Import.prototype.clone = function () {
+            var clone = new Import(this.url, cloneNode(this.media), this.assign);
+            return clone;
+        };
+        function List(list) {
+            this.list = list || [];
+        }
+        List.prototype.clone = function () {
+            var clone = new List(cloneNode(this.list));
+            return clone;
+        };
+        function Dimension(value, unit) {
+            this.value = value;
+            this.unit = unit;
+        }
+        Dimension.prototype.clone = function () {
+            var clone = new Dimension(this.value, this.unit);
+            return clone;
+        };
+        function Range(start, end) {
+            this.start = start;
+            this.end = end;
+        }
+        Range.prototype.clone = function () {
+            var clone = new Range(this.start, this.end);
+            return clone;
+        };
+        function CssFunction(name, value) {
+            this.name = name;
+            this.value = value;
+        }
+        exports.Stylesheet = Stylesheet;
+        exports.SelectorList = SelectorList;
+        exports.ComplexSelector = ComplexSelector;
+        exports.RuleSet = RuleSet;
+        exports.Block = Block;
+        exports.Declaration = Declaration;
+        exports.ComponentValues = ComponentValues;
+        exports.FunctionCall = FunctionCall;
+        exports.Unknown = Unknown;
+        exports.Mixin = Mixin;
+        exports.Include = Include;
+        exports.Extend = Extend;
+        exports.Variable = Variable;
+        exports.Module = Module;
+        exports.Pointer = Pointer;
+        exports.Import = Import;
+        exports.Token = Token;
+        exports.RGBA = RGBA;
+        exports.Param = Param;
+        exports.CssFunction = CssFunction;
+        function FontFace() {
+        }
+        function Media(name, mediaList) {
+            this.name = name;
+            this.media = mediaList;
+        }
+        function Page() {
+        }
+        function Charset() {
+        }
+        function NameSpace() {
+        }
+        exports.inspect = function (node) {
+            return node.constructor.name.toLowerCase();
+        };
+        var cloneNode = exports.cloneNode = function (node) {
+                if (node.clone)
+                    return node.clone();
+                if (Array.isArray(node))
+                    return node.map(cloneNode);
+                if (node.type)
+                    return {
+                        type: node.type,
+                        val: node.val
+                    };
+                if (typeof node !== 'object')
+                    return node;
+                else {
+                    _.error(node);
+                    throw Error('con"t clone node');
+                }
+            };
+    },
+    '3': function (require, module, exports, global) {
+        var _ = {};
+        _.debugger = 1;
+        _.makePredicate = function (words, prefix) {
+            if (typeof words === 'string') {
+                words = words.split(' ');
+            }
+            var f = '', cats = [];
+            out:
+                for (var i = 0; i < words.length; ++i) {
+                    for (var j = 0; j < cats.length; ++j)
+                        if (cats[j][0].length == words[i].length) {
+                            cats[j].push(words[i]);
+                            continue out;
+                        }
+                    cats.push([words[i]]);
+                }
+            function compareTo(arr) {
+                if (arr.length == 1)
+                    return f += 'return str === \'' + arr[0] + '\';';
+                f += 'switch(str){';
+                for (var i = 0; i < arr.length; ++i)
+                    f += 'case \'' + arr[i] + '\':';
+                f += 'return true}return false;';
+            }
+            if (cats.length > 3) {
+                cats.sort(function (a, b) {
+                    return b.length - a.length;
+                });
+                f += 'var prefix = ' + (prefix ? 'true' : 'false') + ';if(prefix) str = str.replace(/^-(?:\\w+)-/,\'\');switch(str.length){';
+                for (var i = 0; i < cats.length; ++i) {
+                    var cat = cats[i];
+                    f += 'case ' + cat[0].length + ':';
+                    compareTo(cat);
+                }
+                f += '}';
+            } else {
+                compareTo(words);
+            }
+            return new Function('str', f);
+        };
+        _.makePredicate2 = function (words) {
+            if (typeof words !== 'string') {
+                words = words.join(' ');
+            }
+            return function (word) {
+                return ~words.indexOf(word);
+            };
+        };
+        _.perf = function (fn, times, args) {
+            var date = +new Date();
+            for (var i = 0; i < times; i++) {
+                fn.apply(this, args || []);
+            }
+            return +new Date() - date;
+        };
+        _.extend = function (o1, o2, override) {
+            for (var j in o2) {
+                if (o1[j] == null || override)
+                    o1[j] = o2[j];
+            }
+            return o1;
+        };
+        _.log = function () {
+            if (_.debugger < 3)
+                return;
+            console.log.apply(console, arguments);
+        };
+        _.warn = function () {
+            if (_.debugger < 2)
+                return;
+            console.warn.apply(console, arguments);
+        };
+        _.error = function () {
+            if (_.debugger < 1)
+                return;
+            console.error.apply(console, arguments);
+        };
+        _.uid = function () {
+            var _uid = 1;
+            return function () {
+                return _uid++;
+            };
+        }();
+        module.exports = _;
+    },
+    '4': function (require, module, exports, global) {
         var fs = null;
         var path = null;
-        var state = require('8');
+        var slice = [].slice;
+        var tree = require('2');
+        var Color = require('5');
+        exports.add = function () {
+            return options.args.reduce(function (a, b) {
+                return a + b;
+            });
+        };
+        exports.base64 = function () {
+            var dirname = options.dirname;
+            if (!fs) {
+                return 'url(' + options.args[0] + ')';
+            } else {
+            }
+        };
+        exports.u = function (string) {
+            if (string.type !== 'STRING') {
+                throw Error('mcss function "u" only accept string');
+            }
+            return string.val;
+        };
+        exports.lighen = function () {
+        };
+        exports.darken = function () {
+        };
+        var mediatypes = {
+                '.eot': 'application/vnd.ms-fontobject',
+                '.gif': 'image/gif',
+                '.ico': 'image/vnd.microsoft.icon',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.otf': 'application/x-font-opentype',
+                '.png': 'image/png',
+                '.svg': 'image/svg+xml',
+                '.ttf': 'application/x-font-ttf',
+                '.webp': 'image/webp',
+                '.woff': 'application/x-font-woff'
+            };
+        function converToBase64(imagePath) {
+            imagePath = imagePath.replace(/[?#].*/g, '');
+            var extname = path.extname(imagePath), stat, img;
+            try {
+                stat = fs.statSync(imagePath);
+                if (stat.size > 4096) {
+                    return false;
+                }
+                img = fs.readFileSync(imagePath, 'base64');
+                return 'data:' + mediatypes[extname] + ';base64,' + img;
+            } catch (e) {
+                return false;
+            }
+        }
+    },
+    '5': function (require, module, exports, global) {
+        module.exports = {
+            hsl2rgb: function () {
+            }
+        };
+    },
+    '6': function (require, module, exports, global) {
+        var fs = null;
+        var path = null;
+        var state = require('7');
         exports.get = function (path, callback) {
             if (fs) {
                 fs.readFile(path, 'utf8', callback);
@@ -1397,12 +1163,12 @@ var mcss;
             xhr.send();
         };
     },
-    '8': function (require, module, exports, global) {
+    '7': function (require, module, exports, global) {
         var _ = {};
         _.debug = true;
         _.files = [];
     },
-    '9': function (require, module, exports, global) {
+    '8': function (require, module, exports, global) {
         var Symtable = exports.SymbolTable = function () {
             };
         var Scope = exports.Scope = function (parentScope) {
@@ -1442,10 +1208,10 @@ var mcss;
             }
         };
     },
-    'a': function (require, module, exports, global) {
-        var Translator = require('b');
-        var interpreter = require('d');
-        var hook = require('f');
+    '9': function (require, module, exports, global) {
+        var Translator = require('a');
+        var interpreter = require('c');
+        var hook = require('e');
         exports.translate = function (ast, options) {
             if (typeof ast == 'string') {
                 ast = interpreter.interpret(ast);
@@ -1455,9 +1221,9 @@ var mcss;
             return new Translator(options).translate(ast);
         };
     },
-    'b': function (require, module, exports, global) {
-        var Walker = require('c');
-        var tree = require('4');
+    'a': function (require, module, exports, global) {
+        var Walker = require('b');
+        var tree = require('2');
         function Translator(options) {
             this.options = options || {};
         }
@@ -1544,8 +1310,8 @@ var mcss;
         };
         module.exports = Translator;
     },
-    'c': function (require, module, exports, global) {
-        var _ = require('2');
+    'b': function (require, module, exports, global) {
+        var _ = require('3');
         var Walker = function () {
         };
         Walker.prototype = {
@@ -1593,10 +1359,10 @@ var mcss;
         };
         module.exports = Walker;
     },
-    'd': function (require, module, exports, global) {
-        var Interpreter = require('e');
-        var Parser = require('6');
-        var Hook = require('f');
+    'c': function (require, module, exports, global) {
+        var Interpreter = require('d');
+        var Parser = require('1');
+        var Hook = require('e');
         exports.interpret = function (ast, options) {
             if (typeof ast === 'string') {
                 ast = Parser.parse(ast, options);
@@ -1605,10 +1371,10 @@ var mcss;
         };
         exports.Interpreter = Interpreter;
     },
-    'e': function (require, module, exports, global) {
-        var Walker = require('c');
-        var tree = require('4');
-        var symtab = require('9');
+    'd': function (require, module, exports, global) {
+        var Walker = require('b');
+        var tree = require('2');
+        var symtab = require('8');
         function Interpreter(options) {
         }
         ;
@@ -1812,17 +1578,17 @@ var mcss;
         };
         module.exports = Interpreter;
     },
-    'f': function (require, module, exports, global) {
-        var Hook = require('g');
+    'e': function (require, module, exports, global) {
+        var Hook = require('f');
         exports.hook = function (ast, options) {
             new Hook(options).walk(ast);
             return ast;
         };
     },
-    'g': function (require, module, exports, global) {
-        var Walker = require('c');
-        var Event = require('h');
-        var hooks = require('i');
+    'f': function (require, module, exports, global) {
+        var Walker = require('b');
+        var Event = require('g');
+        var hooks = require('h');
         function Hook(options) {
             options = options || {};
             this.load(options.hooks);
@@ -1909,7 +1675,7 @@ var mcss;
         };
         module.exports = Hook;
     },
-    'h': function (require, module, exports, global) {
+    'g': function (require, module, exports, global) {
         var slice = [].slice, ex = function (o1, o2, override) {
                 for (var i in o2)
                     if (o1[i] == null || override) {
@@ -1970,16 +1736,16 @@ var mcss;
         };
         module.exports = Event;
     },
-    'i': function (require, module, exports, global) {
+    'h': function (require, module, exports, global) {
         module.exports = {
-            prefixr: require('j'),
-            csscomb: require('l')
+            prefixr: require('i'),
+            csscomb: require('k')
         };
     },
-    'j': function (require, module, exports, global) {
-        var prefixs = require('k').prefixs;
-        var _ = require('2');
-        var tree = require('4');
+    'i': function (require, module, exports, global) {
+        var prefixs = require('j').prefixs;
+        var _ = require('3');
+        var tree = require('2');
         var isTestProperties = _.makePredicate('border-radius transition');
         module.exports = {
             'block': function (tree) {
@@ -1993,7 +1759,7 @@ var mcss;
             }
         };
     },
-    'k': function (require, module, exports, global) {
+    'j': function (require, module, exports, global) {
         exports.orders = {
             'position': 1,
             'z-index': 1,
@@ -2275,8 +2041,8 @@ var mcss;
             'line-height': 7
         };
     },
-    'l': function (require, module, exports, global) {
-        var orders = require('k').orders;
+    'k': function (require, module, exports, global) {
+        var orders = require('j').orders;
         module.exports = {
             'block': function (tree) {
                 tree.list.sort(function (d1, d2) {
