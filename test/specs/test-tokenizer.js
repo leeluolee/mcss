@@ -41,56 +41,56 @@ function testToken(tk, arr, t){
 }
 
 
-this.tokenizer = {
-    "punctor list must return": function(t){
-        var token = tk("#hello{})(;:,")
-        testToken(token, ["HASH","{", "}", ")", "(", ";", ":", ","], t);
-        t.done()
-    },
-    "must eat the comment\n\r": function(t){
-        var token = tk("/*hellotest*/", {
-            comment: true
-        })
-        var next = token.lex()
-        t.deepEqual(next, {type: 'COMMENT', val: "hellotest"}, 'must comment')
-        t.done()
-    },
-    "must ignored the whitespace": function(t){
-        var token = tk("/*hellotest*/ {   \t}")
-        testToken(token, ["COMMENT","{",  "}"], t);
-        t.done()
-    },
-    "must eat the flag": function(t){
-        var token = tk("!important/*hellotest*/ ")
-        t.equal(token.lex().type, 'IMPORTANT', 'must eat important');
-        t.equal(token.lex().type, 'COMMENT', 'must comment');
-        t.equal(token.lex().type, 'WS', 'must hit the eof');
-        t.done();
-    },
-    "must eat the newline": function(t){
-        var token1 = tk("\r\n");
-        t.equal(token1.lex().type, 'NEWLINE', 'must match the new line')
-        t.equal(token1.lex().type, 'EOF', 'join the \\r\\n ,so hit the eof')
+// this.tokenizer = {
+//     "punctor list must return": function(t){
+//         var token = tk("#hello{})(;:,")
+//         testToken(token, ["HASH","{", "}", ")", "(", ";", ":", ","], t);
+//         t.done()
+//     },
+//     "must eat the comment\n\r": function(t){
+//         var token = tk("/*hellotest*/", {
+//             comment: true
+//         })
+//         var next = token.lex()
+//         t.deepEqual(next, {type: 'COMMENT', val: "hellotest"}, 'must comment')
+//         t.done()
+//     },
+//     "must ignored the whitespace": function(t){
+//         var token = tk("/*hellotest*/ {   \t}")
+//         testToken(token, ["COMMENT","{",  "}"], t);
+//         t.done()
+//     },
+//     "must eat the flag": function(t){
+//         var token = tk("!important/*hellotest*/ ")
+//         t.equal(token.lex().type, 'IMPORTANT', 'must eat important');
+//         t.equal(token.lex().type, 'COMMENT', 'must comment');
+//         t.equal(token.lex().type, 'WS', 'must hit the eof');
+//         t.done();
+//     },
+//     "must eat the newline": function(t){
+//         var token1 = tk("\r\n");
+//         t.equal(token1.lex().type, 'NEWLINE', 'must match the new line')
+//         t.equal(token1.lex().type, 'EOF', 'join the \\r\\n ,so hit the eof')
 
-        var token = tk("\n \r \f");
-        t.equal(token.lex().type, 'NEWLINE', 'must match the new line\\n')
-        t.equal(token.lex().type, 'NEWLINE', 'must match the new line\\r')
-        t.equal(token.lex().type, 'NEWLINE', 'must match the new line\\f')
-        t.equal(token.lex().type, 'EOF', 'then hit the eof')
+//         var token = tk("\n \r \f");
+//         t.equal(token.lex().type, 'NEWLINE', 'must match the new line\\n')
+//         t.equal(token.lex().type, 'NEWLINE', 'must match the new line\\r')
+//         t.equal(token.lex().type, 'NEWLINE', 'must match the new line\\f')
+//         t.equal(token.lex().type, 'EOF', 'then hit the eof')
 
-        t.done()
-    },
-    "must eat the selector": function(d){
-        // var selectors = selector_test.join(",");
-        // var token = tk(selectors);
-        // var t;
-        // while(t = token.lex()){
-        //     // console.log(t);
-        //     if(t.type == 'EOF') break;
-        // }
-        d.done()
-    }
-}
+//         t.done()
+//     },
+//     "must eat the selector": function(d){
+//         // var selectors = selector_test.join(",");
+//         // var token = tk(selectors);
+//         // var t;
+//         // while(t = token.lex()){
+//         //     // console.log(t);
+//         //     if(t.type == 'EOF') break;
+//         // }
+//         d.done()
+//     }
+// }
 
 // http('../data/parse.mcss',function(text){
 

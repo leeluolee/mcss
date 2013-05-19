@@ -8,13 +8,17 @@ var it = mcss.interpreter;
 this.parser = {}
 
 
-http('../data/interpolate.mcss',function(text){
-    var date = +new Date()
-    var text = mcss.parse(text, {
-        hooks: ['csscomb', 'prefixr']
-    }, function(error, text){
-        console.log(text)
-        console.log(+new Date - date)
-    });
+http('../data/parse.mcss',function(text){
+
+    var tokens = tk.tokenize(text)
+    console.log(tokens)
+    console.log(text)
+    // var date = +new Date()
+    // var text = mcss.parse(text, {
+    //     hooks: ['csscomb', 'prefixr']
+    // }, function(error, text){
+    //     console.log(text)
+    //     console.log(+new Date - date)
+    // });
 
 });
