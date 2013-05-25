@@ -13,7 +13,7 @@ var mcss;
 }({
     '0': function (require, module, exports, global) {
         var tokenizer = require('1');
-        var parser = require('6');
+        var parser = require('4');
         var translator = require('a');
         var util = require('2');
         var interpreter = require('d');
@@ -31,13 +31,13 @@ var mcss;
     },
     '1': function (require, module, exports, global) {
         var util = require('2');
-        var bifs = Object.keys(require('3'));
+        var tree = require('3');
         var slice = [].slice;
         var $ = function () {
                 var table = {};
                 return function (name, pattern) {
                     if (!pattern) {
-                        if (/\w+/.test(name)) {
+                        if (/^[a-zA-Z]+$/.test(name)) {
                             return table[name];
                         }
                         pattern = name;
@@ -58,7 +58,6 @@ var mcss;
                     });
                     if (name)
                         table[name] = pattern;
-                    console.log(pattern);
                     return new RegExp(pattern);
                 };
             }();
@@ -69,35 +68,22 @@ var mcss;
             };
         };
         var toAssert2 = util.makePredicate;
+        function createToken(type, value, lineno) {
+            var token = typeof type === 'object' ? type : {
+                    type: type,
+                    value: value
+                };
+            token.lineno = lineno;
+            return token;
+        }
         exports.tokenize = function (input, options) {
             return new Tokenizer(options).tokenize(input);
         };
         exports.Tokenizer = Tokenizer;
         exports.$ = $;
-        function createToken(type, val, lineno) {
-            var token = {
-                    type: type,
-                    val: val
-                };
-            token.lineno = lineno;
-            return token;
-        }
+        exports.createToken = createToken;
         var isUnit = toAssert2('% em ex ch rem vw vh vmin vmax cm mm in pt pc px deg grad rad turn s ms Hz kHz dpi dpcm dppx');
-        var isBifs = toAssert2(bifs.concat([
-                'rgb',
-                'rgba',
-                'url',
-                'counter',
-                'attr',
-                'calc',
-                'min',
-                'max',
-                'cycle',
-                'linear-gradient',
-                'radial-gradient',
-                'repeating-linear-gradient',
-                'repeating-radial-gradient'
-            ]), true);
+        var isPseudoClassWithParen = toAssert2('current local-link nth-child nth-last-child nth-of-type nth-last-of-type nth-match nth-last-match column nth-column nth-last-column lang matches not', true);
         var $rules = [];
         var $links = {};
         var addRules = function (rules) {
@@ -117,17 +103,13 @@ var mcss;
         };
         $('nl', /\r\n|[\r\f\n]/);
         $('w', /[ \t\r\n\f]/);
+        $('d', /[0-9]/);
+        $('nmchar', /[-a-z0-9\u00A1-\uFFFF]/);
         addRules([
             {
                 regexp: /$/,
                 action: function () {
                     return 'EOF';
-                }
-            },
-            {
-                regexp: $('WS', /{w}+/),
-                action: function () {
-                    return 'WS';
                 }
             },
             {
@@ -149,27 +131,27 @@ var mcss;
             },
             {
                 regexp: /@(-?[_A-Za-z][-_\w]*)/,
-                action: function (yytext, val) {
-                    this.yyval = val;
+                action: function (yytext, value) {
+                    this.yyval = value;
                     return 'AT_KEYWORD';
                 }
             },
             {
-                regexp: /$(-?[_A-Za-z][-_\w]*)/,
-                action: function (yytext, val) {
-                    this.yyval = val;
+                regexp: /\$(-?[_A-Za-z][-_\w]*)/,
+                action: function (yytext, value) {
+                    this.yyval = yytext;
                     return 'VAR';
                 }
             },
             {
-                regexp: /url{w}*\((['"]?)([^\r\n\f]*?)\1{w}*\)/,
+                regexp: $(/url{w}*\((['"]?)([^\r\n\f]*?)\1{w}*\)/),
                 action: function (yytext, quote, url) {
                     this.yyval = url;
                     return 'URL';
                 }
             },
             {
-                regexp: /(?:-?[_A-Za-z][-_\w]*)(?={w}*\()/,
+                regexp: $(/(?:-?[_A-Za-z][-_\w]*)(?={w}*\()/),
                 action: function (yytext) {
                     this.yyval = yytext;
                     return 'FUNCTION';
@@ -178,33 +160,39 @@ var mcss;
             {
                 regexp: /(?:-?[_A-Za-z][-_\w]*)/,
                 action: function (yytext) {
+                    if (yytext === 'false' || yytext === 'true') {
+                        this.yyval = yytext === 'false' ? false : true;
+                        return 'BOOLEAN';
+                    }
+                    if (yytext === 'null')
+                        return 'NULL';
                     this.yyval = yytext;
-                    return 'RAW_IDENT';
+                    return 'TEXT';
                 }
             },
             {
-                regexp: /!{w}*important/,
+                regexp: $(/!{w}*important/),
                 action: function (yytext) {
                     return 'IMPORTANT';
                 }
             },
             {
-                regexp: /(-?(?:\d*\.\d+|\d+))(\w*|%)?/,
-                action: function (yytext, val, unit) {
+                regexp: $(/(-?(?:{d}*\.{d}+|{d}+))(\w*|%)?/),
+                action: function (yytext, value, unit) {
                     if (unit && !isUnit(unit)) {
                         this.error('Unexcept unit: "' + unit + '"');
                     }
-                    this.yyval = {
-                        number: parseFloat(val),
+                    return {
+                        type: 'DIMENSION',
+                        value: parseInt(value),
                         unit: unit
                     };
-                    return 'DIMENSION';
                 }
             },
             {
-                regexp: ':([-_a-zA-Z][\\w\\u00A1-\\uFFFF-]*)' + '(?:\\(' + '([^\\(\\)]*' + '|(?:' + '\\([^\\)]+\\)' + ')+)' + '\\))',
-                action: function (yytext, val) {
-                    if (~yytext.indexOf('(') && isBifs(val)) {
+                regexp: $(':([-_a-zA-Z]{nmchar}*)' + '(?:\\(' + '([^\\(\\)]*' + '|(?:' + '\\([^\\)]+\\)' + ')+)' + '\\))'),
+                action: function (yytext, value) {
+                    if (~yytext.indexOf('(') && !isPseudoClassWithParen(value)) {
                         return false;
                     }
                     this.yyval = yytext;
@@ -212,28 +200,28 @@ var mcss;
                 }
             },
             {
-                regexp: '::([-\\w\\u00A1-\\uFFFF]+)',
+                regexp: $('::({nmchar}+)'),
                 action: function (yytext) {
                     this.yyval = yytext;
                     return 'PSEUDO_ELEMENT';
                 }
             },
             {
-                regexp: '\\[\\s*(?:[\\w\\u00A1-\\uFFFF-]+)(?:([*^$|~!]?=)[\'"]?(?:[^\'"\\[]+)[\'"]?)?\\s*\\]',
+                regexp: $('\\[\\s*(?:{nmchar}+)(?:([*^$|~!]?=)[\'"]?(?:[^\'"\\[]+)[\'"]?)?\\s*\\]'),
                 action: function (yytext) {
                     this.yyval = yytext;
                     return 'ATTRIBUTE';
                 }
             },
             {
-                regexp: /#([-\w\u0080-\uffff]+)/,
-                action: function (yytext, val) {
+                regexp: $(/#({nmchar}+)/),
+                action: function (yytext, value) {
                     this.yyval = yytext;
                     return 'HASH';
                 }
             },
             {
-                regexp: /\.([-\w\u0080-\uffff]+)/,
+                regexp: $(/\.({nmchar}+)/),
                 action: function (yytext) {
                     this.yyval = yytext;
                     return 'CLASS';
@@ -241,13 +229,25 @@ var mcss;
             },
             {
                 regexp: /(['"])([^\r\n\f]*?)\1/,
-                action: function (yytext, quote, val) {
-                    this.yyval = val || '';
-                    return 'STRING';
+                action: function (yytext, quote, value) {
+                    this.yyval = value || '';
+                    return 'RAW_STRING';
                 }
             },
             {
-                regexp: /(\.\.|::|[#{}()\[\];,:&]|->|[\*\$\^~\|>=<!]?=|[-+*\/><]|)/,
+                regexp: $(/{w}*([\{};,><]|&&|\|\||[\*\$\^~\|>=<!?]?=|\.\.\.){w}*/),
+                action: function (yytext, punctuator) {
+                    return punctuator;
+                }
+            },
+            {
+                regexp: $('WS', /{w}+/),
+                action: function () {
+                    return 'WS';
+                }
+            },
+            {
+                regexp: /(#\{|:|::|[#()\[\]&\.]|[%\-+*\/])/,
                 action: function (yytext, punctuator) {
                     return punctuator;
                 }
@@ -277,8 +277,10 @@ var mcss;
                 }
             },
             pump: function () {
-                var tokens = [];
+                var tokens = [], t;
+                var i = 0;
                 while (t = this.lex()) {
+                    i++;
                     tokens.push(t);
                     if (t.type == 'EOF')
                         break;
@@ -337,6 +339,7 @@ var mcss;
                 return 'Error on line ' + (this.lineno + 1) + ' ' + (message || '. Unrecognized input.') + '\n' + (offset === 0 ? '' : '...') + posMessage + '...\n' + new Array(pointer + (offset === 0 ? 0 : 3)).join(' ') + new Array(10).join('^');
             }
         };
+        console.log($(/\.({nmchar}+)/));
     },
     '2': function (require, module, exports, global) {
         var _ = {};
@@ -425,11 +428,1263 @@ var mcss;
         module.exports = _;
     },
     '3': function (require, module, exports, global) {
+        var _ = require('2'), splice = [].splice;
+        function Stylesheet(list) {
+            this.type = 'stylesheet';
+            this.list = list || [];
+        }
+        Stylesheet.prototype.clone = function () {
+            var clone = new Stylesheet();
+            clone.list = cloneNode(this.list);
+            return clone;
+        };
+        function SelectorList(list) {
+            this.type = 'selectorlist';
+            this.list = list || [];
+        }
+        SelectorList.prototype.clone = function () {
+            var clone = new SelectorList();
+            clone.list = cloneNode(this.list);
+            return clone;
+        };
+        SelectorList.prototype.toString = function () {
+        };
+        function ComplexSelector(string, interpolations) {
+            this.type = 'complexselector';
+            this.string = string;
+            this.interpolations = interpolations || [];
+        }
+        ComplexSelector.prototype.clone = function () {
+            var clone = new ComplexSelector();
+            return clone;
+        };
+        function RuleSet(selector, block) {
+            this.type = 'ruleset';
+            this.selector = selector;
+            this.block = block;
+        }
+        RuleSet.prototype.remove = function (ruleset) {
+        };
+        RuleSet.prototype.clone = function () {
+            var clone = new RuleSet(cloneNode(this.selector), cloneNode(this.block));
+            return clone;
+        };
+        function Block(list) {
+            this.type = 'block';
+            this.list = list || [];
+        }
+        Block.prototype.clone = function () {
+            var clone = new Block(cloneNode(this.list));
+            return clone;
+        };
+        function Call(name, arguments) {
+            this.name = name;
+            this.arguments = arguments;
+        }
+        Call.prototype.clone = function () {
+            var clone = new Call(this.name, cloneNode(this.arguments));
+            return clone;
+        };
+        function Declaration(property, value, important) {
+            this.type = 'declaration';
+            this.property = property;
+            this.value = value;
+            this.important = important || false;
+        }
+        Declaration.prototype.clone = function (name) {
+            var clone = new Declaration(name || this.property, cloneNode(this.value), important);
+            return clone;
+        };
+        function String() {
+            this.type = 'string';
+        }
+        function Values(list) {
+            this.type = 'values';
+            this.list = list || [];
+        }
+        Values.prototype.clone = function () {
+            var clone = new Values(cloneNode(this.list));
+            return clone;
+        };
+        Values.prototype.flatten = function () {
+            var list = this.list, i = list.length, value;
+            for (; i--;) {
+                value = list[i];
+                if (value.type = 'values') {
+                    splice.apply(this, [
+                        i,
+                        1
+                    ].concat(value.list));
+                }
+            }
+        };
+        function ValuesList(list) {
+            this.type = 'valueslist';
+            this.list = list || [];
+        }
+        ValuesList.prototype.clone = function () {
+            var clone = new ValuesList(cloneNode(this.list));
+            return clone;
+        };
+        ValuesList.prototype.flatten = function () {
+            var list = this.list, i = list.length, values;
+            for (; i--;) {
+                values = list[i];
+                if (values.type = 'valueslist') {
+                    splice.apply(this, [
+                        i,
+                        1
+                    ].concat(values.list));
+                }
+            }
+        };
+        ValuesList.prototype.first = function () {
+            return this.list[0].list[0];
+        };
+        function Unknown(name) {
+            this.type = 'unknown';
+            this.name = name;
+        }
+        Unknown.prototype.clone = function () {
+            var clone = new Unknown(this.name);
+            return clone;
+        };
+        function RGBA(channels) {
+            this.type = 'rgba';
+            if (typeof channels === 'string') {
+                var string = channels.charAt(0) === '#' ? channels.slice(1) : channels;
+                if (string.length === 6) {
+                    channels = [
+                        parseInt(string.substr(0, 2), 16),
+                        parseInt(string.substr(2, 2), 16),
+                        parseInt(string.substr(4, 2), 16),
+                        1
+                    ];
+                } else {
+                    var r = string.substr(0, 1);
+                    var g = string.substr(1, 1);
+                    var b = string.substr(2, 1);
+                    channels = [
+                        parseInt(r + r, 16),
+                        parseInt(g + g, 16),
+                        parseInt(b + b, 16),
+                        1
+                    ];
+                }
+            }
+            this.channels = channels || [];
+        }
+        RGBA.prototype.clone = function () {
+            var clone = new RGBA(cloneNode(this.channels));
+            return clone;
+        };
+        RGBA.prototype.tocss = function () {
+            var chs = this.channels;
+            if (chs[3] === 1 || chs[3] === undefined) {
+                return 'rgb(' + chs[0] + ',' + chs[1] + ',' + chs[2] + ')';
+            }
+        };
+        function Assign(name, value, override) {
+            this.type = 'assign';
+            this.name = name;
+            this.value = value;
+            this.override = override === undefined ? true : override;
+        }
+        Assign.prototype.clone = function (name) {
+            var clone = new Variable(this.name, cloneNode(this.value), this.override);
+            return clone;
+        };
+        function Func(name, params, block) {
+            this.type = 'func';
+            this.name = name;
+            this.params = params || [];
+            this.block = block;
+        }
+        Func.prototype.clone = function () {
+            var clone = new Func(this.name, this.params, this.block);
+            return clone;
+        };
+        function Param(name, dft, rest) {
+            this.type = 'param';
+            this.name = name;
+            this.default = dft;
+            this.rest = rest || false;
+        }
+        function Include(name, params) {
+            this.type = 'include';
+            this.name = name;
+            this.params = params || [];
+        }
+        Include.prototype.clone = function () {
+            var clone = new Include(this.name, this.params);
+            return clone;
+        };
+        function Extend(selector) {
+            this.type = 'extend';
+            this.selector = selector;
+        }
+        Extend.prototype.clone = function () {
+            var clone = new Extend(this.selector);
+            return clone;
+        };
+        function Module(name, block) {
+            this.type = 'module';
+            this.name = name;
+            this.block = block;
+        }
+        Module.prototype.clone = function () {
+            var clone = new Module(this.name, cloneNode(this.block));
+            return clone;
+        };
+        function Pointer(name, key) {
+            this.type = 'pointer';
+            this.name = name;
+            this.key = key;
+        }
+        Pointer.prototype.clone = function () {
+            var clone = new Pointer(this.name, this.key);
+            return clone;
+        };
+        function Import(url, media, assign) {
+            this.type = 'import';
+            this.url = url;
+            this.media = media;
+            this.assign = assign;
+        }
+        Import.prototype.clone = function () {
+            var clone = new Import(this.url, cloneNode(this.media), this.assign);
+            return clone;
+        };
+        function IfStmt(test, block, alt) {
+            this.test = test;
+            this.block = block;
+            this.alt = alt;
+        }
+        IfStmt.prototype.clone = function () {
+            var clone = new IfStmt(cloneNode(this.test), cloneNode(this.block), cloneNode(this.alt));
+            return clone;
+        };
+        function ForStmt(element, index, list, block) {
+            this.element = element;
+            this.index = index;
+            this.list = list;
+            this.block = block;
+        }
+        ForStmt.prototype.clone = function () {
+            var clone = new ForStmt(this.element, this.index, cloneNode(this.list), cloneNode(this.block));
+            return clone;
+        };
+        function ReturnStmt(value) {
+            this.value = value;
+        }
+        ReturnStmt.prototype.clone = function () {
+            var clone = new ReturnStmt(cloneNode(this.value));
+            return clone;
+        };
+        function CompoundIdent(list) {
+            this.type = 'compoundident';
+            this.list = list || [];
+        }
+        CompoundIdent.prototype.clone = function () {
+            var clone = new CompoundIdent(cloneNode(this.list));
+            return clone;
+        };
+        CompoundIdent.prototype.toString = function () {
+            return this.list.join('');
+        };
+        function Dimension(value, unit) {
+            this.type = 'dimension';
+            this.value = value;
+            this.unit = unit;
+        }
+        Dimension.prototype.clone = function () {
+            var clone = new Dimension(this.value, this.unit);
+            return clone;
+        };
+        Dimension.prototype.toString = function () {
+            return '' + this.value + (this.unit || '');
+        };
+        function Operator(type, left, right) {
+            this.type = type;
+            this.left = left;
+            this.right = right;
+        }
+        Operator.prototype.clone = function (type, left, right) {
+            var clone = new Operator(this.type, cloneNode(this.left), cloneNode(this.right));
+            return clone;
+        };
+        Operator.toBoolean = function () {
+        };
+        Operator.toValue = function () {
+        };
+        function Range(left, right) {
+            this.type = 'range';
+            this.left = left;
+            this.right = right;
+        }
+        Range.prototype.clone = function () {
+            var clone = new Range(cloneNode(this.left), cloneNode(this.right));
+            return clone;
+        };
+        function CssFunction(name, value) {
+            this.name = name;
+            this.value = value;
+        }
+        function Unary(value, reverse) {
+            this.value = value;
+            this.reverse = !!reverse;
+        }
+        Unary.prototype.clone = function (value, reverse) {
+            var clone = new Unary(value, reverse);
+            return clone;
+        };
+        function Call(name, params) {
+            this.params = params;
+        }
+        Call.prototype.clone = function (name, params) {
+            var clone = new Call(name, cloneNode(params));
+            return clone;
+        };
+        exports.Stylesheet = Stylesheet;
+        exports.SelectorList = SelectorList;
+        exports.ComplexSelector = ComplexSelector;
+        exports.RuleSet = RuleSet;
+        exports.Block = Block;
+        exports.Declaration = Declaration;
+        exports.ValuesList = ValuesList;
+        exports.Values = Values;
+        exports.Unknown = Unknown;
+        exports.Func = Func;
+        exports.Param = Param;
+        exports.Include = Include;
+        exports.Extend = Extend;
+        exports.IfStmt = IfStmt;
+        exports.ForStmt = ForStmt;
+        exports.ReturnStmt = ReturnStmt;
+        exports.Module = Module;
+        exports.Pointer = Pointer;
+        exports.Range = Range;
+        exports.Import = Import;
+        exports.RGBA = RGBA;
+        exports.Assign = Assign;
+        exports.Call = Call;
+        exports.Operator = Operator;
+        exports.CompoundIdent = CompoundIdent;
+        function FontFace() {
+        }
+        function Media(name, mediaList) {
+            this.name = name;
+            this.media = mediaList;
+        }
+        function Page() {
+        }
+        function Charset() {
+        }
+        function NameSpace() {
+        }
+        exports.inspect = function (node) {
+            return node.type.toLowerCase() || node.constructor.name.toLowerCase();
+        };
+        var cloneNode = exports.cloneNode = function (node) {
+                if (node.clone)
+                    return node.clone();
+                if (Array.isArray(node))
+                    return node.map(cloneNode);
+                if (node.type) {
+                    var res = {
+                            type: node.type,
+                            value: node.value
+                        };
+                    return;
+                }
+                if (typeof node !== 'object')
+                    return node;
+                else {
+                    _.error(node);
+                    throw Error('con"t clone node');
+                }
+            };
+        exports.toBoolean = function (node) {
+            if (!node)
+                return false;
+            var type = exports.inspect(node);
+            switch (type) {
+            case 'dimension':
+                return node.value != 0;
+            case 'string':
+                return node.value.length !== '';
+            case 'boolean':
+                return node.value === true;
+            case 'rgba':
+            case 'ident':
+            case 'componentvalues':
+            case 'unknown':
+                return true;
+            default:
+                return null;
+            }
+        };
+        exports.isPrimary = function () {
+        };
+    },
+    '4': function (require, module, exports, global) {
+        var tk = require('1');
+        var tree = require('3');
+        var functions = require('5');
+        var color = require('6');
+        var _ = require('2');
+        var io = require('7');
+        var symtab = require('9');
+        var state = require('8');
+        var perror = new Error();
+        var slice = [].slice;
+        var errors = {
+                INTERPOLATE_FAIL: 1,
+                DECLARION_FAIL: 2
+            };
+        var combos = [
+                'WS',
+                '>',
+                '~',
+                '+'
+            ];
+        var skipStart = 'WS NEWLINE COMMENT ;';
+        var operators = '+ - * /';
+        var isSkipStart = _.makePredicate(skipStart);
+        var isCombo = _.makePredicate(combos);
+        var isSelectorSep = _.makePredicate(combos.concat([
+                'PSEUDO_CLASS',
+                'PSEUDO_ELEMENT',
+                'ATTRIBUTE',
+                'CLASS',
+                'HASH',
+                '&',
+                'TEXT',
+                '*',
+                '#',
+                ':',
+                '.',
+                'compoundident'
+            ]));
+        var isOperator = _.makePredicate(operators);
+        var isColor = _.makePredicate('aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgrey darkgreen darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray grey green greenyellow honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgrey lightgreen lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen');
+        var isMcssAtKeyword = _.makePredicate('mixin extend var');
+        var isMcssFutureAtKeyword = _.makePredicate('if else css for');
+        var isCssAtKeyword = _.makePredicate('import page keyframe media font-face charset');
+        var isShorthandProp = _.makePredicate('background font margin border border-top border-right border-bottom border-left border-width border-color border-style transition padding list-style border-radius.');
+        var isWSOrNewLine = _.makePredicate('WS NEWLINE');
+        var isCommaOrParen = _.makePredicate(', )');
+        var isDirectOperate = _.makePredicate('RGBA DIMENSION STRING BOOLEAN TEXT NULL');
+        var isRelationOp = _.makePredicate('== >= <= < > !=');
+        var states = {
+                'FILTER_DECLARATION': _.uid(),
+                'TRY_DECLARATION': _.uid(),
+                'TRY_INTERPOLATION': _.uid(),
+                'FUNCTION_CALL': _.uid()
+            };
+        function Parser(options) {
+            this.options = options || {};
+        }
+        exports.Parser = Parser;
+        exports.parse = function (input, options, callback) {
+            if (typeof input === 'string') {
+                input = tk.tokenize(input, options || {});
+            }
+            return new Parser(options).parse(input, callback);
+        };
+        Parser.prototype = {
+            parse: function (tks, callback) {
+                this.lookahead = tks;
+                this.p = 0;
+                this.length = this.lookahead.length;
+                this._states = {};
+                this.scope = this.options.scope || new symtab.Scope();
+                this.marked = null;
+                this.tasks = 1;
+                this.callback = callback;
+                this.stylesheet();
+                this._complete();
+            },
+            _complete: function () {
+                this.tasks--;
+                if (this.tasks == 0) {
+                    this.callback(null, this.ast);
+                }
+            },
+            state: function (state) {
+                return this._states[state] === true;
+            },
+            enter: function (state) {
+                this._states[state] = true;
+            },
+            leave: function (state) {
+                this._states[state] = false;
+            },
+            next: function (k) {
+                k = k || 1;
+                this.p += k;
+            },
+            lookUpBefore: function (lookup, before) {
+                var i = 1, la;
+                while (i++) {
+                    if ((la = this.la(i)) === lookup)
+                        return true;
+                    if (la === before || la === 'EOF' || la === '}') {
+                        return false;
+                    }
+                }
+                return false;
+            },
+            match: function (tokenType) {
+                if (!this.eat.apply(this, arguments)) {
+                    var ll = this.ll();
+                    this.error('expect:"' + tokenType + '" -> got: "' + ll.type + '"');
+                }
+            },
+            expect: function (tokenType, value) {
+            },
+            matcheNewLineOrSemeColon: function () {
+                if (this.eat(';')) {
+                    return true;
+                } else if (this.eat('NEWLINE')) {
+                    return true;
+                } else {
+                    this.error('expect: "NEWLINE" or ";"' + '->got: ' + this.ll().type);
+                }
+            },
+            ll: function (k) {
+                k = k || 1;
+                if (this.p + k > this.length) {
+                    return this.lookahead[this.length - 1];
+                }
+                return this.lookahead[this.p + k - 1];
+            },
+            la: function (k) {
+                return this.ll(k).type;
+            },
+            is: function (pos, tokenType) {
+                return this.la(pos) === tokenType;
+            },
+            mark: function () {
+                this.marked = this.p;
+                return this;
+            },
+            restore: function () {
+                if (this.marked != undefined)
+                    this.p = this.marked;
+                this.marked = null;
+                return this;
+            },
+            eat: function (tokenType) {
+                var ll = this.ll();
+                for (var i = 0, len = arguments.length; i < len; i++) {
+                    if (ll.type === arguments[i]) {
+                        this.next();
+                        return ll;
+                    }
+                }
+                return false;
+            },
+            skip: function (type) {
+                var skiped, la, test;
+                while (true) {
+                    la = this.la();
+                    test = typeof type === 'string' ? type === la : type(la);
+                    if (test) {
+                        this.next();
+                        skiped = true;
+                    } else
+                        break;
+                }
+                return skiped;
+            },
+            skipStart: function () {
+                return this.skip(isSkipStart);
+            },
+            skipWSorNewlne: function () {
+                return this.skip(isWSOrNewLine);
+            },
+            error: function (msg) {
+                if (typeof msg === 'number') {
+                    perror.code = msg;
+                    throw perror;
+                }
+                console.log(this.ast, this);
+                throw Error(msg + ' on line:' + this.ll().lineno);
+            },
+            stylesheet: function () {
+                var node = new tree.Stylesheet();
+                this.ast = node;
+                while (this.la(1) !== 'EOF') {
+                    this.skipStart();
+                    var stmt = this.stmt();
+                    if (stmt) {
+                        node.list.push(stmt);
+                    }
+                    this.skipStart();
+                }
+                return node;
+            },
+            stmt: function () {
+                var la = this.la(), node = false;
+                if (la === 'AT_KEYWORD') {
+                    node = this.atrule();
+                }
+                if (la === 'VAR') {
+                    switch (this.la(2)) {
+                    case '(':
+                        node = this.fnCall();
+                        this.match(';');
+                        break;
+                    case ':':
+                        node = this.transparentCall();
+                        break;
+                    case '=':
+                    case '?=':
+                        node = this.assign();
+                        if (node.value.type !== 'func') {
+                            this.match(';');
+                        }
+                        break;
+                    default:
+                        this.error('invalid squence after VARIABLE');
+                    }
+                }
+                if (isSelectorSep(la)) {
+                    node = this.ruleset(true);
+                }
+                if (node !== false) {
+                    return node;
+                }
+                this.error('invalid statementstart');
+            },
+            atrule: function () {
+                var lv = this.ll().value.toLowerCase();
+                if (typeof this[lv] === 'function') {
+                    return this[lv]();
+                }
+                return this.directive();
+            },
+            directive: function () {
+                this.error('undefined atrule: "' + this.ll().value + '"');
+            },
+            param: function () {
+                var name = this.ll().value, dft, rest = false;
+                this.match('VAR');
+                if (this.eat('...')) {
+                    rest = true;
+                }
+                if (this.eat('=')) {
+                    if (rest)
+                        this.error('reset params can"t has default params');
+                    dft = this.values();
+                }
+                return new tree.Param(name, dft, rest);
+            },
+            extend: function () {
+                this.match('AT_KEYWORD');
+                this.match('WS');
+                var node = new tree.Extend(this.selectorList());
+                this.match(';');
+                return node;
+                this.error('invalid extend at rule');
+            },
+            return: function () {
+                this.match('AT_KEYWORD');
+                this.match('WS');
+                var node = new tree.ReturnStmt(this.valuesList());
+                this.skip('WS');
+                this.match(';');
+            },
+            import: function () {
+                var node = new tree.Import(), ll;
+                this.match('AT_KEYWORD');
+                this.match('WS');
+                if (this.la() === 'IDENT') {
+                    node.assign = this.ll().value;
+                    this.next();
+                    this.match('WS');
+                }
+                ll = this.ll();
+                if (ll.type === 'URL' || ll.type === 'STRING') {
+                    node.url = ll.value;
+                    this.next();
+                } else {
+                    this.error('expect URL or STRING' + ' got ' + ll.type);
+                }
+                this.eat('WS');
+                this.matcheNewLineOrSemeColon();
+                var uid = _.uid();
+                this.tasks += 1;
+                var self = this;
+                io.get(node.url, function (error, text) {
+                    exports.parse(text, {}, function (err, ast) {
+                        var list = self.ast.list, len = list.length;
+                        if (ast.list.length) {
+                            for (var i = 0; i < len; i++) {
+                                if (list[i] === uid) {
+                                    var args;
+                                    if (node.assign) {
+                                        var tmp = [new tree.Module(node.assign, new tree.Block(ast.list))];
+                                    } else {
+                                        tmp = ast.list;
+                                    }
+                                    args = [
+                                        i,
+                                        1
+                                    ].concat(tmp);
+                                    list.splice.apply(list, args);
+                                    break;
+                                }
+                            }
+                        }
+                        self._complete();
+                    });
+                });
+                return uid;
+            },
+            module: function () {
+                var node = new tree.Module();
+                this.match('AT_KEYWORD');
+                this.match('WS');
+                node.name = this.ll().value;
+                this.match('TEXT');
+                node.block = this.block();
+                return node;
+            },
+            pointer: function () {
+                var name = this.ll().value;
+                var node = new tree.Pointer(name);
+                this.match('IDENT');
+                this.match('->');
+                node.key = this.ll().value;
+                if (!this.eat('IDENT') && !this.eat('FUNCTION')) {
+                    this.error('invalid pointer');
+                }
+                return node;
+            },
+            if: function () {
+                this.match('AT_KEYWORD');
+                var test = this.expression(), block = this.block(), alt, ll;
+                this.eat('WS');
+                ll = this.ll();
+                if (ll.type == 'AT_KEYWORD') {
+                    if (ll.value === 'else') {
+                        this.next();
+                        alt = this.block();
+                    }
+                    if (ll.value === 'elseif') {
+                        alt = this.if();
+                    }
+                }
+                return new tree.IfStmt(test, block, alt);
+            },
+            for: function () {
+                var element, index, list, of, block;
+                this.match('AT_KEYWORD');
+                this.match('WS');
+                element = this.ll().value;
+                this.match('VAR');
+                if (this.eat(',')) {
+                    index = this.ll().value;
+                    this.match('VAR');
+                }
+                this.match('WS');
+                of = this.ll();
+                if (of.value !== 'of') {
+                    this.error('for statement need "of" but got:' + ll.value);
+                }
+                this.match('TEXT');
+                list = this.valuesList();
+                if (list.list.length <= 1) {
+                    this.error('@for statement need at least one element in list');
+                }
+                block = this.block();
+                return new tree.ForStmt(element, index, list, block);
+            },
+            media: function () {
+            },
+            media_query_list: function () {
+            },
+            media_query: function () {
+            },
+            'font-face': function () {
+            },
+            charset: function () {
+            },
+            keyframe: function () {
+            },
+            page: function () {
+            },
+            debug: function () {
+                this.match('AT_KEYWORD');
+                this.match('WS');
+                var node = this.expression();
+                console.log(node, '!debug');
+                this.match(';');
+            },
+            ruleset: function () {
+                var node = new tree.RuleSet(), rule;
+                node.selector = this.selectorList();
+                node.block = this.block();
+                return node;
+            },
+            block: function () {
+                var node = new tree.Block();
+                this.match('{');
+                this.skip('WS');
+                while (this.la() !== '}') {
+                    node.list.push(this.mark().declaration() || this.restore().stmt());
+                    this.skip('WS');
+                }
+                this.match('}');
+                return node;
+            },
+            selectorList: function () {
+                var node = new tree.SelectorList();
+                do {
+                    node.list.push(this.complexSelector());
+                } while (this.eat(','));
+                return node;
+            },
+            complexSelector: function () {
+                var node = new tree.ComplexSelector();
+                var selectorString = '';
+                var i = 0, ll, interpolation;
+                while (true) {
+                    ll = this.ll();
+                    if (ll.type === '#{' && this.ll(2) !== '}') {
+                        interpolation = this.interpolation();
+                        if (interpolation) {
+                            selectorString += '#{' + i++ + '}';
+                            node.interpolations.push(interpolation);
+                        } else {
+                            break;
+                        }
+                    } else if (isSelectorSep(ll.type)) {
+                        selectorString += ll.value || (ll.type === 'WS' ? ' ' : ll.type);
+                        this.next();
+                    } else {
+                        break;
+                    }
+                }
+                node.string = selectorString;
+                return node;
+            },
+            declaration: function (checked) {
+                var node = new tree.Declaration();
+                var ll1 = this.ll(1), ll2 = this.ll(2);
+                if (ll1.type === '*' && ll2.type == 'TEXT') {
+                    this.next(1);
+                    ll2.value = '*' + ll2.value;
+                }
+                node.property = this.compoundIdent();
+                if (!node.property)
+                    return;
+                this.eat('WS');
+                if (!this.eat(':'))
+                    return;
+                if (node.property.toString() === 'filter') {
+                    this.enter(states.FILTER_DECLARATION);
+                }
+                this.enter(states.TRY_DECLARATION);
+                try {
+                    node.value = this.valuesList();
+                    this.leave(states.TRY_DECLARATION);
+                } catch (error) {
+                    if (error.code === errors.DECLARION_FAIL)
+                        return;
+                    throw error;
+                }
+                if (this.eat('IMPORTANT')) {
+                    node.important = true;
+                }
+                if (this.la() !== '}') {
+                    this.match(';');
+                }
+                this.leave(states.FILTER_DECLARATION);
+                return node;
+            },
+            valuesList: function () {
+                var list = [], values;
+                do {
+                    values = this.values();
+                    if (values)
+                        list.push(values);
+                    else
+                        break;
+                } while (this.eat(','));
+                return new tree.ValuesList(list);
+            },
+            values: function () {
+                var list = [], value;
+                while (true) {
+                    value = this.value();
+                    if (!value)
+                        break;
+                    if (value.type === 'values') {
+                        list = list.concat(value.list);
+                    } else {
+                        list.push(value);
+                    }
+                }
+                if (list.length === 1)
+                    return list[0];
+                return new tree.Values(list);
+            },
+            value: function () {
+                this.eat('WS');
+                return this.expression();
+            },
+            assign: function () {
+                var name = this.ll().value, value, op, block, params = [], rest = 0;
+                this.match('VAR');
+                op = this.la();
+                this.match('=', '?=');
+                if (this.la() === '(' || this.la() === '{') {
+                    if (this.eat('(')) {
+                        this.eat('WS');
+                        if (this.la() !== ')') {
+                            do {
+                                param = this.param();
+                                if (param.rest)
+                                    rest++;
+                                params.push(param);
+                            } while (this.eat(','));
+                            if (rest >= 2)
+                                this.error('can"t have more than 2 rest param');
+                            this.eat('WS');
+                        }
+                        this.match(')');
+                    }
+                    block = this.block();
+                    value = new tree.Func(name, params, block);
+                } else {
+                    value = this.valuesList();
+                }
+                return new tree.Assign(name, value, op === '?=' ? false : true);
+            },
+            expression: function () {
+                this.eat('WS');
+                if (this.la(2) === '...')
+                    return this.range();
+                return this.logicOrExpr();
+            },
+            logicOrExpr: function () {
+                var node = this.logicAndExpr(), ll, right;
+                while ((la = this.la()) === '||') {
+                    this.next();
+                    right = this.logicAndExpr();
+                    var bValue = tree.toBoolean(node);
+                    if (bValue !== null) {
+                        if (bValue === false) {
+                            node = right;
+                        }
+                    } else {
+                        node = new tree.Operator(la, node, right);
+                    }
+                    this.eat('WS');
+                }
+                return node;
+            },
+            logicAndExpr: function () {
+                var node = this.relationExpr(), ll, right;
+                while ((la = this.la()) === '&&') {
+                    this.next();
+                    right = this.relationExpr();
+                    var bValue = tree.toBoolean(node);
+                    if (bValue !== null) {
+                        if (bValue === true) {
+                            node = right;
+                        } else {
+                            node = {
+                                type: 'BOOLEAN',
+                                value: false
+                            };
+                        }
+                    } else {
+                        node = new tree.Operator(la, node, right);
+                    }
+                    this.eat('WS');
+                }
+                return node;
+            },
+            relationExpr: function () {
+                var left = this.binop1(), la, right;
+                while (isRelationOp(la = this.la())) {
+                    this.next();
+                    this.eat('WS');
+                    right = this.binop1();
+                    if (isDirectOperate(left.type) && isDirectOperate(right.type)) {
+                        left = this._relate(left, right, la);
+                    } else {
+                        left = new tree.Operator(la, left, right);
+                    }
+                    this.eat('WS');
+                }
+                return left;
+            },
+            range: function () {
+                var left = this.ll(), node = new tree.ValuesList(), right, lc, rc, reverse;
+                this.match('DIMENSION');
+                this.eat('...');
+                right = this.ll();
+                this.match(left.type);
+                lc = left.value;
+                rc = right.value;
+                reverse = lc > rc;
+                for (; lc != rc;) {
+                    node.list.push({
+                        type: left.type,
+                        value: lc
+                    });
+                    if (reverse)
+                        lc -= 1;
+                    else
+                        lc += 1;
+                }
+                node.list.push({
+                    type: left.type,
+                    value: lc
+                });
+                return node;
+            },
+            binop1: function () {
+                var left = this.binop2(), right, la;
+                this.eat('WS');
+                while ((la = this.la()) === '+' || this.la() === '-') {
+                    this.next();
+                    this.eat('WS');
+                    right = this.binop2();
+                    if (right.type === 'DIMENSION' && left.type === 'DIMENSION') {
+                        left = this._add(left, right, la);
+                    } else {
+                        left = {
+                            type: la,
+                            left: left,
+                            right: right
+                        };
+                    }
+                    this.eat('WS');
+                }
+                return left;
+            },
+            binop2: function () {
+                var left = this.unary(), right, la;
+                this.eat('WS');
+                while ((la = this.la()) === '*' || la === '/') {
+                    this.next();
+                    this.eat('WS');
+                    right = this.unary();
+                    if (right.type === 'DIMENSION' && left.type === 'DIMENSION') {
+                        left = this._mult(left, right, la);
+                    } else {
+                        left = {
+                            type: la,
+                            left: left,
+                            right: right
+                        };
+                    }
+                    this.eat('WS');
+                }
+                return left;
+            },
+            unary: function () {
+                var la, operator, value;
+                if ((la = this.la()) === '-' || la === '+') {
+                    operator = la;
+                    this.next();
+                }
+                value = this.primary();
+                if (operator !== '-')
+                    return value;
+                if (value.type === 'DIMENSION') {
+                    return {
+                        type: 'DIMENSION',
+                        value: -value.value,
+                        unit: value.unit
+                    };
+                }
+                return new tree.Unary(value, operator);
+            },
+            primary: function () {
+                var ll = this.ll(), node;
+                switch (ll.type) {
+                case '(':
+                    return this.parenExpr();
+                case '=':
+                    if (this.state(states.FILTER_DECLARATION) && this.state(states.FUNCTION_CALL)) {
+                        return ll;
+                    }
+                case '#{':
+                case 'TEXT':
+                    return this.compoundIdent();
+                case 'FUNCTION':
+                    return this.fnCall();
+                case 'HASH':
+                    this.next();
+                    value = ll.value;
+                    if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value)) {
+                        node = new tree.RGBA(value);
+                    } else {
+                        node = new tree.Unknown(ll.value);
+                    }
+                    return node;
+                case 'RAW_STRING':
+                case 'DIMENSION':
+                case 'VAR':
+                case 'BOOLEAN':
+                case 'NULL':
+                case 'URL':
+                    this.next();
+                    return ll;
+                case '>':
+                case '+':
+                case '.':
+                case '#':
+                case ':':
+                case '*':
+                case 'PSEUDO_CLASS':
+                case 'ATTRIBUTE':
+                    if (this.state(states.TRY_DECLARATION)) {
+                        _.error(errors.DECLARION_FAIL);
+                        break;
+                    }
+                default:
+                    return null;
+                }
+            },
+            parenExpr: function () {
+                this.match('(');
+                this.eat('WS');
+                if (this.la() === 'VAR' && (this.la(2) === '=' || this.la(2) === '?=')) {
+                    node = this.assign();
+                } else {
+                    node = this.expression();
+                }
+                this.eat('WS');
+                this.match(')');
+                return node;
+            },
+            compoundIdent: function () {
+                var list = [], ll, sep, node;
+                while (true) {
+                    ll = this.ll();
+                    if (ll.type === '#{') {
+                        sep = this.interpolation();
+                        list.push(sep);
+                    } else if (ll.type === 'TEXT') {
+                        this.next();
+                        list.push(ll.value);
+                    } else
+                        break;
+                }
+                if (!sep) {
+                    return {
+                        type: 'TEXT',
+                        value: list[0]
+                    };
+                } else {
+                    return new tree.CompoundIdent(list);
+                }
+            },
+            interpolation: function () {
+                var node;
+                this.match('#{');
+                node = this.valuesList();
+                this.match('}');
+                return node;
+            },
+            fnCall: function () {
+                var ll = this.ll();
+                var node = new tree.Call();
+                node.name = ll.value;
+                this.match('FUNCTION', 'VAR');
+                this.match('(');
+                this.enter(states.FUNCTION_CALL);
+                node.arguments = this.valuesList();
+                this.leave(states.FUNCTION_CALL);
+                this.match(')');
+                return node;
+            },
+            transparentCall: function () {
+                var ll = this.ll();
+                var node = new tree.Call();
+                node.name = ll.value;
+                this.match('VAR');
+                this.match(':');
+                node.arguments = this.valuesList();
+                this.match(';');
+                return node;
+            },
+            _add: function (actor1, actor2, op) {
+                var value, unit;
+                if (actor1.unit) {
+                    unit = actor1.unit;
+                } else {
+                    unit = actor2.unit;
+                }
+                if (op === '+') {
+                    value = actor1.value + actor2.value;
+                } else {
+                    value = actor1.value - actor2.value;
+                }
+                return {
+                    type: 'DIMENSION',
+                    value: value,
+                    unit: unit
+                };
+            },
+            _mult: function (actor1, actor2, op) {
+                var unit, value;
+                if (actor1.unit) {
+                    unit = actor1.unit;
+                } else {
+                    unit = actor2.unit;
+                }
+                if (op === '*') {
+                    value = actor1.value * actor2.value;
+                } else {
+                    if (actor2.value === 0)
+                        this.error('can"t divid by zero');
+                    value = actor1.value / actor2.value;
+                }
+                return {
+                    type: 'DIMENSION',
+                    value: value,
+                    unit: unit
+                };
+            },
+            _relate: function (left, right, op) {
+                var bool = { type: 'BOOLEAN' };
+                if (left.type !== right.type || left.unit !== right.unit) {
+                    bool.value = op === '!=';
+                } else {
+                    if (left.value > right.value) {
+                        bool.value = op === '>' || op === '>=' || op === '!=';
+                    }
+                    if (left.value < right.value) {
+                        bool.value = op === '<' || op === '<=' || op === '!=';
+                    }
+                    if (left.value == right.value) {
+                        bool.value = op === '==' || op === '>=' || op === '<=';
+                    }
+                }
+                return bool;
+            },
+            _lookahead: function () {
+                return this.lookahead.map(function (item) {
+                    return item.type;
+                }).join(',');
+            }
+        };
+    },
+    '5': function (require, module, exports, global) {
         var fs = null;
         var path = null;
         var slice = [].slice;
-        var tree = require('4');
-        var Color = require('5');
+        var tree = require('3');
+        var Color = require('6');
         exports.add = function () {
             return options.args.reduce(function (a, b) {
                 return a + b;
@@ -480,968 +1735,9 @@ var mcss;
             }
         }
     },
-    '4': function (require, module, exports, global) {
-        var _ = require('2');
-        function Stylesheet(list) {
-            this.list = list || [];
-        }
-        Stylesheet.prototype.clone = function () {
-            var clone = new Stylesheet();
-            clone.list = cloneNode(this.list);
-            return clone;
-        };
-        function SelectorList(list) {
-            this.list = list || [];
-        }
-        SelectorList.prototype.clone = function () {
-            var clone = new SelectorList();
-            clone.list = cloneNode(this.list);
-            return clone;
-        };
-        function ComplexSelector(string) {
-            this.string = string;
-        }
-        ComplexSelector.prototype.clone = function () {
-            var clone = new ComplexSelector();
-            return clone;
-        };
-        function RuleSet(selector, block) {
-            this.selector = selector;
-            this.block = block;
-        }
-        RuleSet.prototype.remove = function (ruleset) {
-        };
-        RuleSet.prototype.clone = function () {
-            var clone = new RuleSet(cloneNode(this.selector), cloneNode(this.block));
-            return clone;
-        };
-        function Block(list) {
-            this.list = list || [];
-        }
-        Block.prototype.clone = function () {
-            var clone = new Block(cloneNode(this.list));
-            return clone;
-        };
-        function Declaration(property, value) {
-            this.property = property;
-            this.value = value;
-        }
-        Declaration.prototype.clone = function (name) {
-            var clone = new Declaration(name || this.property, cloneNode(this.value));
-            return clone;
-        };
-        function ComponentValues(list) {
-            this.list = list || [];
-        }
-        ComponentValues.prototype.clone = function () {
-            var clone = new ComponentValues(cloneNode(this.list));
-            return clone;
-        };
-        function FunctionCall(name, params) {
-            this.params = params || [];
-            this.name = name;
-        }
-        FunctionCall.prototype.clone = function () {
-            var clone = new FunctionCall(this.name, cloneNode(this.params));
-            return clone;
-        };
-        function Unknown(name) {
-            this.name = name;
-        }
-        Unknown.prototype.clone = function () {
-            var clone = new Unknown(this.name);
-            return clone;
-        };
-        function RGBA(channels) {
-            if (typeof channels === 'string') {
-                var string = channels.charAt(0) === '#' ? channels.slice(1) : channels;
-                if (string.length === 6) {
-                    channels = [
-                        parseInt(string.substr(0, 2), 16),
-                        parseInt(string.substr(2, 2), 16),
-                        parseInt(string.substr(4, 2), 16),
-                        1
-                    ];
-                } else {
-                    var r = string.substr(0, 1);
-                    var g = string.substr(1, 1);
-                    var b = string.substr(2, 1);
-                    channels = [
-                        parseInt(r + r, 16),
-                        parseInt(g + g, 16),
-                        parseInt(b + b, 16),
-                        1
-                    ];
-                }
-            }
-            this.channels = channels || [];
-        }
-        RGBA.prototype.clone = function () {
-            var clone = new RGBA(cloneNode(this.channels));
-            return clone;
-        };
-        RGBA.prototype.tocss = function () {
-            var chs = this.channels;
-            if (chs[3] === 1 || chs[3] === undefined) {
-                return 'rgb(' + chs[0] + ',' + chs[1] + ',' + chs[2] + ')';
-            }
-        };
-        function Token(tk) {
-            tk = tk || {};
-            this.val = tk.val;
-            this.type = tk.type;
-        }
-        function Variable(name, value, kind) {
-            this.kind = kind || 'var';
-            this.name = name;
-            this.value = value || [];
-        }
-        Variable.prototype.clone = function (name) {
-            var clone = new Variable(this.name, cloneNode(this.value), this.kind);
-            return clone;
-        };
-        function Mixin(name, params, block) {
-            this.name = name;
-            this.formalParams = params || [];
-            this.block = block;
-        }
-        Mixin.prototype.clone = function () {
-            var clone = new Mixin(this.name, this.formalParams, this.block);
-            return clone;
-        };
-        function Param(name, value) {
-            this.name = name;
-            this.default = value;
-        }
-        function Include(name, params) {
-            this.name = name;
-            this.params = params || [];
-        }
-        Include.prototype.clone = function () {
-            var clone = new Include(this.name, this.params);
-            return clone;
-        };
-        function Extend(selector) {
-            this.selector = selector;
-        }
-        Extend.prototype.clone = function () {
-            var clone = new Extend(this.selector);
-            return clone;
-        };
-        function Module(name, block) {
-            this.name = name;
-            this.block = block;
-        }
-        Module.prototype.clone = function () {
-            var clone = new Module(this.name, cloneNode(this.block));
-            return clone;
-        };
-        function Pointer(name, key) {
-            this.name = name;
-            this.key = key;
-        }
-        Pointer.prototype.clone = function () {
-            var clone = new Pointer(this.name, this.key);
-            return clone;
-        };
-        function Import(url, media, assign) {
-            this.url = url;
-            this.media = media;
-            this.assign = assign;
-        }
-        Import.prototype.clone = function () {
-            var clone = new Import(this.url, cloneNode(this.media), this.assign);
-            return clone;
-        };
-        function List(list) {
-            this.list = list || [];
-        }
-        List.prototype.clone = function () {
-            var clone = new List(cloneNode(this.list));
-            return clone;
-        };
-        function Dimension(value, unit) {
-            this.value = value;
-            this.unit = unit;
-        }
-        Dimension.prototype.clone = function () {
-            var clone = new Dimension(this.value, this.unit);
-            return clone;
-        };
-        function Range(start, end) {
-            this.start = start;
-            this.end = end;
-        }
-        Range.prototype.clone = function () {
-            var clone = new Range(this.start, this.end);
-            return clone;
-        };
-        function CssFunction(name, value) {
-            this.name = name;
-            this.value = value;
-        }
-        exports.Stylesheet = Stylesheet;
-        exports.SelectorList = SelectorList;
-        exports.ComplexSelector = ComplexSelector;
-        exports.RuleSet = RuleSet;
-        exports.Block = Block;
-        exports.Declaration = Declaration;
-        exports.ComponentValues = ComponentValues;
-        exports.FunctionCall = FunctionCall;
-        exports.Unknown = Unknown;
-        exports.Mixin = Mixin;
-        exports.Include = Include;
-        exports.Extend = Extend;
-        exports.Variable = Variable;
-        exports.Module = Module;
-        exports.Pointer = Pointer;
-        exports.Import = Import;
-        exports.Token = Token;
-        exports.RGBA = RGBA;
-        exports.Param = Param;
-        exports.CssFunction = CssFunction;
-        function FontFace() {
-        }
-        function Media(name, mediaList) {
-            this.name = name;
-            this.media = mediaList;
-        }
-        function Page() {
-        }
-        function Charset() {
-        }
-        function NameSpace() {
-        }
-        exports.inspect = function (node) {
-            return node.constructor.name.toLowerCase();
-        };
-        var cloneNode = exports.cloneNode = function (node) {
-                if (node.clone)
-                    return node.clone();
-                if (Array.isArray(node))
-                    return node.map(cloneNode);
-                if (node.type)
-                    return {
-                        type: node.type,
-                        val: node.val
-                    };
-                if (typeof node !== 'object')
-                    return node;
-                else {
-                    _.error(node);
-                    throw Error('con"t clone node');
-                }
-            };
-    },
-    '5': function (require, module, exports, global) {
+    '6': function (require, module, exports, global) {
         module.exports = {
             hsl2rgb: function () {
-            }
-        };
-    },
-    '6': function (require, module, exports, global) {
-        var tk = require('1');
-        var tree = require('4');
-        var functions = require('3');
-        var color = require('5');
-        var _ = require('2');
-        var io = require('7');
-        var symtab = require('9');
-        var state = require('8');
-        var perror = new Error();
-        var slice = [].slice;
-        var combos = [
-                'WS',
-                '>',
-                '~',
-                '+'
-            ];
-        var skipStart = 'WS NEWLINE COMMENT ;';
-        var operators = '+ - * /';
-        var isSkipStart = _.makePredicate(skipStart);
-        var isCombo = _.makePredicate(combos);
-        var isSelectorSep = _.makePredicate(combos.concat([
-                'PSEUDO_CLASS',
-                'PSEUDO_ELEMENT',
-                'ATTRIBUTE',
-                'CLASS',
-                'HASH',
-                '&',
-                'IDENT',
-                '*',
-                ':'
-            ]));
-        var isOperator = _.makePredicate(operators);
-        var isColor = _.makePredicate('aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgrey darkgreen darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray grey green greenyellow honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgrey lightgreen lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen');
-        var isMcssAtKeyword = _.makePredicate('mixin extend var');
-        var isMcssFutureAtKeyword = _.makePredicate('if else css for');
-        var isCssAtKeyword = _.makePredicate('import page keyframe media font-face charset');
-        var isShorthandProp = _.makePredicate('background font margin border border-top border-right border-bottom border-left border-width border-color border-style transition padding list-style border-radius.');
-        var isWSOrNewLine = _.makePredicate('WS NEWLINE');
-        var isCommaOrParen = _.makePredicate(', )');
-        var mayNotPsedudoClass = /^:-?[_A-Za-z][-_\w]*$/;
-        var isBuildInFunction = function (name) {
-            return !!biFunctions[name];
-        };
-        function Parser(options) {
-            this.options = options || {};
-        }
-        exports.Parser = Parser;
-        exports.parse = function (input, options, callback) {
-            if (typeof input === 'string') {
-                input = tk.tokenize(input, options || {});
-            }
-            return new Parser(options).parse(input, callback);
-        };
-        Parser.prototype = {
-            parse: function (tks, callback) {
-                this.lookahead = tks;
-                this.p = 0;
-                this.length = this.lookahead.length;
-                this.states = ['accept'];
-                this.state = 'accept';
-                this.scope = this.options.scope || new symtab.Scope();
-                this.marked = null;
-                this.tasks = 1;
-                this.callback = callback;
-                this.stylesheet();
-                this._complete();
-            },
-            _complete: function () {
-                this.tasks--;
-                if (this.tasks == 0) {
-                    this.callback(null, this.ast);
-                }
-            },
-            enter: function (tks) {
-                this.plookahead = this.lookahead;
-                this.pp = this.p;
-                this.lookahead = tks;
-                this.p = 0;
-            },
-            leave: function () {
-                this.lookahead = this.plookahead;
-                this.plookahead = null;
-                this.p = this.pp;
-            },
-            next: function (k) {
-                k = k || 1;
-                this.p += k;
-            },
-            pushState: function (condition) {
-                this.states.push(condition);
-                this.state = condition;
-            },
-            popState: function () {
-                this.states.pop();
-                this.state = this.states[this.states.length - 1];
-            },
-            match: function (tokenType) {
-                if (!this.eat.apply(this, arguments)) {
-                    var ll = this.ll();
-                    this.error('expect:"' + tokenType + '" -> got: "' + ll.type + '"');
-                }
-            },
-            expect: function (tokenType, val) {
-            },
-            matcheNewLineOrSemeColon: function () {
-                if (this.eat(';')) {
-                    return true;
-                } else if (this.eat('NEWLINE')) {
-                    return true;
-                } else {
-                    this.error('expect: "NEWLINE" or ";"' + '->got: ' + this.ll().type);
-                }
-            },
-            ll: function (k) {
-                k = k || 1;
-                if (this.p + k > this.length) {
-                    return this.lookahead[this.length - 1];
-                }
-                return this.lookahead[this.p + k - 1];
-            },
-            la: function (k) {
-                return this.ll(k).type;
-            },
-            is: function (pos, tokenType) {
-                return this.la(pos) === tokenType;
-            },
-            mark: function () {
-                this.marked = this.p;
-            },
-            restore: function () {
-                if (this.marked != undefined)
-                    this.p = this.marked;
-                this.marked = null;
-            },
-            eat: function (tokenType) {
-                var ll = this.ll();
-                for (var i = 0, len = arguments.length; i < len; i++) {
-                    if (ll.type === arguments[i])
-                        return ll;
-                }
-                return false;
-            },
-            skip: function (type) {
-                var skiped, la, test;
-                while (true) {
-                    la = this.la();
-                    test = typeof type === 'string' ? type === la : type(la);
-                    if (test) {
-                        this.next();
-                        skiped = true;
-                    } else
-                        break;
-                }
-                return skiped;
-            },
-            skipStart: function () {
-                return this.skip(isSkipStart);
-            },
-            skipWSorNewlne: function () {
-                return this.skip(isWSOrNewLine);
-            },
-            error: function (msg) {
-                console.log(this.stylesheet, this.lookahead.slice(this.p - 5, this.p + 5));
-                throw Error(msg + ' on line:' + this.ll().lineno);
-            },
-            stylesheet: function () {
-                var node = new tree.Stylesheet();
-                this.ast = node;
-                while (this.la(1) !== 'EOF') {
-                    this.skipStart();
-                    var stmt = this.stmt();
-                    node.list.push(stmt);
-                    this.skipStart();
-                }
-                return node;
-            },
-            stmt: function () {
-                var tokenType = this.la(1);
-                var ll = this.ll(), ll2 = this.ll(2), la = ll.type, la2 = ll2.type;
-                if (la === 'AT_KEYWORD') {
-                    return this.atrule();
-                }
-                if (la === 'IDENT') {
-                    var start = ll.val.charAt(0);
-                    if (start === '$')
-                        return this.var(true);
-                }
-                if (isSelectorSep(la)) {
-                    return this.ruleset(true);
-                }
-                this.error('invliad statementstart');
-            },
-            atrule: function () {
-                var lv = this.ll().val.toLowerCase();
-                var node;
-                if (this[lv]) {
-                    node = this[lv]();
-                    return node;
-                }
-                ;
-                return this.unkownAtRule();
-            },
-            var: function (type) {
-                if (!type) {
-                    this.next();
-                    this.match('WS');
-                }
-                var node = new tree.Variable(), la, ll = this.ll();
-                this.match('IDENT');
-                this.match('WS');
-                node.name = ll.val;
-                node.value = this.componentValues();
-                this.matcheNewLineOrSemeColon();
-                return node;
-            },
-            ident: function () {
-            },
-            css: function () {
-            },
-            mixin: function () {
-                this.match('AT_KEYWORD');
-                this.match('WS');
-                var name = this.ll().val;
-                if (!this.eat('FUNCTION') && !this.eat('IDENT')) {
-                    this.error('expected FUNCTION or IDENT');
-                }
-                var node = new tree.Mixin(name);
-                this.eat('WS');
-                node.formalParams = [];
-                if (this.eat('(')) {
-                    this.skipWSorNewlne();
-                    if (this.la() !== ')') {
-                        do {
-                            node.formalParams.push(this.param());
-                            this.skipWSorNewlne();
-                        } while (this.eat(','));
-                    }
-                }
-                this.match(')');
-                this.skipWSorNewlne();
-                node.block = this.block();
-                return node;
-            },
-            param: function () {
-                var ll = this.ll();
-                this.match('IDENT');
-                return new tree.Param(ll.val);
-            },
-            extend: function () {
-                this.match('AT_KEYWORD');
-                this.match('WS');
-                var ll = this.ll();
-                var la = ll.type;
-                var node;
-                this.error('invalid extend at rule');
-            },
-            include: function () {
-                var node = new tree.Include();
-                this.match('AT_KEYWORD');
-                this.match('WS');
-                var ll = this.ll();
-                if (ll.type === 'FUNCTION')
-                    ll.type = 'IDENT';
-                node.name = this.expression();
-                if (this.eat('(')) {
-                    this.skipWSorNewlne();
-                    if (this.la() !== ')') {
-                        do {
-                            node.params.push(this.componentValues(isCommaOrParen));
-                            if (this.la() === ')')
-                                break;
-                        } while (this.eat(','));
-                    }
-                    this.match(')');
-                }
-                this.matcheNewLineOrSemeColon();
-                node.scope = this.scope;
-                return node;
-            },
-            import: function () {
-                var node = new tree.Import(), ll;
-                this.match('AT_KEYWORD');
-                this.match('WS');
-                if (this.la() === 'IDENT') {
-                    node.assign = this.ll().val;
-                    this.next();
-                    this.match('WS');
-                }
-                ll = this.ll();
-                if (ll.type === 'URL' || ll.type === 'STRING') {
-                    node.url = ll.val;
-                    this.next();
-                } else {
-                    this.error('expect URL or STRING' + ' got ' + ll.type);
-                }
-                this.eat('WS');
-                this.matcheNewLineOrSemeColon();
-                var uid = _.uid();
-                this.tasks += 1;
-                var self = this;
-                io.get(node.url, function (error, text) {
-                    exports.parse(text, {}, function (err, ast) {
-                        var list = self.ast.list, len = list.length;
-                        if (ast.list.length) {
-                            for (var i = 0; i < len; i++) {
-                                if (list[i] === uid) {
-                                    var args;
-                                    if (node.assign) {
-                                        var tmp = [new tree.Module(node.assign, new tree.Block(ast.list))];
-                                    } else {
-                                        tmp = ast.list;
-                                    }
-                                    args = [
-                                        i,
-                                        1
-                                    ].concat(tmp);
-                                    list.splice.apply(list, args);
-                                    break;
-                                }
-                            }
-                        }
-                        self._complete();
-                    });
-                });
-                return uid;
-            },
-            module: function () {
-                var node = new tree.Module();
-                this.match('AT_KEYWORD');
-                this.match('WS');
-                node.name = this.ll().val;
-                this.match('IDENT');
-                this.skipWSorNewlne();
-                node.block = this.block();
-                return node;
-            },
-            pointer: function () {
-                var name = this.ll().val;
-                var node = new tree.Pointer(name);
-                this.match('IDENT');
-                this.match('->');
-                node.key = this.ll().val;
-                if (!this.eat('IDENT') && !this.eat('FUNCTION')) {
-                    this.error('invalid pointer');
-                }
-                return node;
-            },
-            if: function () {
-            },
-            else: function () {
-            },
-            for: function () {
-            },
-            interpolate: function () {
-                var node;
-                this.match('INTERPOLATION');
-                var ll = this.ll();
-                if (ll.type === 'DIMENSION' && this.la(2) === '..') {
-                    node = this.range();
-                }
-                if (ll.type === 'DIMENSION' || ll.type === 'IDENT') {
-                    if (this.la(2) !== ',') {
-                        node = ll;
-                    } else {
-                        node = this.list();
-                    }
-                }
-                this.match('}');
-                return node;
-            },
-            literal: function () {
-            },
-            list: function () {
-                var ll = this.ll(), start;
-                var node = new tree.List();
-                do {
-                    if (ll = this.eat('DIMENSION', 'IDENT')) {
-                        node.list.push(ll);
-                    } else {
-                        this.error('invalid list literal');
-                    }
-                } while (this.eat(','));
-                return node;
-            },
-            range: function () {
-                var node = tree.Range();
-                node.start = this.ll().val.number, end;
-                this.match('DIMENSION');
-                this.match('..');
-                node.end = this.ll().val.number;
-                return node;
-            },
-            media: function () {
-            },
-            media_query_list: function () {
-            },
-            media_query: function () {
-            },
-            'font-face': function () {
-            },
-            charset: function () {
-            },
-            keyframe: function () {
-            },
-            page: function () {
-            },
-            ruleset: function () {
-                var node = new tree.RuleSet(), rule;
-                node.selector = this.selectorList();
-                this.skipWSorNewlne();
-                node.block = this.block();
-                return node;
-            },
-            block: function () {
-                var node = new tree.Block();
-                this.match('{');
-                this.skipStart();
-                while (this.la() !== '}') {
-                    this.skipStart();
-                    if (this.ll(1).type == '*' && this.ll(2).type == 'IDENT') {
-                        this.ll(2).val = '*' + this.ll(2).val;
-                        this.next();
-                    }
-                    var ll1 = this.ll(1);
-                    var ll2 = this.ll(2);
-                    if (ll1.type === 'IDENT') {
-                        try {
-                            this.mark();
-                            var declaration = this.declaration();
-                            node.list.push(declaration);
-                        } catch (_e) {
-                            if (_e.code === 1987) {
-                                this.restore();
-                                node.list.push(this.stmt());
-                            } else {
-                                throw _e;
-                            }
-                        }
-                    } else {
-                        node.list.push(this.stmt());
-                    }
-                    this.skipStart();
-                }
-                this.match('}');
-                return node;
-            },
-            selectorList: function () {
-                var node = new tree.SelectorList();
-                node.list.push(this.complexSelector());
-                this.skipWSorNewlne();
-                while (this.la() === ',') {
-                    this.next();
-                    this.skipWSorNewlne();
-                    node.list.push(this.complexSelector());
-                    this.skipWSorNewlne();
-                }
-                return node;
-            },
-            complexSelector: function () {
-                var node = new tree.ComplexSelector();
-                var selectorString = '';
-                var i = 0;
-                while (true) {
-                    var ll = this.ll();
-                    if (ll.type === 'INTERPOLATION') {
-                        selectorString += '@' + i++;
-                    }
-                    if (ll.type == ':' && this.ll(2).type == 'ident') {
-                        selectorString += ':' + this.ll(2).val;
-                        this.next(2);
-                    } else if (isSelectorSep(ll.type)) {
-                        selectorString += ll.val || (ll.type === 'WS' ? ' ' : ll.type);
-                        this.next();
-                    } else {
-                        break;
-                    }
-                }
-                node.string = selectorString;
-                return node;
-            },
-            declaration: function (checked) {
-                var node = new tree.Declaration(), ll1 = this.ll(1), ll2 = this.ll(2);
-                node.property = ll1.val;
-                this.next(2);
-                node.value = this.componentValues();
-                this.matcheNewLineOrSemeColon();
-                return node;
-            },
-            componentValues: function (end) {
-                if (end) {
-                    var test = typeof end === 'string' ? function (type) {
-                            return type === end;
-                        } : end;
-                }
-                var node = new tree.ComponentValues(), ll, la, i = 10;
-                while (i++) {
-                    ll = this.ll(1);
-                    la = ll.type;
-                    if (i > 100)
-                        throw Error('dada');
-                    if (la === 'IMPORTANT') {
-                        this.next();
-                        node.important = true;
-                        this.matcheNewLineOrSemeColon();
-                        break;
-                    }
-                    if (test && test(la) || (la === 'NEWLINE' || la === ';')) {
-                        break;
-                    } else {
-                        var componentValue = this.componentValue();
-                        if (componentValue instanceof tree.ComponentValues) {
-                            node.list = node.list.concat(componentValue.list);
-                        } else if (componentValue !== null)
-                            node.list.push(componentValue);
-                    }
-                }
-                return node;
-            },
-            componentValue: function () {
-                var ll1 = this.ll(1);
-                var node, val = ll1.val, res;
-                switch (ll1.type) {
-                case '{':
-                    perror.code = 1987;
-                    throw perror;
-                    break;
-                case ',':
-                case '=':
-                    this.next();
-                    return ll1;
-                case 'WS':
-                    this.next();
-                    return null;
-                default:
-                    return this.expression();
-                }
-            },
-            expression: function (prefix) {
-                var ll = this.ll(1), la = ll.type, node;
-                switch (ll.type) {
-                case '(':
-                    node = this.parenExpression();
-                    break;
-                case 'DIMENSION':
-                    node = this.additive();
-                    break;
-                case '+':
-                case '-':
-                    if (this.ll(2) !== 'ws') {
-                        node = this.expression(ll.type);
-                    } else {
-                        node = ll;
-                    }
-                case 'WS':
-                case 'NEWLINE':
-                    this.next();
-                    node = this.expression();
-                    break;
-                case 'IDENT':
-                    if (this.ll(2).type == '->') {
-                        node = this.pointer();
-                        break;
-                    }
-                case 'STRING':
-                case 'RGBA':
-                case 'URL':
-                    this.next();
-                    node = ll;
-                    break;
-                case 'HASH':
-                    this.next();
-                    val = ll.val;
-                    if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(val)) {
-                        node = new tree.RGBA(val);
-                    } else {
-                        node = new tree.Unknown(ll.val);
-                    }
-                    break;
-                case 'FUNCTION':
-                    this.next();
-                    this.match('(');
-                    var fn = functions[ll.val];
-                    if (!fn) {
-                        node = new tree.CssFunction(ll.val);
-                        node.value = this.componentValues(')');
-                        this.match(')');
-                    } else {
-                        var params = [];
-                        this.skipWSorNewlne();
-                        if (this.la() !== ')') {
-                            do {
-                                params.push(this.expression());
-                            } while (this.la() === ',');
-                        }
-                        this.match(')');
-                        node = fn.apply(this, params);
-                        if (typeof node === 'string') {
-                            node = new tree.Unknown(node);
-                        }
-                    }
-                    break;
-                default:
-                    perror.code = 1987;
-                    throw perror;
-                }
-                if (node && node.type === 'DIMENSION') {
-                    if (prefix === '-') {
-                        node.val.number = 0 - node.val.number;
-                    }
-                }
-                return node;
-            },
-            additive: function (options) {
-                var left = this.multive(), right;
-                this.eat('WS');
-                var op = this.ll();
-                if (op.type === '+' || op.type === '-') {
-                    this.next();
-                    this.eat('WS');
-                    right = this.additive();
-                    return this._add(left, right, op.type);
-                } else {
-                    return left;
-                }
-            },
-            multive: function () {
-                var left = this.primary(), right;
-                var op = this.ll();
-                if (op.type === '*' || op.type === '/') {
-                    this.next();
-                    right = this.multive();
-                    return this._mult(left, right, op.type);
-                } else {
-                    return left;
-                }
-            },
-            _add: function (d1, d2, op) {
-                var val1 = d1.val, val2 = d2.val, unit, number;
-                if (val1.unit) {
-                    unit = val1.unit;
-                } else {
-                    unit = val2.unit;
-                }
-                if (op === '+') {
-                    number = val1.number + val2.number;
-                } else {
-                    number = val1.number - val2.number;
-                }
-                return {
-                    type: 'DIMENSION',
-                    val: {
-                        number: number,
-                        unit: unit
-                    }
-                };
-            },
-            _mult: function (d1, d2, op) {
-                var val1 = d1.val, val2 = d2.val, unit, number;
-                if (val1.unit) {
-                    unit = val1.unit;
-                } else {
-                    unit = val2.unit;
-                }
-                if (op === '*') {
-                    number = val1.number * val2.number;
-                } else {
-                    if (val2.number === 0)
-                        this.error('can"t divid by zero');
-                    number = val1.number / val2.number;
-                }
-                return {
-                    type: 'DIMENSION',
-                    val: {
-                        number: number,
-                        unit: unit
-                    }
-                };
-            },
-            primary: function () {
-                var ll = this.ll();
-                if (ll.type === 'DIMENSION') {
-                    this.next();
-                    return ll;
-                }
-                if (ll.type === '(') {
-                    this.next();
-                    var d1 = this.additive();
-                    this.match(')');
-                    return d1;
-                }
-                this.error('invalid primary');
-            },
-            parenExpression: function () {
-                this.match('(');
-                var t = this.expression();
-                this.match(')');
-                return t;
-            },
-            _lookahead: function () {
-                return this.lookahead.map(function (item) {
-                    return item.type;
-                }).join(',');
             }
         };
     },
@@ -1532,7 +1828,7 @@ var mcss;
     },
     'b': function (require, module, exports, global) {
         var Walker = require('c');
-        var tree = require('4');
+        var tree = require('3');
         function Translator(options) {
             this.options = options || {};
         }
@@ -1670,7 +1966,7 @@ var mcss;
     },
     'd': function (require, module, exports, global) {
         var Interpreter = require('e');
-        var Parser = require('6');
+        var Parser = require('4');
         var Hook = require('f');
         exports.interpret = function (ast, options) {
             if (typeof ast === 'string') {
@@ -1682,7 +1978,7 @@ var mcss;
     },
     'e': function (require, module, exports, global) {
         var Walker = require('c');
-        var tree = require('4');
+        var tree = require('3');
         var symtab = require('9');
         function Interpreter(options) {
         }
@@ -2054,7 +2350,7 @@ var mcss;
     'j': function (require, module, exports, global) {
         var prefixs = require('k').prefixs;
         var _ = require('2');
-        var tree = require('4');
+        var tree = require('3');
         var isTestProperties = _.makePredicate('border-radius transition');
         module.exports = {
             'block': function (tree) {

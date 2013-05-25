@@ -1,52 +1,52 @@
-@mixin args(){
-  font: arguments;
-}
 
+@debug name == name;
+$name = hello;
 
-@module $hello {
-  @var p1 30px;
-  @mixin test(float){
-    font-size:14px;
-    float:float;
-    left:10px;
-    transition:left .1s ease-in-out;
-    @include args(10px , 20px)
+.dada:hello#{da}{
+  dada: -moz-radial-gradient(dada);
+  font: ($hello = p1);
+  @if $name == hello1 {
+    haha: hello1;
+  }@elseif $name == hello2{
+    haha: hello2;
+  }@else{
+    haha: hello3;
+  }
+  @for $item, $i of hello 10px, test solid, name{
+    .haha {
+      index: $i;
+      element: $item;
+    }
   }
 }
 
+$args = ($item, $hello, $test){
+   
+}
 
-.dada:hello(dada){
-  dada:-moz-radial-gradient(dada);
-  font: $hello -> p1;
-  @include $hello -> test(float);
+$size = ($width, $height, $radius = false){
+  width: $width;
+  height: $height;
+  @return hello;
 }
 
 
 
-@var p1 30px;
 
 
-@mixin test(float){
-  font-size:14px;
-  float:float;
-  left:10px;
-  transition:left .1s ease-in-out;
-  @include mx2(10px , 20px)
+
+.class#{tiny, large, heihei}{
+  /*$pos(absolute, 10px solid);*/
+  @debug $i + 80;
+  width: $i + 90; 
 }
 
-@mixin mx2 (p1, p2){
-  @var p2 120px
-  top:p1;
-  bottom: p2;
-  position: relative;
-  hole: arguments;
-}
 
 a, b {
-  @var p1 120px
-  @include test(right)
-  @include args(20px fontsize, test)
-  *zoom: 1
+  @extend .class;
+  $pos: fixed, 10px, 20px;
+  $test: right, hello;
+  $args: test, hello;
   border-top: 10px;
   border: 10px;
   border-radius: 10px;
@@ -54,11 +54,11 @@ a, b {
     left:10px;
   }
   c, d:hover{
-      @include mx2(10px, 20px, test)
+      $mx2(10px, 20px, test);
       .c1:hover, .c2:active{
-        left: 18px
-        right: p1
-        @include test(right)
+        left: 18px;
+        right: p1;
       } 
   }
 }
+ 
