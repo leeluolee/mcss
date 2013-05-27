@@ -1,4 +1,25 @@
 
+h{1..6}{
+  font-size:$item;
+}
+
+@module {
+  $name = hello;
+  .class{
+
+  }
+  $name = ($name, $close){
+
+  }
+}
+
+
+
+@media not sreen and (width: 20px),
+  (width: 20px) and (width: 20px) {
+
+}
+
 @debug name == name;
 $name = hello;
 
@@ -33,6 +54,9 @@ $size = ($width, $height, $radius = false){
 
 
 
+c.class2{
+
+}
 
 
 .class#{tiny, large, heihei}{

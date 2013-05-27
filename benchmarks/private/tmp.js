@@ -304,3 +304,48 @@
         node.scope = this.scope;
         return  node;
     },
+
+    import: function(){
+        var node = new tree.Import(),ll;
+        this.match('AT_KEYWORD');
+        this.match('WS');
+        ll = this.ll();
+        if(ll.type === 'URL' || ll.type === 'STRING'){
+            node.url = ll.value;
+            this.next()
+        }else{
+            this.error('expect URL or STRING' + ' got '+ ll.type);
+        }
+        this.eat('WS');
+        // @TODO media query
+        this.matcheNewLineOrSemeColon();
+        var uid = _.uid();
+        this.tasks += 1;
+        var self = this;
+        io.get(node.url, function(error, text){
+            exports.parse(text, {}, function(err, ast){
+                var list = self.ast.list, len = list.length;
+                if(ast.list.length){
+                    for(var i = 0; i < len; i++){
+                        if(list[i] === uid){
+                            var args;
+                            if(node.assign){
+                                var tmp = [new tree.Module(node.assign, 
+                                        new tree.Block(ast.list))]
+
+
+                            }else{
+                                tmp = ast.list
+                            }
+                            args = [i,1].concat(tmp);
+                            list.splice.apply(list, args);
+                            break;
+                        }
+                    }
+                }
+                self._complete();
+            })
+        })
+
+        return uid;
+    },
