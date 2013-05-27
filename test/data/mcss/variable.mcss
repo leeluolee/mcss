@@ -1,0 +1,13 @@
+$name = 20px;
+
+.classname {
+    $name = 30px;
+    // outport 30px
+    width: $name;
+}
+
+.base-2 {
+    // outport 20px
+    width: $name;
+}
+

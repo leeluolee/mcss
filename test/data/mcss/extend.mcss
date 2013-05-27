@@ -1,0 +1,11 @@
+.base1 {
+    border: 10px solid #fff;
+}
+
+.base2 {
+    color: #fff;
+}
+
+.base3 {
+    @extend .base2, .base3;
+}

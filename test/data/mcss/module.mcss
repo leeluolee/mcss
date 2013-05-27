@@ -1,0 +1,11 @@
+@module {
+    // extend class
+    .base1 {
+        border: 10px solid #fff;
+    }
+    // variable
+    $func = ($size, $type, $color){
+        border: $size $type $color;
+    }
+    $hello = 20px;
+}

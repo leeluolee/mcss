@@ -6,6 +6,7 @@
     "start": "node app"
   },
   "dependencies": {
+    "argumentum": "0.6.x"
   },
   "devDependencies":{
     "nodeunit": "0.8.x",
