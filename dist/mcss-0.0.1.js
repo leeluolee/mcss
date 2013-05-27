@@ -288,7 +288,7 @@ var mcss;
                 return tokens;
             },
             next: function () {
-                var tmp, action, rule, tokenType, lines, state = this.state, rules = $rules, link = $links[state];
+                var tmp, action, rule, token, tokenType, lines, state = this.state, rules = $rules, link = $links[state];
                 if (!link)
                     throw Error('no state: ' + state + ' defined');
                 this.yyval = null;
@@ -311,7 +311,16 @@ var mcss;
                         this.lineno += lines.length;
                     this.remained = this.remained.slice(tmp[0].length);
                     if (tokenType)
-                        return createToken(tokenType, this.yyval, this.lineno);
+                        token = createToken(tokenType, this.yyval, this.lineno);
+                    if (tokenType === 'WS') {
+                        if (this._preIsWS) {
+                            token = null;
+                        }
+                        this._preIsWS = true;
+                    } else {
+                        this._preIsWS = false;
+                    }
+                    return token;
                 } else {
                     this.error('Unrecognized');
                 }
@@ -419,12 +428,14 @@ var mcss;
                 return;
             console.error.apply(console, arguments);
         };
-        _.uid = function () {
+        _.uuid = function (t) {
             var _uid = 1;
+            t = t || '';
             return function () {
-                return _uid++;
+                return t + _uid++;
             };
-        }();
+        };
+        _.uid = _.uuid();
         module.exports = _;
     },
     '3': function (require, module, exports, global) {
@@ -443,11 +454,11 @@ var mcss;
             this.list = list || [];
         }
         SelectorList.prototype.clone = function () {
-            var clone = new SelectorList();
-            clone.list = cloneNode(this.list);
+            var clone = new SelectorList(cloneNode(this.list));
             return clone;
         };
-        SelectorList.prototype.toString = function () {
+        SelectorList.prototype.len = function () {
+            return this.list.length;
         };
         function ComplexSelector(string, interpolations) {
             this.type = 'complexselector';
@@ -495,9 +506,6 @@ var mcss;
             var clone = new Declaration(name || this.property, cloneNode(this.value), important);
             return clone;
         };
-        function String() {
-            this.type = 'string';
-        }
         function Values(list) {
             this.type = 'values';
             this.list = list || [];
@@ -629,7 +637,6 @@ var mcss;
         };
         function Module(name, block) {
             this.type = 'module';
-            this.name = name;
             this.block = block;
         }
         Module.prototype.clone = function () {
@@ -645,14 +652,13 @@ var mcss;
             var clone = new Pointer(this.name, this.key);
             return clone;
         };
-        function Import(url, media, assign) {
+        function Import(url, queryList) {
             this.type = 'import';
             this.url = url;
-            this.media = media;
-            this.assign = assign;
+            this.queryList = queryList || [];
         }
         Import.prototype.clone = function () {
-            var clone = new Import(this.url, cloneNode(this.media), this.assign);
+            var clone = new Import(this.url, this.queryList);
             return clone;
         };
         function IfStmt(test, block, alt) {
@@ -713,7 +719,7 @@ var mcss;
             var clone = new Operator(this.type, cloneNode(this.left), cloneNode(this.right));
             return clone;
         };
-        Operator.toBoolean = function () {
+        Operator.prototype.toBoolean = function () {
         };
         Operator.toValue = function () {
         };
@@ -741,10 +747,42 @@ var mcss;
         function Call(name, params) {
             this.params = params;
         }
-        Call.prototype.clone = function (name, params) {
-            var clone = new Call(name, cloneNode(params));
+        Call.prototype.clone = function () {
+            var clone = new Call(this.name, cloneNode(this.params));
             return clone;
         };
+        function FontFace() {
+        }
+        function Media(queryList, block) {
+            this.queryList = queryList || [];
+            this.block = block;
+        }
+        Media.prototype.clone = function () {
+            var clone = new Media(cloneNode(this.list), cloneNode(this.block));
+            return clone;
+        };
+        function MediaQuery(type, expresions) {
+            this.type = type;
+            this.expresions = expresions || [];
+        }
+        MediaQuery.prototype.clone = function () {
+            var clone = new MediaQuery(cloneNode(this.list));
+            return clone;
+        };
+        function MediaExpression(feature, value) {
+            this.feature = feature;
+            this.value = value;
+        }
+        MediaExpression.prototype.clone = function () {
+            var clone = new MediaExpression(cloneNode(list.feature), cloneNode(this.value));
+            return clone;
+        };
+        function Page() {
+        }
+        function Charset() {
+        }
+        function NameSpace() {
+        }
         exports.Stylesheet = Stylesheet;
         exports.SelectorList = SelectorList;
         exports.ComplexSelector = ComplexSelector;
@@ -770,18 +808,9 @@ var mcss;
         exports.Call = Call;
         exports.Operator = Operator;
         exports.CompoundIdent = CompoundIdent;
-        function FontFace() {
-        }
-        function Media(name, mediaList) {
-            this.name = name;
-            this.media = mediaList;
-        }
-        function Page() {
-        }
-        function Charset() {
-        }
-        function NameSpace() {
-        }
+        exports.Media = Media;
+        exports.MediaQuery = MediaQuery;
+        exports.MediaExpression = MediaExpression;
         exports.inspect = function (node) {
             return node.type.toLowerCase() || node.constructor.name.toLowerCase();
         };
@@ -936,20 +965,12 @@ var mcss;
                 return false;
             },
             match: function (tokenType) {
-                if (!this.eat.apply(this, arguments)) {
+                var ll;
+                if (!(ll = this.eat.apply(this, arguments))) {
                     var ll = this.ll();
                     this.error('expect:"' + tokenType + '" -> got: "' + ll.type + '"');
-                }
-            },
-            expect: function (tokenType, value) {
-            },
-            matcheNewLineOrSemeColon: function () {
-                if (this.eat(';')) {
-                    return true;
-                } else if (this.eat('NEWLINE')) {
-                    return true;
                 } else {
-                    this.error('expect: "NEWLINE" or ";"' + '->got: ' + this.ll().type);
+                    return ll;
                 }
             },
             ll: function (k) {
@@ -1095,62 +1116,46 @@ var mcss;
                 var node = new tree.ReturnStmt(this.valuesList());
                 this.skip('WS');
                 this.match(';');
+                return node;
             },
             import: function () {
-                var node = new tree.Import(), ll;
+                var node, url, queryList, ll;
                 this.match('AT_KEYWORD');
                 this.match('WS');
-                if (this.la() === 'IDENT') {
-                    node.assign = this.ll().value;
-                    this.next();
-                    this.match('WS');
-                }
                 ll = this.ll();
                 if (ll.type === 'URL' || ll.type === 'STRING') {
-                    node.url = ll.value;
+                    url = ll;
                     this.next();
                 } else {
                     this.error('expect URL or STRING' + ' got ' + ll.type);
                 }
                 this.eat('WS');
-                this.matcheNewLineOrSemeColon();
-                var uid = _.uid();
-                this.tasks += 1;
-                var self = this;
-                io.get(node.url, function (error, text) {
-                    exports.parse(text, {}, function (err, ast) {
-                        var list = self.ast.list, len = list.length;
-                        if (ast.list.length) {
-                            for (var i = 0; i < len; i++) {
-                                if (list[i] === uid) {
-                                    var args;
-                                    if (node.assign) {
-                                        var tmp = [new tree.Module(node.assign, new tree.Block(ast.list))];
-                                    } else {
-                                        tmp = ast.list;
-                                    }
-                                    args = [
-                                        i,
-                                        1
-                                    ].concat(tmp);
-                                    list.splice.apply(list, args);
-                                    break;
-                                }
-                            }
-                        }
-                        self._complete();
-                    });
-                });
-                return uid;
+                if (!this.eat(';')) {
+                    queryList = this.media_query_list();
+                    this.match(';');
+                }
+                return new tree.Import(url, queryList);
             },
             module: function () {
-                var node = new tree.Module();
+                var node = new tree.Module(), url;
                 this.match('AT_KEYWORD');
-                this.match('WS');
-                node.name = this.ll().value;
-                this.match('TEXT');
-                node.block = this.block();
+                this.eat('WS');
+                if (this.la() !== '{') {
+                    url = this.url();
+                }
+                if (url) {
+                    io.register({
+                        url: url,
+                        node: node,
+                        key: 'block'
+                    });
+                } else {
+                    node.block = this.block();
+                }
                 return node;
+            },
+            url: function () {
+                return this.match('STRING', 'URL');
             },
             pointer: function () {
                 var name = this.ll().value;
@@ -1203,14 +1208,66 @@ var mcss;
                 return new tree.ForStmt(element, index, list, block);
             },
             media: function () {
+                this.match('AT_KEYWORD');
+                this.eat('WS');
+                var list = this.media_query_list();
+                this.skip('WS');
+                var block = this.block();
+                return new tree.Media(list, block);
             },
             media_query_list: function () {
+                var list = [];
+                do {
+                    list.push(this.media_query());
+                } while (this.eat(','));
+                return list;
             },
             media_query: function () {
+                var expressions = [], ll, type = '';
+                if (this.la() === '(') {
+                    expressions.push(this.media_expression());
+                } else {
+                    ll = this.ll();
+                    if (ll.value === 'only' || ll.value === 'not') {
+                        type = ll.value;
+                        this.next(1);
+                        this.match('WS');
+                        ll = this.ll();
+                    }
+                    this.match('TEXT');
+                    type += ' ' + ll.value;
+                }
+                this.eat('WS');
+                while ((ll = this.ll()).type === 'TEXT' || ll.type === 'FUNCTION' && ll.value === 'and') {
+                    this.next();
+                    this.match('WS');
+                    expressions.push(this.media_expression());
+                    this.eat('WS');
+                }
+                return new tree.MediaQuery(type, expressions);
+            },
+            media_expression: function () {
+                var feature, value;
+                this.match('(');
+                this.eat('WS');
+                feature = this.compoundIdent();
+                this.match(':');
+                value = this.expression();
+                this.match(')');
+                return new tree.MediaExpression(feature, value);
             },
             'font-face': function () {
+                return {};
             },
             charset: function () {
+                this.match('AT_KEYWORD');
+                this.eat('WS');
+                var value = this.ll().value;
+                this.match('STRING');
+                return {
+                    type: 'charset',
+                    value: value
+                };
             },
             keyframe: function () {
             },
@@ -1284,7 +1341,7 @@ var mcss;
                 this.eat('WS');
                 if (!this.eat(':'))
                     return;
-                if (node.property.toString() === 'filter') {
+                if (node.property.value === 'filter') {
                     this.enter(states.FILTER_DECLARATION);
                 }
                 this.enter(states.TRY_DECLARATION);
@@ -1314,7 +1371,11 @@ var mcss;
                     else
                         break;
                 } while (this.eat(','));
-                return new tree.ValuesList(list);
+                if (list.length === 1) {
+                    return list[0];
+                } else {
+                    return new tree.ValuesList(list);
+                }
             },
             values: function () {
                 var list = [], value;
@@ -1514,8 +1575,10 @@ var mcss;
                     return this.parenExpr();
                 case '=':
                     if (this.state(states.FILTER_DECLARATION) && this.state(states.FUNCTION_CALL)) {
+                        this.next();
                         return ll;
                     }
+                    break;
                 case '#{':
                 case 'TEXT':
                     return this.compoundIdent();
@@ -1816,7 +1879,7 @@ var mcss;
     'a': function (require, module, exports, global) {
         var Translator = require('b');
         var interpreter = require('d');
-        var hook = require('f');
+        var hook = require('g');
         exports.translate = function (ast, options) {
             if (typeof ast == 'string') {
                 ast = interpreter.interpret(ast);
@@ -1967,7 +2030,7 @@ var mcss;
     'd': function (require, module, exports, global) {
         var Interpreter = require('e');
         var Parser = require('4');
-        var Hook = require('f');
+        var Hook = require('g');
         exports.interpret = function (ast, options) {
             if (typeof ast === 'string') {
                 ast = Parser.parse(ast, options);
@@ -1980,10 +2043,12 @@ var mcss;
         var Walker = require('c');
         var tree = require('3');
         var symtab = require('9');
+        var state = require('f');
         function Interpreter(options) {
         }
         ;
         var _ = Interpreter.prototype = new Walker();
+        state.mixTo(_);
         _.interpret = function (ast) {
             this.ast = ast;
             this.scope = new symtab.Scope();
@@ -2000,17 +2065,26 @@ var mcss;
             for (ast.index = 0; !!plist[ast.index]; ast.index++) {
                 if (item = this.walk(plist[ast.index])) {
                     if (Array.isArray(item)) {
-                        ast = ast.concat(item);
+                        ast.list = ast.list.concat(item);
                     }
                     ast.list.push(item);
                 }
             }
             return ast;
         };
-        _.walk_ruleset = function (ast) {
-            ast.selector = this.concatSelector(ast.selector);
-            this.down(ast);
-            this.index++;
+        _.walk_ruleset = function (ast, options) {
+            var prevLength = ast.selector.len();
+            var symbols = options.symbols;
+            var selector = this.concatSelector(this.walk(ast.selector));
+            if ((len = selector.len()) > prevLength) {
+                var ruleset;
+                for (var i = 0; i < len; i++) {
+                    var ruleset = new Rule();
+                }
+            }
+            for (var i in symbols)
+                this.down(ast);
+            this.indent++;
             ast.block = this.walk(ast.block);
             this.up(ast);
             this.indent--;
@@ -2018,12 +2092,70 @@ var mcss;
             }
             return ast;
         };
-        _.walk_mixin = function (ast) {
-            this.define(ast.name, ast);
+        _.walk_assign = function (ast) {
+            if (ast.override || !this.resolve(ast.name)) {
+                this.define(ast.name, ast.value);
+            }
+            return ast.value;
         };
-        _.walk_variable = function (ast) {
-            this.walk(ast.value);
-            this.define(ast.name, ast);
+        _.walk_selectorlist = function (ast) {
+            var list = ast.list, len;
+            if (list.length === 1) {
+                this.enter('ACCEPT_LIST');
+            }
+            list = this.walk(list);
+            if ((len = list.length > 1) && this.state('ACCEPT_LIST')) {
+                var curRuleset = this.rulesets[this.rulesets.length - 1];
+                for (var i = 0; i < len; i++) {
+                    var ruleset = new tree.RuleSet(list[i], tree.cloneNode());
+                }
+            }
+            this.leave('ACCEPT_LIST');
+            return ast;
+        };
+        _.walk_complexselector = function (ast) {
+            var interpolations = ast.interpolations, i, len = interpolations.length;
+            for (i = 0; i < len; i++) {
+                var value = this.walk(interpolations[i]);
+                if (value.type === 'valueslist') {
+                }
+                switch (value.type) {
+                case 'valueslist':
+                default:
+                    return;
+                }
+            }
+        };
+        _.walk_string = function (ast) {
+            var self = this, symbol;
+            ast.value = ast.value.replace(/#\{(\w+)}/g, function (all, name) {
+                if (symbol = this.resolve(name)) {
+                    return self.toStr(symbol);
+                } else {
+                    throw Error('not defined String interpolation');
+                }
+            });
+            return ast;
+        };
+        _.walk_text = function () {
+        };
+        _.walk_operator = function (ast) {
+        };
+        _.toStr = function (ast) {
+            switch (ast.type) {
+            case 'TEXT':
+            case 'BOOLEAN':
+            case 'NULL':
+                return ll.value;
+            case 'DIMENSION':
+                return ll.value + ll.unit ? ll.unit : '';
+            case 'STRING':
+                return this.walk(ast);
+            default:
+                return ll.value;
+            }
+        };
+        _.walk_func = function () {
         };
         _.walk_include = function (ast) {
             var mixin = this.walk(ast.name), res, iscope, params;
@@ -2054,22 +2186,7 @@ var mcss;
             return ast;
         };
         _.walk_module = function (ast) {
-            this.down();
-            ast.scope = this.scope.toStruct();
             this.walk(ast.block);
-            this.up();
-            this.define(ast.name, ast);
-        };
-        _.walk_pointer = function (ast) {
-            var module = this.resolve(ast.name);
-            if (!module)
-                this.error('undefined module: "' + ast.name + '"');
-            this.expect(module, 'module');
-            var scope = module.scope;
-            var node = scope.resolve(ast.key);
-            if (!node)
-                this.error('not "' + ast.key + '" in module:"' + ast.name + '"');
-            return node;
         };
         _.walk_componentvalues = function (ast) {
             var self = this;
@@ -2184,16 +2301,46 @@ var mcss;
         module.exports = Interpreter;
     },
     'f': function (require, module, exports, global) {
-        var Hook = require('g');
+        function ex(o1, o2, override) {
+            for (var i in o2)
+                if (o1[i] == null || override) {
+                    o1[i] = o2[i];
+                }
+        }
+        ;
+        var API = {
+                state: function (state) {
+                    var _states = this._states || (this._states = []);
+                    return _states.some(function (item) {
+                        return item === state;
+                    });
+                },
+                enter: function (state) {
+                    var _states = this._states || (this._states = []);
+                    _states.push(state);
+                },
+                leave: function (state) {
+                    var _states = this._states || (this._states = []);
+                    if (!state || state === _states[_states.length - 1])
+                        _states.pop();
+                }
+            };
+        exports.mixTo = function (obj) {
+            obj = typeof obj == 'function' ? obj.prototype : obj;
+            ex(obj, API);
+        };
+    },
+    'g': function (require, module, exports, global) {
+        var Hook = require('h');
         exports.hook = function (ast, options) {
             new Hook(options).walk(ast);
             return ast;
         };
     },
-    'g': function (require, module, exports, global) {
+    'h': function (require, module, exports, global) {
         var Walker = require('c');
-        var Event = require('h');
-        var hooks = require('i');
+        var Event = require('i');
+        var hooks = require('j');
         function Hook(options) {
             options = options || {};
             this.load(options.hooks);
@@ -2280,7 +2427,7 @@ var mcss;
         };
         module.exports = Hook;
     },
-    'h': function (require, module, exports, global) {
+    'i': function (require, module, exports, global) {
         var slice = [].slice, ex = function (o1, o2, override) {
                 for (var i in o2)
                     if (o1[i] == null || override) {
@@ -2341,14 +2488,14 @@ var mcss;
         };
         module.exports = Event;
     },
-    'i': function (require, module, exports, global) {
+    'j': function (require, module, exports, global) {
         module.exports = {
-            prefixr: require('j'),
-            csscomb: require('l')
+            prefixr: require('k'),
+            csscomb: require('m')
         };
     },
-    'j': function (require, module, exports, global) {
-        var prefixs = require('k').prefixs;
+    'k': function (require, module, exports, global) {
+        var prefixs = require('l').prefixs;
         var _ = require('2');
         var tree = require('3');
         var isTestProperties = _.makePredicate('border-radius transition');
@@ -2364,7 +2511,7 @@ var mcss;
             }
         };
     },
-    'k': function (require, module, exports, global) {
+    'l': function (require, module, exports, global) {
         exports.orders = {
             'position': 1,
             'z-index': 1,
@@ -2646,8 +2793,8 @@ var mcss;
             'line-height': 7
         };
     },
-    'l': function (require, module, exports, global) {
-        var orders = require('k').orders;
+    'm': function (require, module, exports, global) {
+        var orders = require('l').orders;
         module.exports = {
             'block': function (tree) {
                 tree.list.sort(function (d1, d2) {
