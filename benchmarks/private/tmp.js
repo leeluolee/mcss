@@ -349,3 +349,73 @@
 
         return uid;
     },
+
+    pointer: function(){
+        var name = this.ll().value;
+        var node = new tree.Pointer(name)
+        this.match('IDENT');
+        this.match('->');
+        node.key = this.ll().value;
+        if(!this.eat('IDENT') && !this.eat('FUNCTION')){
+            this.error('invalid pointer')
+        }
+        // 1级够用 @TODO: 增加多极  加入parent即可
+        // while(this.eat('->')){
+        //     node.list.push(this.ll());
+        //     this.match('IDENT');
+        // }
+        return node;
+    },
+
+
+// _.walk_include = function(ast){
+//     var func;
+//     var mixin = this.walk(ast.name), 
+//         res, iscope, params;
+
+//     if(!mixin) this.error('no ' + ast.name + ' defined');
+//     this.expect(mixin, 'mixin')
+
+//     iscope = new symtab.Scope();
+//     params = this.walk(ast.params);
+
+//     this.push(iscope);
+//     var list = []
+//     for(var i = 0 ; i < params.length; i++){
+//         var formalName = (mixin.formalParams[i] && mixin.formalParams[i].name),def;
+//         if(!params[i]){
+//             continue;
+//         }
+//         if(i !== 0){
+//             list.push({type:','});
+//         }
+//         list = list.concat(params[i].list);
+//         // component values   ||  mixin
+//         if(formalName){
+//             this.define(formalName, new tree.Variable(formalName, params[i]))
+//         }
+//     }
+//     this.define('arguments', new tree.Variable('arguments', 
+//             new tree.ComponentValues(list)
+//         ))
+//     // console.log(this.resolve('arguments'), ast.name)
+//     var block = tree.cloneNode(mixin.block);
+//     ast = this.walk(block);
+//     this.pop()
+//     return ast;
+// }
+
+
+// /**
+//  * -> 读取模块内信息
+//  * @return {[type]} [description]
+//  */
+// _.walk_pointer = function(ast){
+//     var module = this.resolve(ast.name);
+//     if(!module) this.error('undefined module: "'+ast.name+'"')
+//     this.expect(module, 'module')
+//     var scope = module.scope;
+//     var node = scope.resolve(ast.key);
+//     if(!node) this.error('not "' + ast.key +'" in module:"'+ast.name+'"')
+//     return node;
+// }

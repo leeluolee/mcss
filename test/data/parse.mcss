@@ -1,26 +1,91 @@
-
-h{1..6}{
-  font-size:$item;
+dada a.class {
+  solid: 10px
+}
+$args = ($item4, $hello..., $test){
+  @if true{
+    @return $item4;
+  }
+  dada a.class {
+    solid: $item4;
+  }
 }
 
-@module {
-  $name = hello;
+/**
+ * TODO why affect $item3;
+ */
+@debug $args(10px, solid,  20px, 30px , #ffc, lighten(#ccc, 30%));
+
+/**
+ * for block scope
+ */
+@for $item, $i of hello, heihei{
+  //TODO fix selector error
+  hello .for-class-#{$item}{
+      left#{$i}: $i * 80px;
+      @debug $i * 80px;
+  }
+}
+
+@debug lighten(#123123, 190%);
+
+$item2 = 60px;
+$item3 = 20px * 30 + $item2;
+hello{
+  h#{1...6} span.item#{ada}{
+      .class{
+        left: $item;
+      }
+      font-#{$i}:$item;
+      left: $item2 * 80px;
+  }
+}
+
+/**
+ * if block scope
+ */
+@if $item2{
   .class{
-
+    hello: 10px;
   }
-  $name = ($name, $close){
-
+}@else{
+  .class-2{
+    hello: 20px;
   }
 }
 
+
+
+
+/**
+ * rulset block scope
+ */
+.class-#{module, stable, class}{
+  width: 10px * ($i + 1); 
+}
+
+
+/* @module{
+  $click-name = hello;
+  test.click-class{
+  }
+  $test = ($name, $close){
+
+  }
+  @for $t, $i of 1,2,3,4,5 {
+    .class-#{$i} {
+       @if $i == 1{
+
+       }
+    } 
+  }
+}
+ */
 
 
 @media not sreen and (width: 20px),
   (width: 20px) and (width: 20px) {
-
 }
 
-@debug name == name;
 $name = hello;
 
 .dada:hello#{da}{
@@ -41,39 +106,48 @@ $name = hello;
   }
 }
 
-$args = ($item, $hello, $test){
-   
-}
 
-$size = ($width, $height, $radius = false){
+$size = ($width, $height, $return = false){
+  $height ?= $width;
   width: $width;
   height: $height;
-  @return hello;
+  @if $return{
+    @return $width * $height;
+  }
 }
 
+$pos = (){
+
+}
+$test =(){
+
+}
 
 
 
 c.class2{
-
+  color: ligten(#ccc, 10%);
+  $size(10px, 20px);
+  /*@debug $size(10px, 20px, true);*/
 }
 
 
 .class#{tiny, large, heihei}{
   /*$pos(absolute, 10px solid);*/
-  @debug $i + 80;
-  width: $i + 90; 
+  color: $item; 
 }
 
 
-a, b {
-  @extend .class;
+c, d {
   $pos: fixed, 10px, 20px;
   $test: right, hello;
   $args: test, hello;
   border-top: 10px;
   border: 10px;
   border-radius: 10px;
+  $mx2 = (){
+
+  }
   &:hover{
     left:10px;
   }
