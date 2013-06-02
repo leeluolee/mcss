@@ -1,7 +1,40 @@
+@import url(../hello.mcss);
+@import "../hello.mcss";
+@import "hello.mcss";
+@import "hello.mcss" screen and (max-width: 99px);
+
 dada a.class {
-  solid: 10px
+  $solid = 20px;
+  $name = max-width;
+  solid: 10px;
+  @media screen{
+    @media ( $name : $solid){
+      .class-1 {
+        hello: hello
+      }
+    }
+  }
+  .class-2{
+    hello: 3px;
+      .class-3{
+        hello: 3px;
+      }
+  }
 }
+
+@document url('http://www.w3.org/'),
+               url-prefix(http://www.w3.org/Style/),
+               domain(mozilla.org),
+               regexp("https:.*")
+{
+  body { color: purple; background: yellow; }
+  test {height: 20px;}
+}
+
+
+
 $args = ($item4, $hello..., $test){
+  @debug args(0);
   @if true{
     @return $item4;
   }
@@ -10,9 +43,6 @@ $args = ($item4, $hello..., $test){
   }
 }
 
-/**
- * TODO why affect $item3;
- */
 @debug $args(10px, solid,  20px, 30px , #ffc, lighten(#ccc, 30%));
 
 /**
@@ -30,6 +60,9 @@ $args = ($item4, $hello..., $test){
 
 $item2 = 60px;
 $item3 = 20px * 30 + $item2;
+heihei p{
+  left: 10px;
+}
 hello{
   h#{1...6} span.item#{ada}{
       .class{
@@ -38,6 +71,7 @@ hello{
       font-#{$i}:$item;
       left: $item2 * 80px;
   }
+  @extend heihei p;
 }
 
 /**
@@ -116,14 +150,6 @@ $size = ($width, $height, $return = false){
   }
 }
 
-$pos = (){
-
-}
-$test =(){
-
-}
-
-
 
 c.class2{
   color: ligten(#ccc, 10%);
@@ -139,8 +165,7 @@ c.class2{
 
 
 c, d {
-  $pos: fixed, 10px, 20px;
-  $test: right, hello;
+  /*$pos: fixed, 10px, 20px;*/
   $args: test, hello;
   border-top: 10px;
   border: 10px;

@@ -74,6 +74,7 @@ var mcss;
         var io = require('6');
         var binop = require('8');
         var symtab = require('9');
+        var state = require('7');
         var perror = new Error();
         var slice = [].slice;
         var errors = {
@@ -143,7 +144,7 @@ var mcss;
                 this.marked = null;
                 this.tasks = 1;
                 this.callback = callback;
-                this.stylesheet();
+                this.ast = this.stylesheet();
                 this._complete();
             },
             _complete: function () {
@@ -245,10 +246,12 @@ var mcss;
                 console.log(this.ast, this);
                 throw Error(msg + ' on line:' + this.ll().lineno);
             },
-            stylesheet: function () {
+            stylesheet: function (block) {
+                var end = block ? '}' : 'EOF';
+                if (block)
+                    this.match('{');
                 var node = new tree.Stylesheet();
-                this.ast = node;
-                while (this.la(1) !== 'EOF') {
+                while (!this.eat(end)) {
                     this.skipStart();
                     var stmt = this.stmt();
                     if (stmt) {
@@ -303,7 +306,23 @@ var mcss;
                 return this.directive();
             },
             directive: function () {
-                this.error('undefined atrule: "' + this.ll().value + '"');
+                var name = this.ll().value.toLowerCase();
+                var dhook = state.directives[name];
+                if (dhook) {
+                    console.log('has hook');
+                } else {
+                    this.match('AT_KEYWORD');
+                    this.eat('WS');
+                    var value = this.valuesList();
+                    this.eat('WS');
+                    if (this.eat(';')) {
+                        return new tree.Directive(name, value);
+                    } else {
+                        var block = this.block();
+                        return new tree.Directive(name, value, block);
+                    }
+                    this.error('invalid customer directive define');
+                }
             },
             param: function () {
                 var name = this.ll().value, dft, rest = false;
@@ -419,7 +438,7 @@ var mcss;
                 this.eat('WS');
                 var list = this.media_query_list();
                 this.skip('WS');
-                var block = this.block();
+                var block = this.stylesheet(true);
                 return new tree.Media(list, block);
             },
             media_query_list: function () {
@@ -442,7 +461,7 @@ var mcss;
                         ll = this.ll();
                     }
                     this.match('TEXT');
-                    type += ' ' + ll.value;
+                    type += (type ? ' ' : '') + ll.value;
                 }
                 this.eat('WS');
                 while ((ll = this.ll()).type === 'TEXT' || ll.type === 'FUNCTION' && ll.value === 'and') {
@@ -457,28 +476,45 @@ var mcss;
                 var feature, value;
                 this.match('(');
                 this.eat('WS');
-                feature = this.compoundIdent();
+                feature = this.expression();
                 this.match(':');
                 value = this.expression();
                 this.match(')');
                 return new tree.MediaExpression(feature, value);
             },
             'font-face': function () {
-                return {};
-            },
-            charset: function () {
                 this.match('AT_KEYWORD');
                 this.eat('WS');
-                var value = this.ll().value;
-                this.match('STRING');
-                return {
-                    type: 'charset',
-                    value: value
-                };
+                return new tree.FontFace(this.block());
             },
-            keyframe: function () {
+            keyframes: function () {
+                this.match('AT_KEYWORD');
+                this.eat('WS');
+                var name = this.compoundIdent();
+                this.eat('WS');
+                this.match('{');
+                this.eat('WS');
+                var blocks = [];
+                while (!this.eat('}')) {
+                    blocks.push(this.keyframes_block());
+                }
+                return new tree.Keyframes(name, blocks);
+            },
+            keyframes_block: function () {
+                var step = this.ll(), block;
+                this.match('IDENT', 'DIMENSION');
+                this.eat('WS');
+                block = this.block();
+                this.eat('WS');
+                return new tree.keyframesBlock(step, block);
             },
             page: function () {
+                this.match('AT_KEYWORD');
+                this.eat('WS');
+                var selector = this.match('PSEUDO_CLASS').value;
+                this.eat('WS');
+                var block = this.block();
+                return new tree.Page(selector, block);
             },
             debug: function () {
                 this.match('AT_KEYWORD');
@@ -487,6 +523,16 @@ var mcss;
                 var node = new tree.Debug(expression);
                 this.match(';');
                 return node;
+            },
+            vain: function () {
+                var selector, block;
+                this.match('AT_KEYWORD');
+                this.eat('WS');
+                if (this.la() !== '{') {
+                    selector = this.selectorList();
+                } else {
+                    block = this.block();
+                }
             },
             ruleset: function () {
                 var node = new tree.RuleSet(), rule;
@@ -538,7 +584,7 @@ var mcss;
                 node.string = selectorString;
                 return node;
             },
-            declaration: function (checked) {
+            declaration: function (noEnd) {
                 var node = new tree.Declaration();
                 var ll1 = this.ll(1), ll2 = this.ll(2);
                 if (ll1.type === '*' && ll2.type == 'TEXT') {
@@ -566,8 +612,10 @@ var mcss;
                 if (this.eat('IMPORTANT')) {
                     node.important = true;
                 }
-                if (this.la() !== '}') {
-                    this.match(';');
+                if (!noEnd) {
+                    if (this.la() !== '}') {
+                        this.match(';');
+                    }
                 }
                 this.leave(states.FILTER_DECLARATION);
                 return node;
@@ -823,7 +871,7 @@ var mcss;
                 this.match('(');
                 this.eat('WS');
                 if (this.la() === 'VAR' && (this.la(2) === '=' || this.la(2) === '?=')) {
-                    node = this.assign();
+                    node = this.assign(true);
                 } else {
                     node = this.expression();
                 }
@@ -861,17 +909,19 @@ var mcss;
                 return node;
             },
             fnCall: function () {
-                var ll = this.ll();
-                var node = new tree.Call();
-                node.name = ll.value;
+                var ll = this.ll(), name = ll.value, args;
                 this.match('FUNCTION', 'VAR');
+                if (ll.args) {
+                    return new tree.Call(name, ll.args);
+                }
                 this.eat('WS');
                 this.match('(');
                 this.enter(states.FUNCTION_CALL);
-                node.args = this.valuesList().list;
+                args = this.valuesList();
+                args = args.type === 'valueslist' ? args.list : [args];
                 this.leave(states.FUNCTION_CALL);
                 this.match(')');
-                return node;
+                return new tree.Call(name, args);
             },
             transparentCall: function () {
                 var ll = this.ll();
@@ -1036,10 +1086,19 @@ var mcss;
                 }
             },
             {
-                regexp: $(/url{w}*\((['"]?)([^\r\n\f]*?)\1{w}*\)/),
-                action: function (yytext, quote, url) {
+                regexp: $(/(url|url\-prefix|domain|regexp){w}*\({w}*['"]?([^\r\n\f]*?)['"]?{w}*\)/),
+                action: function (yytext, name, url) {
                     this.yyval = url;
-                    return 'URL';
+                    if (name === 'url')
+                        return 'URL';
+                    return {
+                        type: 'FUNCTION',
+                        value: name,
+                        args: [{
+                                type: 'STRING',
+                                value: url
+                            }]
+                    };
                 }
             },
             {
@@ -1130,7 +1189,7 @@ var mcss;
                 regexp: /(['"])([^\r\n\f]*?)\1/,
                 action: function (yytext, quote, value) {
                     this.yyval = value || '';
-                    return 'RAW_STRING';
+                    return 'STRING';
                 }
             },
             {
@@ -1336,7 +1395,10 @@ var mcss;
         };
         _.uid = _.uuid();
         _.merge = function (list, ast) {
-            if (ast.type === 'block') {
+            if (!ast)
+                return;
+            var type = ast.type;
+            if (type === 'block' || type === 'stylesheet') {
                 return _.merge(list, ast.list);
             }
             if (Array.isArray(ast)) {
@@ -1346,6 +1408,8 @@ var mcss;
             } else {
                 list.push(ast);
             }
+        };
+        _.processUrl = function () {
         };
         module.exports = _;
     },
@@ -1359,6 +1423,16 @@ var mcss;
             var clone = new Stylesheet();
             clone.list = cloneNode(this.list);
             return clone;
+        };
+        Stylesheet.prototype.exclude = function () {
+            var res = [], list = this.list, item;
+            for (var len = list.length; len--;) {
+                item = list[len];
+                if (item.type === 'media') {
+                    res.unshift(list.splice(len, 1)[0]);
+                }
+            }
+            return res;
         };
         function SelectorList(list) {
             this.type = 'selectorlist';
@@ -1384,6 +1458,7 @@ var mcss;
             this.type = 'ruleset';
             this.selector = selector;
             this.block = block;
+            this.ref = [];
         }
         RuleSet.prototype.remove = function (ruleset) {
         };
@@ -1398,6 +1473,16 @@ var mcss;
         Block.prototype.clone = function () {
             var clone = new Block(cloneNode(this.list));
             return clone;
+        };
+        Block.prototype.exclude = function () {
+            var res = [], list = this.list, item;
+            for (var len = list.length; len--;) {
+                item = list[len];
+                if (item.type !== 'declaration') {
+                    res.unshift(list.splice(len, 1)[0]);
+                }
+            }
+            return res;
         };
         function Call(name, arguments) {
             this.name = name;
@@ -1664,9 +1749,16 @@ var mcss;
             var clone = new Call(this.name, cloneNode(this.args));
             return clone;
         };
-        function FontFace() {
+        function FontFace(block) {
+            this.type = 'fontface';
+            this.block = block;
         }
+        FontFace.prototype.clone = function () {
+            var clone = new FontFace(param);
+            return clone;
+        };
         function Media(queryList, block) {
+            this.type = 'media';
             this.queryList = queryList || [];
             this.block = block;
         }
@@ -1674,34 +1766,86 @@ var mcss;
             var clone = new Media(cloneNode(this.list), cloneNode(this.block));
             return clone;
         };
-        function MediaQuery(type, expresions) {
-            this.type = type;
-            this.expresions = expresions || [];
+        function MediaQuery(type, expressions) {
+            this.type = 'mediaquery';
+            this.meidaType = type;
+            this.expressions = expressions || [];
         }
         MediaQuery.prototype.clone = function () {
-            var clone = new MediaQuery(cloneNode(this.list));
+            var clone = new MediaQuery(this.mediaType, cloneNode(this.list));
             return clone;
         };
+        MediaQuery.prototype.equals = function (media) {
+            var expressions = this.expressions, len = expressions.length, test, exp;
+            if (!media)
+                return false;
+            if (this.mediaType !== media.mediaType) {
+                return false;
+            }
+            if (len !== media.length) {
+                return false;
+            }
+            for (; len--;) {
+                exp = expressions[len - 1];
+                test = media.expressions.some(function (exp2) {
+                    return exp.equals(exp2);
+                });
+            }
+        };
         function MediaExpression(feature, value) {
+            this.type = 'mediaexpression';
             this.feature = feature;
             this.value = value;
         }
         MediaExpression.prototype.clone = function () {
-            var clone = new MediaExpression(cloneNode(list.feature), cloneNode(this.value));
+            var clone = new MediaExpression(cloneNode(this.feature), cloneNode(this.value));
             return clone;
         };
-        function Page() {
+        MediaExpression.prototype.equals = function (exp2) {
+            return this.feature == exp2.feature && this.value === exp2.feature;
+        };
+        function Keyframes(name, blocks) {
+            this.type = 'keyframes';
+            this.blocks = blocks || [];
         }
-        function Charset() {
+        Keyframes.prototype.clone = function () {
+            var clone = new Keyframes(cloneNode(this.blocks));
+            return clone;
+        };
+        function KeyframesBlock(step, block) {
+            this.type = 'keyframesblock';
+            this.step = step;
+            this.block = block;
         }
-        function NameSpace() {
+        KeyframesBlock.prototype.clone = function () {
+            var clone = new KeyframesBlock(cloneNode(this.step), cloneNode(this.block));
+            return clone;
+        };
+        function Page(selector, block) {
+            this.type = 'page';
+            this.selector = selector;
+            this.block = block;
         }
+        Page.prototype.clone = function () {
+            var clone = new Page(this.selector, cloneNode(this.block));
+            return clone;
+        };
         function Debug(expression) {
             this.type = 'debug';
             this.expression = expression;
         }
         Debug.prototype.clone = function () {
             var clone = new Debug(cloneNode(this.expression));
+            return clone;
+        };
+        function Directive(name, value, block) {
+            this.type = 'directive';
+            this.name = name;
+            this.value = value;
+            this.block = block;
+        }
+        Directive.prototype.clone = function () {
+            var clone = new Directive(this.name, cloneNode(this.value), cloneNode(this.block));
             return clone;
         };
         exports.Stylesheet = Stylesheet;
@@ -1725,6 +1869,8 @@ var mcss;
         exports.Pointer = Pointer;
         exports.Range = Range;
         exports.Import = Import;
+        exports.Page = Page;
+        exports.Directive = Directive;
         exports.RGBA = RGBA;
         exports.Assign = Assign;
         exports.Call = Call;
@@ -1733,6 +1879,8 @@ var mcss;
         exports.Media = Media;
         exports.MediaQuery = MediaQuery;
         exports.MediaExpression = MediaExpression;
+        exports.Keyframes = Keyframes;
+        exports.KeyframesBlock = KeyframesBlock;
         exports.inspect = function (node) {
             return node.type ? node.type.toLowerCase() : null;
         };
@@ -1828,6 +1976,14 @@ var mcss;
         var _ = {};
         _.debug = true;
         _.files = [];
+        _.directives = {
+            'test': {
+                accept: 'valueList',
+                interpret: function (ast) {
+                }
+            }
+        };
+        module.exports = _;
     },
     '8': function (require, module, exports, global) {
         var _ = require('4');
@@ -2014,12 +2170,14 @@ var mcss;
         var _ = Interpreter.prototype = new Walker();
         state.mixTo(_);
         var errors = { 'RETURN': u.uid() };
+        var states = { 'DECLARATION': u.uid() };
         _.ierror = new Error();
         _.interpret = function (ast) {
             this.ast = ast;
             this.scope = new symtab.Scope();
             this.istack = [];
             this.rulesets = [];
+            this.medias = [];
             this.indent = 0;
             var res = this.walk(ast);
             return res;
@@ -2028,7 +2186,6 @@ var mcss;
             return ast;
         };
         _.walk_stylesheet = function (ast) {
-            ast.scope = this.scope;
             var plist = ast.list, item;
             ast.list = [];
             for (ast.index = 0; !!plist[ast.index]; ast.index++) {
@@ -2038,11 +2195,23 @@ var mcss;
             }
             return ast;
         };
+        _.walk_directive = function (ast) {
+            ast.value = this.walk(ast.value);
+            if (ast.block)
+                ast.block = this.walk(ast.block);
+            return ast;
+        };
         _.walk_ruleset = function (ast) {
             this.down(ast);
-            var rawSelector = this.walk(ast.selector), values, iscope, res = [];
-            if (values = ast.values) {
-                this.up(ast);
+            var rawSelector = this.walk(ast.selector), values = ast.values, iscope, res = [];
+            this.up(ast);
+            var self = this;
+            rawSelector.list.forEach(function (complex) {
+                self.define(complex.string, ast);
+            });
+            if (!values)
+                ast.selector = this.concatSelector(rawSelector);
+            if (values) {
                 for (var i = 0, len = values.length; i < len; i++) {
                     iscope = new symtab.Scope();
                     this.push(iscope);
@@ -2058,9 +2227,14 @@ var mcss;
                     this.pop();
                 }
             } else {
-                ast.block = this.walk(ast.block);
+                this.down(ast);
+                var block = this.walk(ast.block);
                 this.up(ast);
-                ast.selector = this.concatSelector(rawSelector);
+                res = block.exclude();
+                ast.block = block;
+                if (res.length) {
+                    res.unshift(ast);
+                }
             }
             return res.length ? res : ast;
         };
@@ -2136,7 +2310,6 @@ var mcss;
                 var value = this.walk(ast.value);
                 this.define(ast.name, value);
             }
-            return ast.value;
         };
         _.walk_var = function (ast) {
             var symbol = this.resolve(ast.value);
@@ -2217,6 +2390,9 @@ var mcss;
             }
             if (args.length) {
                 this.define('$arguments', new tree.ValuesList(args));
+                if (this.state('DECLARATION')) {
+                    this.define('$_dada');
+                }
             }
             try {
                 var block = this.walk(func.block.clone());
@@ -2232,7 +2408,6 @@ var mcss;
             return block;
         };
         _.walk_return = function (ast) {
-            debugger;
             _.ierror.code = errors.RETURN;
             _.ierror.value = this.walk(ast.value);
             throw _.ierror;
@@ -2268,11 +2443,41 @@ var mcss;
             return ast;
         };
         _.walk_extend = function (ast) {
-            this.walk(ast.selector);
+            var ruleset = this.rulesets[this.rulesets.length - 1];
+            if (!ruleset)
+                this.error('can"t use @extend outside ruleset');
+            var selector = this.walk(ast.selector);
+            var self = this;
+            selector.list.forEach(function (item) {
+                var extend = self.resolve(item.string);
+                if (extend) {
+                    extend.ref.push(ruleset);
+                }
+            });
         };
         _.walk_import = function (ast) {
+            console.log(ast);
         };
         _.walk_media = function (ast) {
+            ast.queryList = this.walk(ast.queryList);
+            this.concatMedia(ast);
+            this.down(null, ast);
+            this.walk(ast.block);
+            this.up(null, ast);
+            var res = ast.block.exclude();
+            if (res.length) {
+                res.unshift(ast);
+            }
+            return res.length ? res : ast;
+        };
+        _.walk_mediaquery = function (ast) {
+            ast.expressions = this.walk(ast.expressions);
+            return ast;
+        };
+        _.walk_mediaexpression = function (ast) {
+            ast.feature = this.walk(ast.feature);
+            ast.value = this.walk(ast.value);
+            return ast;
         };
         _.walk_block = function (ast) {
             var list = ast.list;
@@ -2286,8 +2491,10 @@ var mcss;
             return ast;
         };
         _.walk_declaration = function (ast) {
+            this.enter('DECLARATION');
             ast.property = this.walk(ast.property);
             ast.value = this.walk(ast.value);
+            this.leave('DECLARATION');
             return ast;
         };
         _.walk_compoundident = function (ast) {
@@ -2308,14 +2515,18 @@ var mcss;
             ast.list = this.walk(ast.list);
             return ast;
         };
-        _.down = function (ruleset) {
+        _.down = function (ruleset, media) {
             if (ruleset)
                 this.rulesets.push(ruleset);
+            if (media)
+                this.medias.push(media);
             this.scope = new symtab.Scope(this.scope);
         };
-        _.up = function (ruleset) {
+        _.up = function (ruleset, media) {
             if (ruleset)
                 this.rulesets.pop();
+            if (media)
+                this.medias.pop();
             this.scope = this.scope.getOuterScope();
         };
         _.concatSelector = function (selectorList) {
@@ -2337,6 +2548,14 @@ var mcss;
                 }
             }
             return res;
+        };
+        _.concatMedia = function (media) {
+            var ss = this.medias;
+            if (!ss.length)
+                return media;
+            var slist = ss[ss.length - 1].queryList, mlist = media.queryList, queryList = [];
+            media.queryList = slist.concat(mlist);
+            return media;
         };
         _.push = function (scope) {
             this.istack.push(scope);
@@ -2470,6 +2689,7 @@ var mcss;
     },
     'e': function (require, module, exports, global) {
         var tree = require('5');
+        var _ = require('4');
         var fixColor = function (number) {
             return number > 255 ? 255 : number < 0 ? 0 : number;
         };
@@ -2507,6 +2727,32 @@ var mcss;
                         chs[3]
                     ]);
                 return new tree.RGBA(channels);
+            },
+            red: function (rgba) {
+                return rgba.channels[0];
+            },
+            green: function (rgba) {
+                return rgba.channels[1];
+            },
+            blue: function (rgba) {
+                return rgba.channels[2];
+            },
+            alpha: function (rgba) {
+                return rgba.channels[3];
+            },
+            args: function (number) {
+                var arguments = this.resolve('$arguments'), arg;
+                if (!arguments) {
+                    throw Error('the args() must be called in function block');
+                }
+                if (!number || number.type !== 'DIMENSION') {
+                    throw Error('invalid arguments passed to args()');
+                }
+                if (arg = arguments.list[number.value]) {
+                    return arg;
+                } else {
+                    return { type: 'NULL' };
+                }
             }
         };
     },
@@ -3040,6 +3286,8 @@ var mcss;
         _.walk_componentvalues = function (ast) {
             var text = this.walk(ast.list).join(' ');
             return text;
+        };
+        _.walk_values = function () {
         };
         _.walk_declaration = function (ast) {
             var text = ast.property;
