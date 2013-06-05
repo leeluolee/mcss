@@ -16,65 +16,61 @@ var mcss;
         module.exports = mcss;
     },
     '1': function (require, module, exports, global) {
-        var Parser = require('2');
-        var Interpreter = require('a');
-        var Translator = require('n');
+        var Parser = exports.Parser = require('2');
+        var Interpreter = exports.Interpreter = require('d');
+        var Translator = exports.Translator = require('p');
+        var promise = require('8');
         var _ = require('4');
-        var defaults = {
-                minify: false,
-                o_folder: 'css',
-                i_folder: 'mcss'
-            };
-        var parse = exports.parse = function (text, options, callback) {
-                if (typeof text === 'object') {
-                    options = text;
-                    callback = options;
-                    text = null;
-                }
-                var parser = new Parser(options);
-                parser.parse(text, callback);
-            };
-        var interpret = exports.interpret = function (text, options, callback) {
-                if (typeof text === 'object') {
-                    options = text;
-                    callback = options;
-                    text = null;
-                }
-                var interpreter = new Interpreter(options);
-                parse(text, options, function (err, ast) {
-                    if (err)
-                        return callback(err);
-                    callback(null, interpreter.interpret(ast));
-                });
-            };
-        var translate = exports.translate = function (text, options, callback) {
-                if (typeof text === 'object') {
-                    options = text;
-                    callback = options;
-                    text = null;
-                }
-                if (!text) {
-                }
-                if (!callback && options.outport)
-                    callback = function (err, text) {
-                        fs.writeFileSync(options.outport, text, 'utf8');
-                    };
-                var translator = new Translator(options);
-                interpret(text, options, function (err, ast) {
-                    if (err)
-                        return callback(err);
-                    callback(null, translator.translate(ast));
-                });
-            };
+        var io = require('7');
+        function Mcss(options) {
+            this.options = options || {};
+        }
+        var m = Mcss.prototype;
+        m.set = function (name, value) {
+            this.options[name] = value;
+            return this;
+        }.__msetter();
+        m.get = function (name) {
+            return this.options[name];
+        };
+        m.include = function (path) {
+            this.get('paths').push(path);
+            return this;
+        };
+        m.parse = function (text) {
+            var parser = new Parser(this.options);
+            return parser.parse(text);
+        };
+        m.interpret = function (text) {
+            var interpreter = new Interpreter(this.options);
+            var pr = promise();
+            this.parse(text).done(function (ast) {
+                pr.resolve(interpreter.interpret(ast));
+            });
+            return pr;
+        };
+        m.translate = function (text) {
+            var translator = new Translator(this.options);
+            var pr = promise();
+            this.interpret(text).done(function (ast) {
+                pr.resolve(translator.translate(ast));
+            });
+            return pr;
+        };
+        exports.io = io;
+        exports.promise = promise;
+        exports._ = _;
     },
     '2': function (require, module, exports, global) {
         var tk = require('3');
-        var tree = require('5');
+        var tree = require('6');
         var _ = require('4');
-        var io = require('6');
-        var binop = require('8');
-        var symtab = require('9');
-        var state = require('7');
+        var io = require('7');
+        var binop = require('a');
+        var promise = require('8');
+        var path = require('b');
+        var symtab = require('c');
+        var state = require('9');
         var perror = new Error();
         var slice = [].slice;
         var errors = {
@@ -115,6 +111,9 @@ var mcss;
         var isCommaOrParen = _.makePredicate(', )');
         var isDirectOperate = _.makePredicate('RGBA DIMENSION STRING BOOLEAN TEXT NULL');
         var isRelationOp = _.makePredicate('== >= <= < > !=');
+        var isNeg = function (ll) {
+            return ll.type === 'DIMENSION' && ll.value < 0;
+        };
         var states = {
                 'FILTER_DECLARATION': _.uid(),
                 'TRY_DECLARATION': _.uid(),
@@ -133,6 +132,7 @@ var mcss;
         };
         Parser.prototype = {
             parse: function (tks, callback) {
+                var p = new promise();
                 if (typeof tks === 'string') {
                     tks = tk.tokenize(tks);
                 }
@@ -144,14 +144,16 @@ var mcss;
                 this.marked = null;
                 this.tasks = 1;
                 this.callback = callback;
-                this.ast = this.stylesheet();
-                this._complete();
-            },
-            _complete: function () {
-                this.tasks--;
-                if (this.tasks == 0) {
-                    this.callback(null, this.ast);
+                this.promises = [];
+                var ast = this.stylesheet();
+                if (this.promises.length) {
+                    promise.when.apply(this, this.promises).done(function () {
+                        return p.resolve(ast);
+                    });
+                } else {
+                    return p.resolve(ast);
                 }
+                return p;
             },
             state: function (state) {
                 return this._states[state] === true;
@@ -243,8 +245,8 @@ var mcss;
                     perror.code = msg;
                     throw perror;
                 }
-                console.log(this.ast, this);
-                throw Error(msg + ' on line:' + this.ll().lineno);
+                var filename = this.options.filename;
+                throw Error((filename ? 'file:"' + filename + '"' : '') + msg + ' on line:' + this.ll().lineno);
             },
             stylesheet: function (block) {
                 var end = block ? '}' : 'EOF';
@@ -354,7 +356,7 @@ var mcss;
                 return node;
             },
             import: function () {
-                var node, url, queryList, ll;
+                var node, url, queryList, ll, self = this;
                 this.match('AT_KEYWORD');
                 this.match('WS');
                 ll = this.ll();
@@ -369,7 +371,17 @@ var mcss;
                     queryList = this.media_query_list();
                     this.match(';');
                 }
-                return new tree.Import(url, queryList);
+                var node = new tree.Import(url, queryList);
+                if (path.extname(url.value) !== '.css') {
+                    var base = path.dirname(this.options.filename);
+                    var filename = path.join(base, url.value);
+                    var options = _.extend({ filename: filename }, this.options);
+                    var p = io.parse(filename, options).done(function (ast) {
+                            node.stylesheet = ast;
+                        });
+                    this.promises.push(p);
+                }
+                return node;
             },
             module: function () {
                 var node = new tree.Module(), url;
@@ -438,8 +450,8 @@ var mcss;
                 this.eat('WS');
                 var list = this.media_query_list();
                 this.skip('WS');
-                var block = this.stylesheet(true);
-                return new tree.Media(list, block);
+                var stylesheet = this.stylesheet(true);
+                return new tree.Media(list, stylesheet);
             },
             media_query_list: function () {
                 var list = [];
@@ -477,8 +489,10 @@ var mcss;
                 this.match('(');
                 this.eat('WS');
                 feature = this.expression();
-                this.match(':');
-                value = this.expression();
+                if (this.eat(':')) {
+                    value = this.expression();
+                }
+                this.eat('WS');
                 this.match(')');
                 return new tree.MediaExpression(feature, value);
             },
@@ -786,8 +800,13 @@ var mcss;
             },
             binop2: function () {
                 var left = this.unary(), right, la;
-                this.eat('WS');
+                var ws;
+                if (this.eat('WS'))
+                    ws = true;
                 while ((la = this.la()) === '*' || la === '/' || la === '%') {
+                    if (la == '/' && !ws && this.la(2) !== 'WS') {
+                        return left;
+                    }
                     this.next();
                     this.eat('WS');
                     right = this.unary();
@@ -829,6 +848,9 @@ var mcss;
                         return ll;
                     }
                     break;
+                case '/':
+                    this.next();
+                    return ll;
                 case '#{':
                 case 'TEXT':
                     return this.compoundIdent();
@@ -980,7 +1002,7 @@ var mcss;
     },
     '3': function (require, module, exports, global) {
         var util = require('4');
-        var tree = require('5');
+        var tree = require('6');
         var slice = [].slice;
         var $ = function () {
                 var table = {};
@@ -1310,7 +1332,41 @@ var mcss;
     },
     '4': function (require, module, exports, global) {
         var _ = {};
-        _.debugger = 1;
+        var slice = [].slice;
+        var tmpl = require('5');
+        var acceptError = tmpl('the "{{i}}" argument passed to this function only accept {{accept}}, but got "{{type}}"');
+        function returnTrue() {
+            return true;
+        }
+        Function.prototype.__accept = function (list) {
+            var fn = this;
+            if (!list || !list.length)
+                return;
+            var tlist = list.map(function (item) {
+                    if (!item)
+                        return returnTrue;
+                    if (typeof item === 'function')
+                        return item;
+                    return _.makePredicate(item);
+                });
+            return function () {
+                var args = _.slice(arguments);
+                for (var i = args.length; i--;) {
+                    var type = args[i].type;
+                    var test = tlist[i];
+                    if (test && !test(type)) {
+                        throw Error(acceptError({
+                            type: type,
+                            accept: list[i] || 'h',
+                            i: i
+                        }));
+                    }
+                }
+                return fn.apply(this, arguments);
+            };
+        };
+        Function.prototype.__msetter = function (name, value) {
+        };
         _.makePredicate = function (words, prefix) {
             if (typeof words === 'string') {
                 words = words.split(' ');
@@ -1371,6 +1427,7 @@ var mcss;
             }
             return o1;
         };
+        _.debugger = 1;
         _.log = function () {
             if (_.debugger < 3)
                 return;
@@ -1409,11 +1466,109 @@ var mcss;
                 list.push(ast);
             }
         };
-        _.processUrl = function () {
+        _.typeOf = function (obj) {
+            return obj == null ? String(obj) : Object.prototype.toString.call(obj).slice(8, -1).toLowerCase();
+        };
+        _.slice = function (arr, start, last) {
+            return slice.call(arr, start, last);
         };
         module.exports = _;
     },
     '5': function (require, module, exports, global) {
+        function templayed(template, vars) {
+            var get = function (path, i) {
+                    i = 1;
+                    path = path.replace(/\.\.\//g, function () {
+                        i++;
+                        return '';
+                    });
+                    var js = [
+                            'vars[vars.length - ',
+                            i,
+                            ']'
+                        ], keys = path == '.' ? [] : path.split('.'), j = 0;
+                    for (j; j < keys.length; j++) {
+                        js.push('.' + keys[j]);
+                    }
+                    ;
+                    return js.join('');
+                }, tag = function (template) {
+                    return template.replace(/\{\{(!|&|\{)?\s*(.*?)\s*}}+/g, function (match, operator, context) {
+                        if (operator == '!')
+                            return '';
+                        var i = inc++;
+                        return [
+                            '"; var o',
+                            i,
+                            ' = ',
+                            get(context),
+                            ', s',
+                            i,
+                            ' = (((typeof(o',
+                            i,
+                            ') == "function" ? o',
+                            i,
+                            '.call(vars[vars.length - 1]) : o',
+                            i,
+                            ') || "") + ""); s += ',
+                            operator ? 's' + i : '(/[&"><]/.test(s' + i + ') ? s' + i + '.replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/>/g,"&gt;").replace(/</g,"&lt;") : s' + i + ')',
+                            ' + "'
+                        ].join('');
+                    });
+                }, block = function (template) {
+                    return tag(template.replace(/\{\{(\^|#)(.*?)}}(.*?)\{\{\/\2}}/g, function (match, operator, key, context) {
+                        var i = inc++;
+                        return [
+                            '"; var o',
+                            i,
+                            ' = ',
+                            get(key),
+                            '; ',
+                            (operator == '^' ? [
+                                'if ((o',
+                                i,
+                                ' instanceof Array) ? !o',
+                                i,
+                                '.length : !o',
+                                i,
+                                ') { s += "',
+                                block(context),
+                                '"; } '
+                            ] : [
+                                'if (typeof(o',
+                                i,
+                                ') == "boolean" && o',
+                                i,
+                                ') { s += "',
+                                block(context),
+                                '"; } else if (o',
+                                i,
+                                ') { for (var i',
+                                i,
+                                ' = 0; i',
+                                i,
+                                ' < o',
+                                i,
+                                '.length; i',
+                                i,
+                                '++) { vars.push(o',
+                                i,
+                                '[i',
+                                i,
+                                ']); s += "',
+                                block(context),
+                                '"; vars.pop(); }}'
+                            ]).join(''),
+                            '; s += "'
+                        ].join('');
+                    }));
+                }, inc = 0;
+            return new Function('vars', 'vars = [vars], s = "' + block(template.replace(/"/g, '\\"').replace(/\n/g, '\\n')) + '"; return s;');
+        }
+        ;
+        module.exports = templayed;
+    },
+    '6': function (require, module, exports, global) {
         var _ = require('4'), splice = [].splice, isPrimary = _.makePredicate('hash rgba dimension string boolean text null url');
         function Stylesheet(list) {
             this.type = 'stylesheet';
@@ -1460,7 +1615,24 @@ var mcss;
             this.block = block;
             this.ref = [];
         }
-        RuleSet.prototype.remove = function (ruleset) {
+        RuleSet.prototype.addRef = function (ruleset) {
+            var alreadyHas = this.ref.some(function (item) {
+                    return ruleset === item;
+                });
+            if (alreadyHas)
+                return;
+            this.ref.push(ruleset);
+        };
+        RuleSet.prototype.getSelectors = function () {
+            if (this._selectors)
+                return this._selectors;
+            var selectors = this.selector.list;
+            if (this.ref.length) {
+                this.ref.forEach(function (ruleset) {
+                    selectors = selectors.concat(ruleset.getSelectors());
+                });
+            }
+            return this._selectors = selectors;
         };
         RuleSet.prototype.clone = function () {
             var clone = new RuleSet(cloneNode(this.selector), cloneNode(this.block));
@@ -1648,13 +1820,14 @@ var mcss;
             var clone = new Pointer(this.name, this.key);
             return clone;
         };
-        function Import(url, queryList) {
+        function Import(url, queryList, stylesheet) {
             this.type = 'import';
             this.url = url;
             this.queryList = queryList || [];
+            this.stylesheet = stylesheet;
         }
         Import.prototype.clone = function () {
-            var clone = new Import(this.url, this.queryList);
+            var clone = new Import(this.url, this.queryList, this.promise);
             return clone;
         };
         function IfStmt(test, block, alt) {
@@ -1757,18 +1930,18 @@ var mcss;
             var clone = new FontFace(param);
             return clone;
         };
-        function Media(queryList, block) {
+        function Media(queryList, stylesheet) {
             this.type = 'media';
             this.queryList = queryList || [];
-            this.block = block;
+            this.stylesheet = stylesheet;
         }
         Media.prototype.clone = function () {
-            var clone = new Media(cloneNode(this.list), cloneNode(this.block));
+            var clone = new Media(cloneNode(this.list), cloneNode(this.stylesheet));
             return clone;
         };
         function MediaQuery(type, expressions) {
             this.type = 'mediaquery';
-            this.meidaType = type;
+            this.mediaType = type;
             this.expressions = expressions || [];
         }
         MediaQuery.prototype.clone = function () {
@@ -1917,7 +2090,7 @@ var mcss;
                 var value = '' + ast.value + (ast.unit ? ast.unit : '');
                 return value;
             case 'STRING':
-                return this.walk(ast);
+                return ast.value;
             case 'RGBA':
                 return ast.tocss();
             default:
@@ -1938,44 +2111,284 @@ var mcss;
                 return node.value === true;
             case 'null':
                 return false;
+            case 'valueslist':
+            case 'values':
+                return node.list.length > 0;
             default:
-                return true;
+                return false;
             }
         };
         exports.isPrimary = isPrimary;
         exports.isRelationOp = _.makePredicate('== >= <= < > !=');
-    },
-    '6': function (require, module, exports, global) {
-        var fs = null;
-        var path = null;
-        var state = require('7');
-        exports.get = function (path, callback) {
-            if (fs) {
-                fs.readFile(path, 'utf8', callback);
-            } else {
-                http(path, callback);
+        exports.convert = function (primary) {
+            var type = _.typeOf(primary);
+            switch (type) {
+            case 'string':
+                return {
+                    type: 'STRING',
+                    value: primary
+                };
+            case 'number':
+                return {
+                    type: 'DIMENSION',
+                    value: primary
+                };
+            case 'boolean':
+                return {
+                    type: 'BOOLEAN',
+                    value: primary
+                };
+            case 'null':
+                return {
+                    type: 'NULL',
+                    value: primary
+                };
+            default:
+                return primary;
             }
-        };
-        exports.join = function () {
-            for (var i = 0; i < len; i++) {
-                var sep = arguments[i];
-            }
-        };
-        var http = function (url, callback) {
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', url);
-            xhr.onreadystatechange = function (e) {
-                if (xhr.readyState === 4 && xhr.status === 200) {
-                    callback(null, xhr.responseText);
-                }
-            };
-            xhr.send();
         };
     },
     '7': function (require, module, exports, global) {
+        var fs = null;
+        var path = null;
+        var promise = require('8');
+        var state = require('9');
+        var parser = require('2');
+        exports.get = function (path) {
+            if (fs) {
+                return file(path, 'utf8');
+            } else {
+                return http(path);
+            }
+        };
+        exports.parse = function (path, options) {
+            var p = promise();
+            exports.get(path).done(function (text) {
+                parser.parse(text, options).always(p.resolve.bind(p));
+            }).fail(p.resolve.bind(p));
+            return p;
+        };
+        var http = function (url) {
+            var p = promise();
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', url);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState !== 4)
+                    return;
+                var status = xhr.status;
+                if (status >= 200 && status < 300) {
+                    p.resolve(xhr.responseText);
+                } else {
+                    p.reject(xhr);
+                }
+            };
+            xhr.send();
+            return p;
+        };
+        var file = function (path, callback) {
+            var p = promise();
+            fs.readFile(path, 'utf8', function (error, content) {
+                if (error)
+                    return p.reject(error);
+                p.resolve(content);
+            });
+            return p;
+        };
+    },
+    '8': function (require, module, exports, global) {
+        var slice = Array.prototype.slice, isFunction = function (fn) {
+                return typeof fn == 'function';
+            }, typeOf = function (obj) {
+                return obj == null ? String(obj) : Object.prototype.toString.call(obj).slice(8, -1).toLowerCase();
+            }, extend = function (o1, o2) {
+                for (var i in o2) {
+                    if (o2.hasOwnProperty(i))
+                        o1[i] = o2[i];
+                }
+            }, merge = function (o1, o2) {
+                for (var i in o2) {
+                    if (!o2.hasOwnProperty(i))
+                        continue;
+                    if (typeOf(o1[i]) === 'array' || typeOf(o2[i]) === 'array') {
+                        console.log(o1, o2);
+                        o1[i] = o1[i].concat(o2[i]);
+                    } else {
+                        o1[i] = o2[i];
+                    }
+                }
+                return o1;
+            }, states = {
+                PENDING: 1,
+                RESOLVED: 2,
+                REJECTED: 3
+            }, Promise = function () {
+                this.state = states.PENDING;
+                this.locked = false;
+                this.args = [];
+                this.doneCallbacks = [];
+                this.failCallbacks = [];
+                this.progressCallbacks = [];
+            };
+        extend(Promise.prototype, {
+            lock: function () {
+                this.locked = true;
+                return this;
+            },
+            unlock: function () {
+                this.locked = false;
+                var method = {
+                        2: 'resolve',
+                        3: 'reject'
+                    }[this.state];
+                if (method)
+                    this[method].apply(this, this.args);
+                return this;
+            },
+            notify: function () {
+                if (this.state !== states.PENDING)
+                    return this;
+                var fn, i = 0;
+                if (this.locked)
+                    return this;
+                while ((fn = this.progressCallbacks[i++]) != null) {
+                    fn.apply(this, arguments);
+                }
+                if (this.parent)
+                    this.parent.sub--;
+                return this;
+            },
+            reject: function () {
+                if (this.state !== states.PENDING)
+                    return this;
+                var fn, args = this.args = slice.call(arguments);
+                if (this.locked)
+                    return this;
+                while ((fn = this.failCallbacks.shift()) != null) {
+                    fn.apply(this, arguments);
+                }
+                this.state = states.REJECTED;
+                return this;
+            },
+            resolve: function () {
+                if (this.state !== states.PENDING)
+                    return this;
+                var fn, args = this.args = slice.call(arguments);
+                if (this.locked)
+                    return this;
+                while ((fn = this.doneCallbacks.shift()) != null) {
+                    fn.apply(this, arguments);
+                }
+                this.state = states.RESOLVED;
+                return this;
+            },
+            done: function (callback) {
+                if (callback instanceof Promise) {
+                    return this.done(function () {
+                        var args = slice.call(arguments);
+                        callback.resolve.apply(callback, args);
+                    });
+                }
+                if (!isFunction(callback))
+                    return this;
+                if (!this._match(states.RESOLVED, callback)) {
+                    this.doneCallbacks.push(callback.bind(this));
+                }
+                return this;
+            },
+            fail: function (callback) {
+                if (callback instanceof Promise) {
+                    return this.fail(function () {
+                        var args = slice.call(arguments);
+                        callback.reject.apply(callback, args);
+                    });
+                }
+                if (!isFunction(callback))
+                    return this;
+                if (!this._match(states.REJECTED, callback)) {
+                    this.failCallbacks.push(callback.bind(this));
+                }
+                return this;
+            },
+            progress: function (callback) {
+                if (!isFunction(callback))
+                    return this;
+                this.progressCallbacks.push(callback);
+                return this;
+            },
+            always: function (callback) {
+                if (!isFunction(callback))
+                    return this;
+                return this.done(callback).fail(callback);
+            },
+            then: function (doneCallback, failCallback, finCallback) {
+                if (!doneCallback) {
+                    return this;
+                }
+                var promise = new Promise().lock();
+                this.done(this._wraper(doneCallback, promise)).fail(failCallback).always(finCallback);
+                return promise;
+            },
+            pipe: function () {
+                return this;
+            },
+            promise: function () {
+                return this;
+            },
+            _wraper: function (fn, promise) {
+                var self = this;
+                return function () {
+                    var result = fn.apply(self, arguments);
+                    if (result instanceof Promise) {
+                        extend(result, promise);
+                        result.unlock();
+                    }
+                };
+            },
+            _match: function (state, callback) {
+                if (this.state == state) {
+                    callback.apply(this, this.args);
+                    return true;
+                }
+                return false;
+            }
+        });
+        var promise = module.exports = function () {
+                return new Promise();
+            };
+        extend(promise, {
+            when: function () {
+                var promises = slice.call(arguments), whenPromise = new Promise();
+                whenPromise.waiting = promises.length;
+                for (var i = 0, len = promises.length; i < len; i++) {
+                    (function (i) {
+                        promises[i].done(function () {
+                            whenPromise.args[i] = typeOf(promises[i].args[0]) == 'array' ? promises[i].args[0] : promises[i].args;
+                            if (!--whenPromise.waiting) {
+                                whenPromise.resolve.apply(whenPromise, whenPromise.args);
+                            }
+                        });
+                        promises[i].fail(function () {
+                            whenPromise.reject(promises[i].args);
+                        });
+                    }(i));
+                }
+                return whenPromise;
+            },
+            not: function (p) {
+                var result = new Promise();
+                p.done(result.reject.bind(result)).fail(result.resolve.bind(result));
+                return result;
+            },
+            or: function () {
+                var promises = slice.call(arguments), not = Promise.not, negatedPromises = promises.map(not);
+                return Promise.not(Promise.when.apply(this, negatedPromises));
+            }
+        });
+    },
+    '9': function (require, module, exports, global) {
         var _ = {};
         _.debug = true;
-        _.files = [];
+        _.pathes = [];
         _.directives = {
             'test': {
                 accept: 'valueList',
@@ -1985,20 +2398,9 @@ var mcss;
         };
         module.exports = _;
     },
-    '8': function (require, module, exports, global) {
+    'a': function (require, module, exports, global) {
         var _ = require('4');
-        var tree = require('5');
-        Function.prototype.op_accept = function (list) {
-            var test = typeof list === 'function' ? list : _.makePredicate(list);
-            var fn = this;
-            return function (left, right) {
-                if (!test(tree.inspect(left)) || !test(tree.inspect(right))) {
-                    console.log(left, right, tree.inspect(left));
-                    throw Error('invalid actors to operation' + right.lineno);
-                }
-                return fn.apply(this, arguments);
-            };
-        };
+        var tree = require('6');
         var $ = module.exports = {
                 '+': function (left, right) {
                     var value = left.value + right.value;
@@ -2017,10 +2419,9 @@ var mcss;
                             value: tree.toStr(left) + tree.toStr(right)
                         };
                     }
-                }.op_accept([
-                    'text',
-                    'dimension',
-                    'string'
+                }.__accept([
+                    'TEXT DIMENSION STRING',
+                    'TEXT DIMENSION STRING'
                 ]),
                 '-': function (left, right) {
                     var value = left.value - right.value;
@@ -2032,7 +2433,10 @@ var mcss;
                         value: value,
                         unit: unit
                     };
-                }.op_accept(['dimension']),
+                }.__accept([
+                    'DIMENSION',
+                    'DIMENSION'
+                ]),
                 '*': function (left, right) {
                     var value = left.value * right.value;
                     var unit = left.unit || right.unit;
@@ -2043,7 +2447,10 @@ var mcss;
                         value: value,
                         unit: unit
                     };
-                }.op_accept(['dimension']),
+                }.__accept([
+                    'DIMENSION',
+                    'DIMENSION'
+                ]),
                 '/': function (left, right) {
                     if (right.value === 0)
                         throw 'Divid by zero' + right.lineno;
@@ -2056,7 +2463,10 @@ var mcss;
                         value: value,
                         unit: unit
                     };
-                }.op_accept(['dimension']),
+                }.__accept([
+                    'DIMENSION',
+                    'DIMENSION'
+                ]),
                 '%': function (left, right) {
                     if (right.value === 0)
                         throw 'Divid by zero' + right.lineno;
@@ -2069,7 +2479,10 @@ var mcss;
                         value: value,
                         unit: unit
                     };
-                }.op_accept(['dimension']),
+                }.__accept([
+                    'DIMENSION',
+                    'DIMENSION'
+                ]),
                 'relation': function (left, right, op) {
                     var bool = { type: 'BOOLEAN' };
                     if (left.type !== right.type) {
@@ -2086,7 +2499,7 @@ var mcss;
                         }
                     }
                     return bool;
-                }.op_accept(tree.isPrimary),
+                },
                 '&&': function (left, right) {
                     if (tree.isPrimary(left)) {
                         var bool = tree.toBoolean(left);
@@ -2110,7 +2523,51 @@ var mcss;
                 }
             };
     },
-    '9': function (require, module, exports, global) {
+    'b': function (require, module, exports, global) {
+        var syspath = null, slice = [].slice;
+        if (syspath)
+            module.exports = syspath;
+        else {
+            exports.fake = true;
+            exports.join = join;
+            exports.normalize = normalize;
+            exports.dirname = dirname;
+            exports.extname = extname;
+            exports.extname = extname;
+            var slice = [].slice;
+            var DIRNAME_RE = /[^?#]*\//;
+            var DOT_RE = /\/\.\//g;
+            var MULTIPLE_SLASH_RE = /([^:\/])\/\/+/g;
+            var DOUBLE_DOT_RE = /\/[^/]+\/\.\.\//;
+            var URI_END_RE = /\?|\.(?:css|mcss)$|\/$/;
+            function dirname(path) {
+                return path.match(DIRNAME_RE)[0];
+            }
+            function normalize(path) {
+                path = path.replace(DOT_RE, '/');
+                path = path.replace(MULTIPLE_SLASH_RE, '$1/');
+                while (path.match(DOUBLE_DOT_RE)) {
+                    path = path.replace(DOUBLE_DOT_RE, '/');
+                }
+                return path;
+            }
+            function join(url, url2) {
+                var args = slice.call(arguments);
+                var res = args.reduce(function (u1, u2) {
+                        return u1 + '/' + u2;
+                    });
+                return normalize(res);
+            }
+            function extname(url) {
+                var res = url.match(/(\.\w+)[^\/]*$/);
+                if (res && res[1]) {
+                    return res[1];
+                }
+                return '';
+            }
+        }
+    },
+    'c': function (require, module, exports, global) {
         var Symtable = exports.SymbolTable = function () {
             };
         var Scope = exports.Scope = function (parentScope) {
@@ -2122,14 +2579,14 @@ var mcss;
             getSpace: function () {
                 return this.symtable;
             },
-            resolve: function (name) {
+            resolve: function (name, first) {
                 var scope = this;
                 while (scope) {
                     var symbol = scope.symtable[name];
                     if (symbol)
                         return symbol;
                     else {
-                        if (this.isStruct)
+                        if (first)
                             return;
                         scope = scope.parentScope;
                     }
@@ -2150,21 +2607,26 @@ var mcss;
             }
         };
     },
-    'a': function (require, module, exports, global) {
-        var Interpreter = require('b');
-        var Hook = require('g');
+    'd': function (require, module, exports, global) {
+        var Interpreter = require('e');
+        var Hook = require('i');
         module.exports = Interpreter;
     },
-    'b': function (require, module, exports, global) {
-        var Walker = require('c');
-        var tree = require('5');
-        var symtab = require('9');
-        var state = require('d');
+    'e': function (require, module, exports, global) {
+        var Walker = require('f');
+        var parser = require('2');
+        var tree = require('6');
+        var symtab = require('c');
+        var state = require('g');
+        var promise = require('8');
+        var path = require('b');
         var u = require('4');
-        var binop = require('8');
-        var functions = require('e');
-        var color = require('f');
+        var io = require('7');
+        var binop = require('a');
+        var functions = require('h');
+        var color = null;
         function Interpreter(options) {
+            this.options = options;
         }
         ;
         var _ = Interpreter.prototype = new Walker();
@@ -2179,8 +2641,7 @@ var mcss;
             this.rulesets = [];
             this.medias = [];
             this.indent = 0;
-            var res = this.walk(ast);
-            return res;
+            return this.walk(ast);
         };
         _.walk_default = function (ast) {
             return ast;
@@ -2318,6 +2779,17 @@ var mcss;
             else
                 this.error('undefined variable: ' + ast.value);
         };
+        _.walk_url = function (ast) {
+            var self = this, symbol;
+            ast.value = ast.value.replace(/#\{(\w+)}/g, function (all, name) {
+                if (symbol = this.resolve(name)) {
+                    return self.toStr(symbol);
+                } else {
+                    throw Error('not defined String interpolation');
+                }
+            });
+            return ast;
+        };
         _.walk_string = function (ast) {
             var self = this, symbol;
             ast.value = ast.value.replace(/#\{(\w+)}/g, function (all, name) {
@@ -2395,15 +2867,24 @@ var mcss;
                 }
             }
             try {
+                var prev = this.scope;
+                this.scope = func.scope;
                 var block = this.walk(func.block.clone());
             } catch (err) {
+                this.scope = prev;
                 this.pop(iscope);
                 if (err.code === errors.RETURN) {
-                    return err.value;
+                    var value = err.value;
+                    if (value.type === 'func' && iscope.resolve(value.name, true)) {
+                        value.scope = iscope;
+                        iscope.parentScope = this.scope;
+                    }
+                    return value;
                 } else {
                     throw err;
                 }
             }
+            this.scope = prev;
             this.pop(iscope);
             return block;
         };
@@ -2414,6 +2895,7 @@ var mcss;
         };
         _.walk_func = function (ast) {
             ast.params = this.walk(ast.params);
+            ast.scope = this.scope;
             return ast;
         };
         _.walk_param = function (ast) {
@@ -2451,20 +2933,34 @@ var mcss;
             selector.list.forEach(function (item) {
                 var extend = self.resolve(item.string);
                 if (extend) {
-                    extend.ref.push(ruleset);
+                    extend.addRef(ruleset);
                 }
             });
         };
         _.walk_import = function (ast) {
-            console.log(ast);
+            this.walk(ast.url);
+            var url = ast.url;
+            if (ast.stylesheet) {
+                var queryList = ast.queryList;
+                var stylesheet = ast.stylesheet;
+                if (queryList.length) {
+                    var media = new tree.Media(queryList, stylesheet);
+                    return this.walk(media);
+                } else {
+                    var list = this.walk(stylesheet).list;
+                    return list;
+                }
+            } else {
+                return ast;
+            }
         };
         _.walk_media = function (ast) {
             ast.queryList = this.walk(ast.queryList);
             this.concatMedia(ast);
             this.down(null, ast);
-            this.walk(ast.block);
+            this.walk(ast.stylesheet);
             this.up(null, ast);
-            var res = ast.block.exclude();
+            var res = ast.stylesheet.exclude();
             if (res.length) {
                 res.unshift(ast);
             }
@@ -2554,7 +3050,20 @@ var mcss;
             if (!ss.length)
                 return media;
             var slist = ss[ss.length - 1].queryList, mlist = media.queryList, queryList = [];
-            media.queryList = slist.concat(mlist);
+            var s, m, slen = slist.length, mlen = mlist.length, mm, sm, nm;
+            for (m = 0; m < mlen; m++) {
+                mm = mlist[m];
+                for (s = 0; s < slen; s++) {
+                    sm = slist[s];
+                    nm = new tree.MediaQuery();
+                    if (sm.mediaType && mm.mediaType)
+                        continue;
+                    nm.mediaType = sm.mediaType || mm.mediaType;
+                    nm.expressions = sm.expressions.concat(mm.expressions);
+                    queryList.push(nm);
+                }
+            }
+            media.queryList = queryList;
             return media;
         };
         _.push = function (scope) {
@@ -2573,6 +3082,8 @@ var mcss;
             if (scope = this.peek()) {
                 scope.define(id, symbol);
             } else {
+                if (!this.scope)
+                    debugger;
                 this.scope.define(id, symbol);
             }
         };
@@ -2608,7 +3119,7 @@ var mcss;
         };
         module.exports = Interpreter;
     },
-    'c': function (require, module, exports, global) {
+    'f': function (require, module, exports, global) {
         var _ = require('4');
         var Walker = function () {
         };
@@ -2657,7 +3168,7 @@ var mcss;
         };
         module.exports = Walker;
     },
-    'd': function (require, module, exports, global) {
+    'g': function (require, module, exports, global) {
         function ex(o1, o2, override) {
             for (var i in o2)
                 if (o1[i] == null || override) {
@@ -2687,9 +3198,133 @@ var mcss;
             ex(obj, API);
         };
     },
-    'e': function (require, module, exports, global) {
-        var tree = require('5');
-        var _ = require('4');
+    'h': function (require, module, exports, global) {
+        var tree = require('6');
+        var u = require('4');
+        var _ = module.exports = {
+                lighten: function (rgba, percent) {
+                    if (!percent || percent.unit !== '%') {
+                        this.error('the 2rd argument must be a percent like "10%"');
+                    }
+                    var chs = rgba.channels;
+                    var rate = 1 + percent.value / 100;
+                    var channels = fixChannels([
+                            chs[0] * rate,
+                            chs[1] * rate,
+                            chs[2] * rate,
+                            chs[3]
+                        ]);
+                    return new tree.RGBA(channels);
+                }.__accept([
+                    'RGBA',
+                    'DIMENSION'
+                ]),
+                darken: function (rgba, percent) {
+                    if (!percent || percent.unit !== '%') {
+                        this.error('the 2rd argument must be a percent like "10%"');
+                    }
+                    var chs = rgba.channels;
+                    var rate = 1 + percent.value / 100;
+                    var channels = fixChannels([
+                            chs[0] * rate,
+                            chs[1] * rate,
+                            chs[2] * rate,
+                            chs[3]
+                        ]);
+                    return new tree.RGBA(channels);
+                }.__accept([
+                    'RGBA',
+                    'DIMENSION'
+                ]),
+                red: function (rgba) {
+                    return rgba.channels[0];
+                }.__accept(['RGBA']),
+                green: function (rgba) {
+                    return rgba.channels[1];
+                }.__accept(['RGBA']),
+                blue: function (rgba) {
+                    return rgba.channels[2];
+                }.__accept(['RGBA']),
+                rgba: function (r, g, b, a) {
+                }.__accept(['RGBA']),
+                rgb: function () {
+                    return _.rgba.apply(this, arguments);
+                },
+                hsla: function () {
+                }.__accept(['RGBA']),
+                hsl: function () {
+                    return _.hsla.apply(this.arguments);
+                },
+                hue: function () {
+                }.__accept(['RGBA']),
+                saturation: function () {
+                }.__accept(['RGBA']),
+                lightness: function () {
+                }.__accept(['RGBA']),
+                abs: function () {
+                }.__accept(['DIMENSION']),
+                floor: function () {
+                }.__accept(['DIMENSION']),
+                round: function () {
+                }.__accept(['DIMENSION']),
+                ceil: function () {
+                }.__accept(['DIMENSION']),
+                max: function () {
+                }.__accept(['DIMENSION']),
+                min: function () {
+                },
+                typeof: function (node) {
+                    return node.type.toLowerCase();
+                },
+                u: function (str) {
+                    return {
+                        type: 'STRING',
+                        value: str.value,
+                        lineno: str.lineno
+                    };
+                }.__accept(['STRING']),
+                args: function (number) {
+                    var arguments = this.resolve('$arguments'), arg;
+                    if (!arguments) {
+                        throw Error('the args() must be called in function block');
+                    }
+                    if (!number || number.type !== 'DIMENSION') {
+                        throw Error('invalid arguments passed to args()');
+                    }
+                    if (arg = arguments.list[number.value]) {
+                        return arg;
+                    } else {
+                        return { type: 'NULL' };
+                    }
+                }
+            };
+        var mediatypes = {
+                '.eot': 'application/vnd.ms-fontobject',
+                '.gif': 'image/gif',
+                '.ico': 'image/vnd.microsoft.icon',
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg',
+                '.otf': 'application/x-font-opentype',
+                '.png': 'image/png',
+                '.svg': 'image/svg+xml',
+                '.ttf': 'application/x-font-ttf',
+                '.webp': 'image/webp',
+                '.woff': 'application/x-font-woff'
+            };
+        function converToBase64(imagePath) {
+            imagePath = imagePath.replace(/[?#].*/g, '');
+            var extname = path.extname(imagePath), stat, img;
+            try {
+                stat = fs.statSync(imagePath);
+                if (stat.size > 4096) {
+                    return false;
+                }
+                img = fs.readFileSync(imagePath, 'base64');
+                return 'data:' + mediatypes[extname] + ';base64,' + img;
+            } catch (e) {
+                return false;
+            }
+        }
         var fixColor = function (number) {
             return number > 255 ? 255 : number < 0 ? 0 : number;
         };
@@ -2699,80 +3334,18 @@ var mcss;
             channels[2] = fixColor(channels[2]);
             return channels;
         };
-        module.exports = {
-            lighten: function (rgba, percent) {
-                if (!percent || percent.unit !== '%') {
-                    this.error('the 2rd argument must be a percent like "10%"');
-                }
-                var chs = rgba.channels;
-                var rate = 1 + percent.value / 100;
-                var channels = fixChannels([
-                        chs[0] * rate,
-                        chs[1] * rate,
-                        chs[2] * rate,
-                        chs[3]
-                    ]);
-                return new tree.RGBA(channels);
-            },
-            darken: function (rgba, percent) {
-                if (!percent || percent.unit !== '%') {
-                    this.error('the 2rd argument must be a percent like "10%"');
-                }
-                var chs = rgba.channels;
-                var rate = 1 + percent.value / 100;
-                var channels = fixChannels([
-                        chs[0] * rate,
-                        chs[1] * rate,
-                        chs[2] * rate,
-                        chs[3]
-                    ]);
-                return new tree.RGBA(channels);
-            },
-            red: function (rgba) {
-                return rgba.channels[0];
-            },
-            green: function (rgba) {
-                return rgba.channels[1];
-            },
-            blue: function (rgba) {
-                return rgba.channels[2];
-            },
-            alpha: function (rgba) {
-                return rgba.channels[3];
-            },
-            args: function (number) {
-                var arguments = this.resolve('$arguments'), arg;
-                if (!arguments) {
-                    throw Error('the args() must be called in function block');
-                }
-                if (!number || number.type !== 'DIMENSION') {
-                    throw Error('invalid arguments passed to args()');
-                }
-                if (arg = arguments.list[number.value]) {
-                    return arg;
-                } else {
-                    return { type: 'NULL' };
-                }
-            }
-        };
     },
-    'f': function (require, module, exports, global) {
-        module.exports = {
-            hsl2rgb: function () {
-            }
-        };
-    },
-    'g': function (require, module, exports, global) {
-        var Hook = require('h');
+    'i': function (require, module, exports, global) {
+        var Hook = require('j');
         exports.hook = function (ast, options) {
             new Hook(options).walk(ast);
             return ast;
         };
     },
-    'h': function (require, module, exports, global) {
-        var Walker = require('c');
-        var Event = require('i');
-        var hooks = require('j');
+    'j': function (require, module, exports, global) {
+        var Walker = require('f');
+        var Event = require('k');
+        var hooks = require('l');
         function Hook(options) {
             options = options || {};
             this.load(options.hooks);
@@ -2859,7 +3432,7 @@ var mcss;
         };
         module.exports = Hook;
     },
-    'i': function (require, module, exports, global) {
+    'k': function (require, module, exports, global) {
         var slice = [].slice, ex = function (o1, o2, override) {
                 for (var i in o2)
                     if (o1[i] == null || override) {
@@ -2920,16 +3493,16 @@ var mcss;
         };
         module.exports = Event;
     },
-    'j': function (require, module, exports, global) {
+    'l': function (require, module, exports, global) {
         module.exports = {
-            prefixr: require('k'),
-            csscomb: require('m')
+            prefixr: require('m'),
+            csscomb: require('o')
         };
     },
-    'k': function (require, module, exports, global) {
-        var prefixs = require('l').prefixs;
+    'm': function (require, module, exports, global) {
+        var prefixs = require('n').prefixs;
         var _ = require('4');
-        var tree = require('5');
+        var tree = require('6');
         var isTestProperties = _.makePredicate('border-radius transition');
         module.exports = {
             'block': function (tree) {
@@ -2943,7 +3516,7 @@ var mcss;
             }
         };
     },
-    'l': function (require, module, exports, global) {
+    'n': function (require, module, exports, global) {
         exports.orders = {
             'position': 1,
             'z-index': 1,
@@ -3225,8 +3798,8 @@ var mcss;
             'line-height': 7
         };
     },
-    'm': function (require, module, exports, global) {
-        var orders = require('l').orders;
+    'o': function (require, module, exports, global) {
+        var orders = require('n').orders;
         module.exports = {
             'block': function (tree) {
                 tree.list.sort(function (d1, d2) {
@@ -3235,30 +3808,41 @@ var mcss;
             }
         };
     },
-    'n': function (require, module, exports, global) {
-        var Translator = require('o');
+    'p': function (require, module, exports, global) {
+        var Translator = require('q');
         module.exports = Translator;
     },
-    'o': function (require, module, exports, global) {
-        var Walker = require('c');
-        var tree = require('5');
+    'q': function (require, module, exports, global) {
+        var Walker = require('f');
+        var tree = require('6');
+        var u = require('4');
+        var tmpl = require('5');
         function Translator(options) {
             this.options = options || {};
         }
         var _ = Translator.prototype = new Walker();
         var walk = _.walk;
-        _.translate = function (ast, callback) {
+        _.translate = function (ast) {
             this.ast = ast;
-            this.indent = 1;
+            this.indent = 0;
             return this.walk(ast);
         };
-        _.walk_stylesheet = function (ast) {
-            var cssText = '';
-            var bodyText = this.walk(ast.list);
-            return bodyText.join('\n');
+        _.walk_stylesheet = function (ast, brac) {
+            var indent = this.idt2str();
+            var start = (brac ? '{\n' : '') + indent;
+            this.index++;
+            var bodyText = this.walk(ast.list).join('\n' + this.idt2str());
+            this.index--;
+            var end = brac ? '\n}' : '';
+            return start + bodyText + end;
         };
         _.walk_ruleset = function (ast) {
-            var cssTexts = [this.walk(ast.selector)];
+            if (!ast.block.list.length)
+                return '';
+            var slist = ast.getSelectors();
+            if (!slist.length)
+                return '';
+            var cssTexts = [this.walk(slist).join(',\n')];
             cssTexts.push(this.walk(ast.block));
             return cssTexts.join('');
         };
@@ -3276,57 +3860,100 @@ var mcss;
                 else
                     res.push('\t' + self.walk(sast) + '\n');
             });
-            res.push('}\n');
             rulesets.forEach(function (ruleset) {
                 res.push(self.walk(ruleset));
             });
+            res.push('}\n');
             var text = res.join('');
             return text;
         };
-        _.walk_componentvalues = function (ast) {
+        _.walk_valueslist = function (ast) {
+            var text = this.walk(ast.list).join(',');
+            return text;
+        };
+        _.walk_values = function (ast) {
             var text = this.walk(ast.list).join(' ');
             return text;
         };
-        _.walk_values = function () {
+        _.walk_import = function (ast) {
+            var outport = [
+                    '@import ',
+                    this.walk_url(ast.url)
+                ];
+            if (ast.queryList && ast.queryList.length) {
+                outport.push(this.walk(ast.queryList).join(','));
+            }
+            return outport.join(' ') + ';';
         };
+        _.walk_media = function (ast) {
+            var str = '@media ';
+            str += this.walk(ast.queryList).join(',\n');
+            str += ' {\n';
+            str += this.walk(ast.stylesheet);
+            str += '}\n';
+            return str;
+        };
+        _.walk_mediaquery = function (ast) {
+            var outport = this.walk(ast.expressions);
+            if (ast.mediaType)
+                outport.unshift(ast.mediaType);
+            return outport.join(' and ');
+        };
+        _.walk_mediaexpression = function (ast) {
+            var str = '';
+            str += this.walk(ast.feature);
+            if (ast.value)
+                str += ': ' + this.walk(ast.value);
+            return '(' + str + ')';
+        };
+        var declaration_t = tmpl('{{property}}');
         _.walk_declaration = function (ast) {
-            var text = ast.property;
+            var text = this.walk(ast.property);
             var value = this.walk(ast.value);
             return text + ': ' + value + ';';
         };
-        _.walk_ident = function (ast) {
-            return ast.val;
-        };
         _.walk_string = function (ast) {
-            return '"' + ast.val + '"';
-        };
-        _['walk_,'] = function (ast) {
-            return ',';
+            return '"' + ast.value + '"';
         };
         _['walk_='] = function (ast) {
             return '=';
         };
+        _['walk_/'] = function (ast) {
+            return '/';
+        };
         _.walk_unknown = function (ast) {
             return ast.name;
         };
-        _.walk_cssfunction = function (ast) {
-            return ast.name + '(' + this.walk(ast.value) + ')';
-        };
-        _.walk_module = function () {
-            return '';
-        };
-        _.walk_uri = function (ast) {
-            return 'url(' + ast.val + ')';
+        _.walk_url = function (ast) {
+            return 'url("' + ast.value + '")';
         };
         _.walk_rgba = function (ast) {
             return ast.tocss();
         };
-        _.walk_dimension = function (ast) {
-            var val = ast.val;
-            return val.number + (val.unit ? val.unit : '');
+        _.walk_directive = function (ast) {
+            var str = '@' + ast.name + ' ';
+            if (ast.value) {
+                str += this.walk(ast.value);
+            }
+            if (ast.block) {
+                str += this.walk(ast.block);
+            }
+            return str;
         };
-        _.walk_variable = function () {
-            return '';
+        _.walk_call = function (ast) {
+            return ast.name + '(' + this.walk(ast.args).join(',') + ')';
+        };
+        _.walk_default = function (ast) {
+            if (!ast)
+                return '';
+            var str = tree.toStr(ast);
+            if (typeof str !== 'string') {
+                return '';
+            }
+            return str;
+        };
+        _.idt2str = function () {
+            return Array(this.indent + 1).join('\t');
         };
         module.exports = Translator;
     }

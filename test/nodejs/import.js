@@ -1,8 +1,9 @@
-var mcss = require('../../lib/index')
+var mcss = require('../../lib/mcss')
 var path = require('path');
 var fs = require('fs');
 
-var p = path.join(__dirname ,'../data/import1.mcss');
-mcss.parse(fs.readFileSync(p,'utf8'), function(err, text){
-    console.log(text)
-});
+
+mcss.io.parse('/home/luobo/code/mcss/test/data/parse.mcss')
+    .always(function(ast){
+        console.log(ast);
+    })

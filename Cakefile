@@ -1,6 +1,7 @@
 path = require 'path'
 fs = require 'fs'
 {spawn, exec} = require 'child_process'
+lfs = require './lib/helper/fs'
 
 
 chokidar = require 'chokidar'
@@ -47,9 +48,12 @@ task 'build', '', ->
 task 'watch', 'run the test when lib files modified', (options) ->
   console.log "watcher on in #{options.mode} mode"
   watcher = chokidar.watch __dirname + '/lib', persistent: true
-  watcher.add __dirname + '/test' if options.mode is 'test'
-  watcher.on 'change', build
-  watcher.on 'change', test if options.mode is 'test'
+  watcher.add __dirname + '/test/mcss' if options.mode is 'test'
+  watcher.on 'change', build if options.mode is 'test'
+  watcher.on 'change', buildTestMcss 
 
 task 'test', 'Run the test suite', ->
   do test
+
+buildTestMcss = () ->
+

@@ -1,9 +1,5 @@
-// import 作为模块
-@import dada '/test/data/import1.mcss'
-
 .haha {
-    heihei: dada -> luobo;
-    @include dada -> tooltips (10px, 20px, #fff)
+    left:$name;
 }
 
 .classname1 {

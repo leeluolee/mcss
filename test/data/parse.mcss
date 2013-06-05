@@ -1,14 +1,55 @@
-@import url(../hello.mcss);
-@import "../hello.mcss";
-@import "hello.mcss";
-@import "hello.mcss" screen and (max-width: 99px);
+$left = 100px;
+$mixin = ($function){
+  $heihei = 80px;
+  left: $left;
+  $closure = (){
+    left: $heihei;
+  }
+  @if $function{
+    @return $closure;
+  }
+}
+
+$left80 = $mixin(true);
+
+
+.extend2, .extend3{
+  test1: 10px /9px;
+  test2: 10px/ 9px;
+  test3: 10px/9px;
+  $left80();
+}
+p .extend{
+  left: 10px;
+}
+
+.clearfix {
+  left: 10px;
+  filter: alpha(opacity=80) test(10-1);
+  @extend p .extend, .extend2, .extend3;
+}
+
+$name = hello;
+.classname{
+  @import "./import1.mcss" screen and (max-width: 99px);
+  $left = 30px;
+  $mixin();
+}
+
+.class-#{a,b,c}{
+  left: $i + 'px';
+}
+
+@import "./import2.mcss";
+@import "./import2.css";
+@import "./import2.css" screen and (max-width: 99px);
 
 dada a.class {
   $solid = 20px;
-  $name = max-width;
+  $name = min-width;
   solid: 10px;
-  @media screen{
-    @media ( $name : $solid){
+  @media screen, not screen and (max-width: 80px){
+    @media ( $name : $solid), (w){
       .class-1 {
         hello: hello
       }
@@ -30,6 +71,7 @@ dada a.class {
   body { color: purple; background: yellow; }
   test {height: 20px;}
 }
+
 
 
 
@@ -124,7 +166,7 @@ $name = hello;
 
 .dada:hello#{da}{
   dada: -moz-radial-gradient(dada);
-  font: ($hello = p1);
+  /*font: ($hello = p1);*/
   @if $name == hello1 {
     haha: hello1;
   }@elseif $name == hello2{

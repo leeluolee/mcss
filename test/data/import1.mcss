@@ -1,13 +1,4 @@
-@var luobo 18px;
-@mixin tooltips (width, height, color) {
-  font-size: width;
-  float:float;
-  width: width;
-  height: height;
-  left:10px;
-  transition:left .1s ease-in-out;
-}
-
+@import "./import2.mcss";
 .classname{
     left: luobo;
     width: luobo;
