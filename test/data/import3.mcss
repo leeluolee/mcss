@@ -1,1 +1,1 @@
-@import '/test/data/import1.mcss'
+@import '/test/data/import1.mcss';

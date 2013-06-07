@@ -1,0 +1,2 @@
+$heihei = 10px;
+@import './_import1.mcss';

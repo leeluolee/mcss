@@ -1,3 +1,33 @@
 #!/usr/bin/env node
+var program = require('../lib/cli'),
+    _ = require('../lib/helper/util'),
+    mcss = require('../'),
+    path = require('path'),
+    cwd = process.cwd();
 
-require('../lib/cli').run();
+// var options = _.copy(program, [
+//         'format', 'indent'
+//     ])
+// var watch = program.watch,
+//     outport = program.outport? path.resolve(cwd, program.outport):null,
+//     files = program.args;
+
+
+
+
+// files.map(function(file){
+//     return path.resolve(cwd, file);
+// }).forEach(function(file){
+//     var opts = _.extend({filename: file},options);
+//     mcss(opts).translate().done(function(content){
+//         if(!outport){
+//             console.log("file: " +file +':\n')
+//             console.log(content)
+//         }else{
+            
+//         }
+//     })
+// })
+
+
+

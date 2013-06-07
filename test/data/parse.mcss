@@ -1,16 +1,20 @@
+$a = 10px;
 $left = 100px;
-$mixin = ($function){
-  $heihei = 80px;
+
+@debug 100px - 1px-1px;
+@debug $left -1px;
+@debug $left - 1px;
+$mixin = ($heihei){
   left: $left;
   $closure = (){
     left: $heihei;
   }
-  @if $function{
+  @if $heihei{
     @return $closure;
   }
 }
 
-$left80 = $mixin(true);
+$left80 = $mixin(80px);
 
 
 .extend2, .extend3{
@@ -25,7 +29,7 @@ p .extend{
 
 .clearfix {
   left: 10px;
-  filter: alpha(opacity=80) test(10-1);
+  filter: alpha(opacity=80) test(10px- 1px);
   @extend p .extend, .extend2, .extend3;
 }
 

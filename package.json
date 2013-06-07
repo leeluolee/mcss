@@ -5,13 +5,14 @@
   "scripts": {
     "start": "node app"
   },
+  "main": "./lib/index.js",
   "dependencies": {
-    "argumentum": "0.6.x"
+    "commander": "1.1.x",
+    "globule": "0.1.0",
+    "mkdirp": "~0.3.5"
   },
   "devDependencies":{
-    "nodeunit": "0.8.x",
-    "node-diff": "0.2.x",
-    "chokidar": "0.6.x",
+    "mocha": "1.10.x",
     "wrapup": "0.11.x"
   },
   "scripts": {

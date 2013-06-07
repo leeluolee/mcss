@@ -1,11 +1,9 @@
 path = require 'path'
 fs = require 'fs'
 {spawn, exec} = require 'child_process'
-lfs = require './lib/helper/fs'
 
 
 chokidar = require 'chokidar'
-{reporters} = require 'nodeunit'
 
 # npm information
 info = JSON.parse fs.readFileSync __dirname + '/package.json', 'utf8'
@@ -14,10 +12,6 @@ info = JSON.parse fs.readFileSync __dirname + '/package.json', 'utf8'
 option '-m', '--mode [Mode]', 'watcher mode'
 
 test = () ->
-# 每次都清理require.cache
-  delete require.cache[mod_id] for mod_id of require.cache
-  process.chdir __dirname
-  reporters.default.run ['test/specs']
 
 build = () ->
   wrup = do require "wrapup"
@@ -49,7 +43,7 @@ task 'watch', 'run the test when lib files modified', (options) ->
   console.log "watcher on in #{options.mode} mode"
   watcher = chokidar.watch __dirname + '/lib', persistent: true
   watcher.add __dirname + '/test/mcss' if options.mode is 'test'
-  watcher.on 'change', build if options.mode is 'test'
+  watcher.on 'change', build if options.mode isnt 'test'
   watcher.on 'change', buildTestMcss 
 
 task 'test', 'Run the test suite', ->
