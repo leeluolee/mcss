@@ -1,9 +1,5 @@
 #!/usr/bin/env node
-var program = require('../lib/cli'),
-    _ = require('../lib/helper/util'),
-    mcss = require('../'),
-    path = require('path'),
-    cwd = process.cwd();
+var program = require('../lib/cli');
 
 // var options = _.copy(program, [
 //         'format', 'indent'

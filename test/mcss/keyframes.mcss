@@ -1,0 +1,16 @@
+// base
+@keyframes transform {
+    from {
+        transform: translate(0,0);
+    }
+    10% {
+        transform: translate(0,0);
+    }
+    20% {
+        transform: translate(0,0);
+    }
+    to {
+        transfrom: translate(0,0); 
+    }
+}
+

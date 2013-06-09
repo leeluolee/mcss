@@ -419,3 +419,65 @@
 //     if(!node) this.error('not "' + ast.key +'" in module:"'+ast.name+'"')
 //     return node;
 // }
+
+    // module: function(){
+    //     var node = new tree.Module(), url;
+    //     this.match('AT_KEYWORD');
+    //     this.eat('WS')
+    //     if(this.la() !== '{'){// means url
+    //         url = this.url();
+    //     }
+    //     if(url) {
+    //         io.register({
+    //             url: url,
+    //             node: node,
+    //             key: 'block'
+    //         })
+    //     }else{
+    //         node.block = this.block();
+    //     }
+    //     return node;
+    // },
+
+
+
+
+// function RGBA(channels){
+//     this.type = 'RGBA';
+//     if(typeof channels === 'string'){
+//         var string = channels.charAt(0) === '#'? channels.slice(1) : channels;
+//         if (string.length === 6) {
+//             channels = [
+//                 parseInt(string.substr(0, 2), 16), 
+//                 parseInt(string.substr(2, 2), 16), 
+//                 parseInt(string.substr(4, 2), 16),
+//                 1
+//             ];
+//         }else {
+//             var r = string.substr(0, 1);
+//             var g = string.substr(1, 1);
+//             var b = string.substr(2, 1);
+//             channels = [
+//                 parseInt(r + r, 16), 
+//                 parseInt(g + g, 16), 
+//                 parseInt(b + b, 16), 
+//                 1
+//             ];
+//         }
+//     }
+//     this.channels = channels || [];
+// }
+
+// RGBA.prototype.clone = function(){
+//     var clone = new RGBA(cloneNode(this.channels));
+//     return clone;
+// }
+// RGBA.prototype.tocss = function(){
+//     var chs = this.channels;
+//     console.log(chs)
+//     if(chs[3] === 1 || chs[3] === undefined){
+//         return 'rgb(' + chs[0] + ',' + chs[1] + ',' + chs[2] + ')';
+//     }else{
+//         return 'rgba(' + chs[0] + ',' + chs[1] + ',' + chs[2] + ',' + chs[3] +')';
+//     }
+// }

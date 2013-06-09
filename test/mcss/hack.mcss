@@ -1,0 +1,13 @@
+// unicode escape
+body{
+    // simple value hack ;
+    // if the hex value < 10 then no convert to unicode char
+    left: 20px\9;
+    // underscore hack
+    _left: 30px;
+    // start hack
+    *left: 20px;
+    // base escape value, convert to unicode
+    left: 20px \cc11;
+    
+}

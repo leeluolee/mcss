@@ -1,0 +1,12 @@
+body{
+    $white = white;
+    // rgba
+    color: rgba(1,1,1, 0.8);
+    // rgb
+    color: rgba(#fff, 10%);
+    // hex3
+    color: #ccc;
+    // color key
+    color: rgba(white, 10%);
+
+}

@@ -17,25 +17,27 @@ var mcss;
     },
     '1': function (require, module, exports, global) {
         var Parser = require('2');
-        var Interpreter = require('f');
-        var Translator = require('r');
-        var Tokenizer = require('3');
-        var promise = require('a');
+        var Interpreter = require('g');
+        var Translator = require('s');
+        var tk = require('3');
+        var promise = require('b');
         var _ = require('4');
-        var io = require('9');
-        var options = require('d');
-        var state = require('b');
+        var io = require('a');
+        var options = require('e');
+        var state = require('c');
         function Mcss(options) {
             this.options = _.extend(options || {}, {
                 pathes: [],
                 format: 1
             });
         }
-        var m = Mcss.prototype;
-        options.mixTo(m);
+        var m = options.mixTo(Mcss);
         m.include = function (path) {
-            this.get('paths').push(path);
+            this.get('pathes').push(path);
             return this;
+        };
+        m.tokenize = function (text) {
+            return tk.tokenize(text, this.options);
         };
         m.parse = function (text) {
             var parser = new Parser(this.options);
@@ -69,7 +71,7 @@ var mcss;
         mcss.Parser = Parser;
         mcss.Interpreter = Interpreter;
         mcss.Translator = Translator;
-        mcss.Tokenizer = Tokenizer;
+        mcss.Tokenizer = tk.Tokenizer;
         mcss.io = io;
         mcss.promise = promise;
         mcss._ = _;
@@ -79,13 +81,14 @@ var mcss;
         var tk = require('3');
         var tree = require('8');
         var _ = require('4');
-        var io = require('9');
-        var binop = require('c');
-        var promise = require('a');
-        var options = require('d');
+        var io = require('a');
+        var binop = require('d');
+        var promise = require('b');
+        var options = require('e');
         var path = require('6');
-        var symtab = require('e');
-        var state = require('b');
+        var fs = null;
+        var symtab = require('f');
+        var state = require('c');
         var perror = new Error();
         var slice = [].slice;
         var errors = {
@@ -124,10 +127,13 @@ var mcss;
         var isShorthandProp = _.makePredicate('background font margin border border-top border-right border-bottom border-left border-width border-color border-style transition padding list-style border-radius.');
         var isWSOrNewLine = _.makePredicate('WS NEWLINE');
         var isCommaOrParen = _.makePredicate(', )');
-        var isDirectOperate = _.makePredicate('RGBA DIMENSION STRING BOOLEAN TEXT NULL');
+        var isDirectOperate = _.makePredicate('DIMENSION STRING BOOLEAN TEXT NULL');
         var isRelationOp = _.makePredicate('== >= <= < > !=');
         var isNeg = function (ll) {
             return ll.type === 'DIMENSION' && ll.value < 0;
+        };
+        var isProbablyModulePath = function (path) {
+            return /^[-\w]/.test(path) && !/:/.test(path);
         };
         var states = {
                 'FILTER_DECLARATION': _.uid(),
@@ -260,6 +266,7 @@ var mcss;
                     throw perror;
                 }
                 var filename = this.options.filename;
+                console.log(this.p);
                 throw Error((filename ? 'file:"' + filename + '"' : '') + msg + ' on line:' + this.ll().lineno);
             },
             stylesheet: function (block) {
@@ -386,49 +393,36 @@ var mcss;
                     queryList = this.media_query_list();
                     this.match(';');
                 }
-                parse:
-                    var node = new tree.Import(url, queryList), extname;
-                if ((extname = path.extname(url.value)) !== '.css') {
-                    if (/^\/|:\//.test(url.value)) {
-                        var filename = url.value;
-                    } else {
-                        var base = path.dirname(this.options.filename);
-                        var filename = path.join(base, url.value);
-                    }
-                    filename += extname ? '' : '.mcss';
-                    var options = _.extend({ filename: filename }, this.options);
-                    var _requires = this.get('_requires');
-                    if (_requires && ~_requires.indexOf(filename)) {
-                        this.error('it is seems file:"' + filename + '" and file: "' + this.get('filename') + '" has Circular dependencies');
-                    }
-                    options._requires = _requires ? _.slice(_requires).push(this.get('filename')) : [this.get('filename')];
-                    var p = io.parse(filename, options).done(function (ast) {
-                            node.stylesheet = ast;
-                            if (!~state.requires.indexOf(filename)) {
-                                state.requires.push(filename);
-                            }
-                        });
+                var node = new tree.Import(url, queryList), extname = path.extname(url.value), filename, stat, p;
+                if (extname !== '.css') {
+                    p = this._import(url.value).done(function (ast) {
+                        node.stylesheet = ast;
+                    });
                     this.promises.push(p);
                 }
                 return node;
             },
-            module: function () {
-                var node = new tree.Module(), url;
+            abstract: function () {
+                var la, url, ruleset;
                 this.match('AT_KEYWORD');
                 this.eat('WS');
-                if (this.la() !== '{') {
-                    url = this.url();
-                }
-                if (url) {
-                    io.register({
-                        url: url,
-                        node: node,
-                        key: 'block'
-                    });
+                if ((la = this.la()) !== '{') {
+                    if (url = this.eat('STRING', 'URL')) {
+                        var node = new tree.Import(url);
+                        var p = this._import(url.value).done(function (ast) {
+                                node.stylesheet = ast.abstract();
+                            });
+                        this.promises.push(p);
+                        return node;
+                    } else {
+                        ruleset = this.ruleset();
+                        ruleset.abstract = true;
+                        return ruleset;
+                    }
                 } else {
-                    node.block = this.block();
+                    var list = this.stylesheet(true).abstract().list;
+                    return list;
                 }
-                return node;
             },
             url: function () {
                 return this.match('STRING', 'URL');
@@ -899,7 +893,7 @@ var mcss;
                     this.next();
                     value = ll.value;
                     if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value)) {
-                        node = new tree.RGBA(value);
+                        node = new tree.Color(value);
                     } else {
                         node = new tree.Unknown(ll.value);
                     }
@@ -916,12 +910,13 @@ var mcss;
                 case '+':
                 case '.':
                 case '#':
+                case '{':
                 case ':':
                 case '*':
                 case 'PSEUDO_CLASS':
                 case 'ATTRIBUTE':
                     if (this.state(states.TRY_DECLARATION)) {
-                        _.error(errors.DECLARION_FAIL);
+                        this.error(errors.DECLARION_FAIL);
                         break;
                     }
                 default:
@@ -1037,7 +1032,39 @@ var mcss;
                     return item.type;
                 }).join(',');
             },
-            _testInclude: function () {
+            _import: function (url) {
+                var pathes = this.get('pathes'), extname = path.extname(url);
+                if (!path.isFake && pathes.length && isProbablyModulePath(url.value)) {
+                    var inModule = pathes.some(function (item) {
+                            filename = path.join(item, url);
+                            try {
+                                stat = fs.statSync(filename);
+                                if (stat.isFile())
+                                    return true;
+                            } catch (e) {
+                            }
+                        });
+                }
+                if (!inModule) {
+                    if (/^\/|:\//.test(url)) {
+                        var filename = url;
+                    } else {
+                        var base = path.dirname(this.options.filename);
+                        var filename = path.join(base, url);
+                    }
+                }
+                filename += extname ? '' : '.mcss';
+                var options = _.extend({ filename: filename }, this.options);
+                var _requires = this.get('_requires');
+                if (_requires && ~_requires.indexOf(filename)) {
+                    this.error('it is seems file:"' + filename + '" and file: "' + this.get('filename') + '" has Circular dependencies');
+                }
+                options._requires = _requires ? _.slice(_requires).push(this.get('filename')) : [this.get('filename')];
+                return io.parse(filename, options).done(function (ast) {
+                    if (!~state.requires.indexOf(filename)) {
+                        state.requires.push(filename);
+                    }
+                });
             }
         };
         options.mixTo(Parser);
@@ -1097,6 +1124,8 @@ var mcss;
         exports.createToken = createToken;
         var isUnit = toAssert2('% em ex ch rem vw vh vmin vmax cm mm in pt pc px deg grad rad turn s ms Hz kHz dpi dpcm dppx');
         var isPseudoClassWithParen = toAssert2('current local-link nth-child nth-last-child nth-of-type nth-last-of-type nth-match nth-last-match column nth-column nth-last-column lang matches not', true);
+        var MAX_ALLOWED_CODEPOINT = parseInt('10FFFF', 16);
+        var REPLACEMENT_CHARACTER = parseInt('FFFD', 16);
         var $rules = [];
         var $links = {};
         var addRules = function (rules) {
@@ -1126,7 +1155,7 @@ var mcss;
                 }
             },
             {
-                regexp: /\/\*([^\x00]+?)\*\/|\/\/([^\n\r$]*)/,
+                regexp: /\/\*([^\x00]+?)\*\/|\/\/([^\n\r]*)/,
                 action: function (yytext, mcomment, scomment) {
                     var isSingle = mcomment === undefined;
                     if (this.options.comment) {
@@ -1206,7 +1235,7 @@ var mcss;
                     }
                     return {
                         type: 'DIMENSION',
-                        value: parseInt(value),
+                        value: parseFloat(value),
                         unit: unit
                     };
                 }
@@ -1240,6 +1269,22 @@ var mcss;
                 action: function (yytext, value) {
                     this.yyval = yytext;
                     return 'HASH';
+                }
+            },
+            {
+                regexp: $(/\\([0-9a-fA-F]{1,6})/),
+                action: function (yytext, value) {
+                    var hex = parseInt(value, 16);
+                    if (hex > MAX_ALLOWED_CODEPOINT) {
+                        hex = '\ufffd';
+                    }
+                    if (hex < 10) {
+                        hex = '\\' + hex;
+                    } else {
+                        hex = String.fromCharCode(hex);
+                    }
+                    this.yyval = hex;
+                    return 'TEXT';
                 }
             },
             {
@@ -1370,7 +1415,6 @@ var mcss;
                 return 'Error on line ' + (this.lineno + 1) + ' ' + (message || '. Unrecognized input.') + '\n' + (offset === 0 ? '' : '...') + posMessage + '...\n' + new Array(pointer + (offset === 0 ? 0 : 3)).join(' ') + new Array(10).join('^');
             }
         };
-        console.log($(/\.({nmchar}+)/));
     },
     '4': function (require, module, exports, global) {
         var _ = {};
@@ -1380,11 +1424,11 @@ var mcss;
         var path = require('6');
         var tmpl = require('7');
         var acceptError = tmpl('the "{{i}}" argument passed to this function only accept {{accept}}, but got "{{type}}"');
-        var isWin = process.platform === 'win32';
+        var fp = Function.prototype, np = Number.prototype;
         function returnTrue() {
             return true;
         }
-        Function.prototype.__accept = function (list) {
+        fp.__accept = function (list) {
             var fn = this;
             if (!list || !list.length)
                 return;
@@ -1398,6 +1442,8 @@ var mcss;
             return function () {
                 var args = _.slice(arguments);
                 for (var i = args.length; i--;) {
+                    if (!args[i])
+                        continue;
                     var type = args[i].type;
                     var test = tlist[i];
                     if (test && !test(type)) {
@@ -1411,7 +1457,7 @@ var mcss;
                 return fn.apply(this, arguments);
             };
         };
-        Function.prototype.__msetter = function () {
+        fp.__msetter = function () {
             var fn = this;
             return function (key, value) {
                 if (typeof key === 'object') {
@@ -1427,6 +1473,9 @@ var mcss;
                     return fn.apply(this, arguments);
                 }
             };
+        };
+        np.__limit = function (min, max) {
+            return Math.min(max, Math.max(min, this));
         };
         _.makePredicate = function (words, prefix) {
             if (typeof words === 'string') {
@@ -1598,6 +1647,7 @@ var mcss;
             return slice.call(arr, start, last);
         };
         _.watch = function (file, callback) {
+            var isWin = process.platform === 'win32';
             if (isWin) {
                 fs.watch(file, function (event) {
                     if (event === 'change')
@@ -1688,7 +1738,7 @@ var mcss;
     },
     '6': function (require, module, exports, global) {
         var syspath = null, slice = [].slice;
-        if (!syspath)
+        if (syspath)
             module.exports = syspath;
         else {
             exports.fake = true;
@@ -1828,7 +1878,7 @@ var mcss;
         module.exports = templayed;
     },
     '8': function (require, module, exports, global) {
-        var _ = require('4'), splice = [].splice, isPrimary = _.makePredicate('hash rgba dimension string boolean text null url');
+        var _ = require('4'), splice = [].splice, tk = require('3'), isPrimary = _.makePredicate('hash rgba dimension string boolean text null url');
         function Stylesheet(list) {
             this.type = 'stylesheet';
             this.list = list || [];
@@ -1847,6 +1897,16 @@ var mcss;
                 }
             }
             return res;
+        };
+        Stylesheet.prototype.abstract = function () {
+            var list = this.list, i = list.length;
+            for (; i--;) {
+                ruleset = list[i];
+                if (ruleset && ruleset.type == 'ruleset') {
+                    ruleset.abstract = true;
+                }
+            }
+            return this;
         };
         function SelectorList(list) {
             this.type = 'selectorlist';
@@ -1868,11 +1928,12 @@ var mcss;
             var clone = new ComplexSelector(this.string, cloneNode(this.interpolations));
             return clone;
         };
-        function RuleSet(selector, block) {
+        function RuleSet(selector, block, abstract) {
             this.type = 'ruleset';
             this.selector = selector;
             this.block = block;
             this.ref = [];
+            this.abstract = abstract || false;
         }
         RuleSet.prototype.addRef = function (ruleset) {
             var alreadyHas = this.ref.some(function (item) {
@@ -1894,7 +1955,7 @@ var mcss;
             return this._selectors = selectors;
         };
         RuleSet.prototype.clone = function () {
-            var clone = new RuleSet(cloneNode(this.selector), cloneNode(this.block));
+            var clone = new RuleSet(cloneNode(this.selector), cloneNode(this.block), this.abstract);
             return clone;
         };
         function Block(list) {
@@ -1983,41 +2044,6 @@ var mcss;
         Unknown.prototype.clone = function () {
             var clone = new Unknown(this.name);
             return clone;
-        };
-        function RGBA(channels) {
-            this.type = 'RGBA';
-            if (typeof channels === 'string') {
-                var string = channels.charAt(0) === '#' ? channels.slice(1) : channels;
-                if (string.length === 6) {
-                    channels = [
-                        parseInt(string.substr(0, 2), 16),
-                        parseInt(string.substr(2, 2), 16),
-                        parseInt(string.substr(4, 2), 16),
-                        1
-                    ];
-                } else {
-                    var r = string.substr(0, 1);
-                    var g = string.substr(1, 1);
-                    var b = string.substr(2, 1);
-                    channels = [
-                        parseInt(r + r, 16),
-                        parseInt(g + g, 16),
-                        parseInt(b + b, 16),
-                        1
-                    ];
-                }
-            }
-            this.channels = channels || [];
-        }
-        RGBA.prototype.clone = function () {
-            var clone = new RGBA(cloneNode(this.channels));
-            return clone;
-        };
-        RGBA.prototype.tocss = function () {
-            var chs = this.channels;
-            if (chs[3] === 1 || chs[3] === undefined) {
-                return 'rgb(' + chs[0] + ',' + chs[1] + ',' + chs[2] + ')';
-            }
         };
         function Assign(name, value, override) {
             this.type = 'assign';
@@ -2303,7 +2329,7 @@ var mcss;
         exports.Import = Import;
         exports.Page = Page;
         exports.Directive = Directive;
-        exports.RGBA = RGBA;
+        exports.Color = require('9');
         exports.Assign = Assign;
         exports.Call = Call;
         exports.Operator = Operator;
@@ -2381,39 +2407,883 @@ var mcss;
         exports.isRelationOp = _.makePredicate('== >= <= < > !=');
         exports.convert = function (primary) {
             var type = _.typeOf(primary);
+            var tType;
             switch (type) {
             case 'string':
-                return {
-                    type: 'STRING',
-                    value: primary
-                };
-            case 'number':
-                return {
-                    type: 'DIMENSION',
-                    value: primary
-                };
+                tType = 'STRING';
+                break;
             case 'boolean':
-                return {
-                    type: 'BOOLEAN',
-                    value: primary
-                };
+                tType = 'BOOLEAN';
+                break;
+            case 'number':
+                tType = 'DIMENSION';
+                break;
+            case 'undefined':
             case 'null':
-                return {
-                    type: 'NULL',
-                    value: primary
-                };
-            default:
+                tType = 'NULL';
+                break;
+            case 'object':
                 return primary;
             }
+            if (tType)
+                return tk.createToken(tType, primary);
+            return primary;
         };
     },
     '9': function (require, module, exports, global) {
+        var _ = require('4');
+        function Color(channels, alpha) {
+            this.type = 'color';
+            if (typeof channels === 'string') {
+                var string = channels.charAt(0) === '#' ? channels.slice(1) : channels;
+                if (string.length === 6) {
+                    channels = [
+                        parseInt(string.substr(0, 2), 16),
+                        parseInt(string.substr(2, 2), 16),
+                        parseInt(string.substr(4, 2), 16)
+                    ];
+                } else {
+                    var r = string.substr(0, 1);
+                    var g = string.substr(1, 1);
+                    var b = string.substr(2, 1);
+                    channels = [
+                        parseInt(r + r, 16),
+                        parseInt(g + g, 16),
+                        parseInt(b + b, 16)
+                    ];
+                }
+            }
+            this[0] = channels[0];
+            this[1] = channels[1];
+            this[2] = channels[2];
+            this.alpha = alpha || 1;
+        }
+        var c = Color.prototype;
+        c.toHSL = function () {
+            return Color.rgb2hsl(this);
+        };
+        c.toCSS = function () {
+            if (!this.alpha || this.alpha === 1) {
+                return 'rgb(' + this[0] + ',' + this[1] + ',' + this[2] + ')';
+            } else {
+                return 'rgba(' + this[0] + ',' + this[1] + ',' + this[2] + ',' + this.alpha + ')';
+            }
+        };
+        c.clone = function () {
+            return new Color(this, this.alpha);
+        };
+        Color.rgb2hsl = function (rv, hv) {
+            hv = hv || [];
+            var r = rv[0] / 255, g = rv[1] / 255, b = rv[2] / 255, max = Math.max(r, g, b), min = Math.min(r, g, b), h, s, l = (max + min) / 2, d;
+            if (max == min) {
+                h = s = 0;
+            } else {
+                var d = max - min;
+                s = l >= 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                case r:
+                    h = (g - b) / d + (g < b ? 6 : 0);
+                    break;
+                case g:
+                    h = (b - r) / d + 2;
+                    break;
+                case b:
+                    h = (r - g) / d + 4;
+                    break;
+                }
+                h /= 6;
+            }
+            hv[0] = h * 360;
+            hv[1] = s * 100;
+            hv[2] = l * 100;
+            return hv;
+        };
+        Color.hsl2rgb = function (hv, rv) {
+            rv = rv || [];
+            var r, g, b;
+            h = hv[0] / 360, s = hv[1] / 100, l = hv[2] / 100;
+            function hue2rgb(p, q, t) {
+                if (t < 0)
+                    t += 1;
+                if (t > 1)
+                    t -= 1;
+                if (t < 1 / 6)
+                    return p + (q - p) * 6 * t;
+                if (t < 1 / 2)
+                    return q;
+                if (t < 2 / 3)
+                    return p + (q - p) * (2 / 3 - t) * 6;
+                return p;
+            }
+            if (s === 0) {
+                r = g = b = l;
+            } else {
+                var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                var p = 2 * l - q;
+                r = hue2rgb(p, q, h + 1 / 3);
+                g = hue2rgb(p, q, h);
+                b = hue2rgb(p, q, h - 1 / 3);
+            }
+            rv[0] = r * 255;
+            rv[1] = g * 255;
+            rv[2] = b * 255;
+            return rv;
+        };
+        Color.limit = function (values) {
+            values[0] = values[0].__limit(0, 255);
+            values[1] = values[2].__limit(0, 255);
+            values[2] = values[2].__limit(0, 255);
+        };
+        Color.hsl = function (channels, a) {
+            return new Color(Color.hsl2rgb(channels), a);
+        };
+        Color.maps = {
+            aliceblue: [
+                240,
+                248,
+                255
+            ],
+            antiquewhite: [
+                250,
+                235,
+                215
+            ],
+            aqua: [
+                0,
+                255,
+                255
+            ],
+            aquamarine: [
+                127,
+                255,
+                212
+            ],
+            azure: [
+                240,
+                255,
+                255
+            ],
+            beige: [
+                245,
+                245,
+                220
+            ],
+            bisque: [
+                255,
+                228,
+                196
+            ],
+            black: [
+                0,
+                0,
+                0
+            ],
+            blanchedalmond: [
+                255,
+                235,
+                205
+            ],
+            blue: [
+                0,
+                0,
+                255
+            ],
+            blueviolet: [
+                138,
+                43,
+                226
+            ],
+            brown: [
+                165,
+                42,
+                42
+            ],
+            burlywood: [
+                222,
+                184,
+                135
+            ],
+            cadetblue: [
+                95,
+                158,
+                160
+            ],
+            chartreuse: [
+                127,
+                255,
+                0
+            ],
+            chocolate: [
+                210,
+                105,
+                30
+            ],
+            coral: [
+                255,
+                127,
+                80
+            ],
+            cornflowerblue: [
+                100,
+                149,
+                237
+            ],
+            cornsilk: [
+                255,
+                248,
+                220
+            ],
+            crimson: [
+                220,
+                20,
+                60
+            ],
+            cyan: [
+                0,
+                255,
+                255
+            ],
+            darkblue: [
+                0,
+                0,
+                139
+            ],
+            darkcyan: [
+                0,
+                139,
+                139
+            ],
+            darkgoldenrod: [
+                184,
+                134,
+                11
+            ],
+            darkgray: [
+                169,
+                169,
+                169
+            ],
+            darkgreen: [
+                0,
+                100,
+                0
+            ],
+            darkgrey: [
+                169,
+                169,
+                169
+            ],
+            darkkhaki: [
+                189,
+                183,
+                107
+            ],
+            darkmagenta: [
+                139,
+                0,
+                139
+            ],
+            darkolivegreen: [
+                85,
+                107,
+                47
+            ],
+            darkorange: [
+                255,
+                140,
+                0
+            ],
+            darkorchid: [
+                153,
+                50,
+                204
+            ],
+            darkred: [
+                139,
+                0,
+                0
+            ],
+            darksalmon: [
+                233,
+                150,
+                122
+            ],
+            darkseagreen: [
+                143,
+                188,
+                143
+            ],
+            darkslateblue: [
+                72,
+                61,
+                139
+            ],
+            darkslategray: [
+                47,
+                79,
+                79
+            ],
+            darkslategrey: [
+                47,
+                79,
+                79
+            ],
+            darkturquoise: [
+                0,
+                206,
+                209
+            ],
+            darkviolet: [
+                148,
+                0,
+                211
+            ],
+            deeppink: [
+                255,
+                20,
+                147
+            ],
+            deepskyblue: [
+                0,
+                191,
+                255
+            ],
+            dimgray: [
+                105,
+                105,
+                105
+            ],
+            dimgrey: [
+                105,
+                105,
+                105
+            ],
+            dodgerblue: [
+                30,
+                144,
+                255
+            ],
+            firebrick: [
+                178,
+                34,
+                34
+            ],
+            floralwhite: [
+                255,
+                250,
+                240
+            ],
+            forestgreen: [
+                34,
+                139,
+                34
+            ],
+            fuchsia: [
+                255,
+                0,
+                255
+            ],
+            gainsboro: [
+                220,
+                220,
+                220
+            ],
+            ghostwhite: [
+                248,
+                248,
+                255
+            ],
+            gold: [
+                255,
+                215,
+                0
+            ],
+            goldenrod: [
+                218,
+                165,
+                32
+            ],
+            gray: [
+                128,
+                128,
+                128
+            ],
+            green: [
+                0,
+                128,
+                0
+            ],
+            greenyellow: [
+                173,
+                255,
+                47
+            ],
+            grey: [
+                128,
+                128,
+                128
+            ],
+            honeydew: [
+                240,
+                255,
+                240
+            ],
+            hotpink: [
+                255,
+                105,
+                180
+            ],
+            indianred: [
+                205,
+                92,
+                92
+            ],
+            indigo: [
+                75,
+                0,
+                130
+            ],
+            ivory: [
+                255,
+                255,
+                240
+            ],
+            khaki: [
+                240,
+                230,
+                140
+            ],
+            lavender: [
+                230,
+                230,
+                250
+            ],
+            lavenderblush: [
+                255,
+                240,
+                245
+            ],
+            lawngreen: [
+                124,
+                252,
+                0
+            ],
+            lemonchiffon: [
+                255,
+                250,
+                205
+            ],
+            lightblue: [
+                173,
+                216,
+                230
+            ],
+            lightcoral: [
+                240,
+                128,
+                128
+            ],
+            lightcyan: [
+                224,
+                255,
+                255
+            ],
+            lightgoldenrodyellow: [
+                250,
+                250,
+                210
+            ],
+            lightgray: [
+                211,
+                211,
+                211
+            ],
+            lightgreen: [
+                144,
+                238,
+                144
+            ],
+            lightgrey: [
+                211,
+                211,
+                211
+            ],
+            lightpink: [
+                255,
+                182,
+                193
+            ],
+            lightsalmon: [
+                255,
+                160,
+                122
+            ],
+            lightseagreen: [
+                32,
+                178,
+                170
+            ],
+            lightskyblue: [
+                135,
+                206,
+                250
+            ],
+            lightslategray: [
+                119,
+                136,
+                153
+            ],
+            lightslategrey: [
+                119,
+                136,
+                153
+            ],
+            lightsteelblue: [
+                176,
+                196,
+                222
+            ],
+            lightyellow: [
+                255,
+                255,
+                224
+            ],
+            lime: [
+                0,
+                255,
+                0
+            ],
+            limegreen: [
+                50,
+                205,
+                50
+            ],
+            linen: [
+                250,
+                240,
+                230
+            ],
+            magenta: [
+                255,
+                0,
+                255
+            ],
+            maroon: [
+                128,
+                0,
+                0
+            ],
+            mediumaquamarine: [
+                102,
+                205,
+                170
+            ],
+            mediumblue: [
+                0,
+                0,
+                205
+            ],
+            mediumorchid: [
+                186,
+                85,
+                211
+            ],
+            mediumpurple: [
+                147,
+                112,
+                219
+            ],
+            mediumseagreen: [
+                60,
+                179,
+                113
+            ],
+            mediumslateblue: [
+                123,
+                104,
+                238
+            ],
+            mediumspringgreen: [
+                0,
+                250,
+                154
+            ],
+            mediumturquoise: [
+                72,
+                209,
+                204
+            ],
+            mediumvioletred: [
+                199,
+                21,
+                133
+            ],
+            midnightblue: [
+                25,
+                25,
+                112
+            ],
+            mintcream: [
+                245,
+                255,
+                250
+            ],
+            mistyrose: [
+                255,
+                228,
+                225
+            ],
+            moccasin: [
+                255,
+                228,
+                181
+            ],
+            navajowhite: [
+                255,
+                222,
+                173
+            ],
+            navy: [
+                0,
+                0,
+                128
+            ],
+            oldlace: [
+                253,
+                245,
+                230
+            ],
+            olive: [
+                128,
+                128,
+                0
+            ],
+            olivedrab: [
+                107,
+                142,
+                35
+            ],
+            orange: [
+                255,
+                165,
+                0
+            ],
+            orangered: [
+                255,
+                69,
+                0
+            ],
+            orchid: [
+                218,
+                112,
+                214
+            ],
+            palegoldenrod: [
+                238,
+                232,
+                170
+            ],
+            palegreen: [
+                152,
+                251,
+                152
+            ],
+            paleturquoise: [
+                175,
+                238,
+                238
+            ],
+            palevioletred: [
+                219,
+                112,
+                147
+            ],
+            papayawhip: [
+                255,
+                239,
+                213
+            ],
+            peachpuff: [
+                255,
+                218,
+                185
+            ],
+            peru: [
+                205,
+                133,
+                63
+            ],
+            pink: [
+                255,
+                192,
+                203
+            ],
+            plum: [
+                221,
+                160,
+                221
+            ],
+            powderblue: [
+                176,
+                224,
+                230
+            ],
+            purple: [
+                128,
+                0,
+                128
+            ],
+            red: [
+                255,
+                0,
+                0
+            ],
+            rosybrown: [
+                188,
+                143,
+                143
+            ],
+            royalblue: [
+                65,
+                105,
+                225
+            ],
+            saddlebrown: [
+                139,
+                69,
+                19
+            ],
+            salmon: [
+                250,
+                128,
+                114
+            ],
+            sandybrown: [
+                244,
+                164,
+                96
+            ],
+            seagreen: [
+                46,
+                139,
+                87
+            ],
+            seashell: [
+                255,
+                245,
+                238
+            ],
+            sienna: [
+                160,
+                82,
+                45
+            ],
+            silver: [
+                192,
+                192,
+                192
+            ],
+            skyblue: [
+                135,
+                206,
+                235
+            ],
+            slateblue: [
+                106,
+                90,
+                205
+            ],
+            slategray: [
+                112,
+                128,
+                144
+            ],
+            slategrey: [
+                112,
+                128,
+                144
+            ],
+            snow: [
+                255,
+                250,
+                250
+            ],
+            springgreen: [
+                0,
+                255,
+                127
+            ],
+            steelblue: [
+                70,
+                130,
+                180
+            ],
+            tan: [
+                210,
+                180,
+                140
+            ],
+            teal: [
+                0,
+                128,
+                128
+            ],
+            thistle: [
+                216,
+                191,
+                216
+            ],
+            tomato: [
+                255,
+                99,
+                71
+            ],
+            turquoise: [
+                64,
+                224,
+                208
+            ],
+            violet: [
+                238,
+                130,
+                238
+            ],
+            wheat: [
+                245,
+                222,
+                179
+            ],
+            white: [
+                255,
+                255,
+                255
+            ],
+            whitesmoke: [
+                245,
+                245,
+                245
+            ],
+            yellow: [
+                255,
+                255,
+                0
+            ],
+            yellowgreen: [
+                154,
+                205,
+                50
+            ]
+        };
+        module.exports = Color;
+    },
+    'a': function (require, module, exports, global) {
         var fs = null;
         var path = null;
-        var promise = require('a');
-        var state = require('b');
+        var promise = require('b');
+        var state = require('c');
         var parser = require('2');
-        exports.get = function (path) {
+        exports.get = function (path, options) {
+            options = options || {};
             if (fs) {
                 return file(path, 'utf8');
             } else {
@@ -2458,7 +3328,7 @@ var mcss;
             return p;
         };
     },
-    'a': function (require, module, exports, global) {
+    'b': function (require, module, exports, global) {
         var slice = Array.prototype.slice, isFunction = function (fn) {
                 return typeof fn == 'function';
             }, typeOf = function (obj) {
@@ -2643,12 +3513,15 @@ var mcss;
                 return result;
             },
             or: function () {
-                var promises = slice.call(arguments), not = Promise.not, negatedPromises = promises.map(not);
-                return Promise.not(Promise.when.apply(this, negatedPromises));
+                var promises = slice.call(arguments), not = promise.not, negatedPromises = promises.map(not);
+                return promise.not(promise.when.apply(this, negatedPromises));
+            },
+            isPromise: function (promise) {
+                return promise && promise instanceof Promise;
             }
         });
     },
-    'b': function (require, module, exports, global) {
+    'c': function (require, module, exports, global) {
         var _ = {};
         _.debug = true;
         _.pathes = [];
@@ -2662,7 +3535,7 @@ var mcss;
         };
         module.exports = _;
     },
-    'c': function (require, module, exports, global) {
+    'd': function (require, module, exports, global) {
         var _ = require('4');
         var tree = require('8');
         var $ = module.exports = {
@@ -2787,7 +3660,7 @@ var mcss;
                 }
             };
     },
-    'd': function (require, module, exports, global) {
+    'e': function (require, module, exports, global) {
         var _ = require('4');
         var API = {
                 set: function (name, value) {
@@ -2814,7 +3687,7 @@ var mcss;
             return _.extend(obj, API);
         };
     },
-    'e': function (require, module, exports, global) {
+    'f': function (require, module, exports, global) {
         var Symtable = exports.SymbolTable = function () {
             };
         var Scope = exports.Scope = function (parentScope) {
@@ -2854,23 +3727,24 @@ var mcss;
             }
         };
     },
-    'f': function (require, module, exports, global) {
-        var Interpreter = require('g');
-        var Hook = require('k');
+    'g': function (require, module, exports, global) {
+        var Interpreter = require('h');
+        var Hook = require('l');
         module.exports = Interpreter;
     },
-    'g': function (require, module, exports, global) {
-        var Walker = require('h');
+    'h': function (require, module, exports, global) {
+        var Walker = require('i');
         var parser = require('2');
         var tree = require('8');
-        var symtab = require('e');
-        var state = require('i');
-        var promise = require('a');
+        var symtab = require('f');
+        var state = require('j');
+        var promise = require('b');
         var path = require('6');
         var u = require('4');
-        var io = require('9');
-        var binop = require('c');
-        var functions = require('j');
+        var io = require('a');
+        var binop = require('d');
+        var functions = require('k');
+        var color = require('9');
         function Interpreter(options) {
             this.options = options;
         }
@@ -2916,6 +3790,9 @@ var mcss;
             rawSelector.list.forEach(function (complex) {
                 self.define(complex.string, ast);
             });
+            if (ast.abstract) {
+                rawSelector.list = [];
+            }
             if (!values)
                 ast.selector = this.concatSelector(rawSelector);
             if (values) {
@@ -3036,6 +3913,14 @@ var mcss;
             });
             return ast;
         };
+        _.walk_text = function (ast) {
+            var chs = color.maps[ast.value];
+            if (chs) {
+                return new color(chs);
+            } else {
+                return ast;
+            }
+        };
         _.walk_string = function (ast) {
             var self = this, symbol;
             ast.value = ast.value.replace(/#\{(\w+)}/g, function (all, name) {
@@ -3076,10 +3961,12 @@ var mcss;
             return res;
         };
         _.walk_call = function (ast) {
-            var func = this.resolve(ast.name), iscope, params, args;
+            var func = this.resolve(ast.name), iscope, params, args = this.walk(ast.args);
+            ;
             if (!func || func.type !== 'func') {
                 if (func = functions[ast.name]) {
-                    return func.apply(this, ast.args);
+                    var value = tree.convert(func.apply(this, args));
+                    return value;
                 } else {
                     if (ast.name.charAt(0) === '$')
                         this.error('no function "' + ast.name + '" founded');
@@ -3089,7 +3976,6 @@ var mcss;
             }
             iscope = new symtab.Scope();
             params = func.params;
-            args = this.walk(ast.args);
             this.push(iscope);
             for (var i = 0, len = params.length; i < len; i++) {
                 var param = params[i], arg = args[i];
@@ -3120,7 +4006,7 @@ var mcss;
                 this.scope = prev;
                 this.pop(iscope);
                 if (err.code === errors.RETURN) {
-                    var value = err.value;
+                    var value = tree.convert(err.value);
                     if (value.type === 'func' && iscope.resolve(value.name, true)) {
                         value.scope = iscope;
                         iscope.parentScope = this.scope;
@@ -3365,7 +4251,7 @@ var mcss;
         };
         module.exports = Interpreter;
     },
-    'h': function (require, module, exports, global) {
+    'i': function (require, module, exports, global) {
         var _ = require('4');
         var Walker = function () {
         };
@@ -3414,7 +4300,7 @@ var mcss;
         };
         module.exports = Walker;
     },
-    'i': function (require, module, exports, global) {
+    'j': function (require, module, exports, global) {
         function ex(o1, o2, override) {
             for (var i in o2)
                 if (o1[i] == null || override) {
@@ -3444,80 +4330,61 @@ var mcss;
             ex(obj, API);
         };
     },
-    'j': function (require, module, exports, global) {
+    'k': function (require, module, exports, global) {
         var tree = require('8');
         var u = require('4');
+        var tk = require('3');
         var _ = module.exports = {
-                lighten: function (rgba, percent) {
-                    if (!percent || percent.unit !== '%') {
-                        this.error('the 2rd argument must be a percent like "10%"');
-                    }
-                    var chs = rgba.channels;
-                    var rate = 1 + percent.value / 100;
-                    var channels = fixChannels([
-                            chs[0] * rate,
-                            chs[1] * rate,
-                            chs[2] * rate,
-                            chs[3]
-                        ]);
-                    return new tree.RGBA(channels);
-                }.__accept([
-                    'RGBA',
-                    'DIMENSION'
-                ]),
-                darken: function (rgba, percent) {
-                    if (!percent || percent.unit !== '%') {
-                        this.error('the 2rd argument must be a percent like "10%"');
-                    }
-                    var chs = rgba.channels;
-                    var rate = 1 + percent.value / 100;
-                    var channels = fixChannels([
-                            chs[0] * rate,
-                            chs[1] * rate,
-                            chs[2] * rate,
-                            chs[3]
-                        ]);
-                    return new tree.RGBA(channels);
-                }.__accept([
-                    'RGBA',
-                    'DIMENSION'
-                ]),
-                red: function (rgba) {
-                    return rgba.channels[0];
-                }.__accept(['RGBA']),
-                green: function (rgba) {
-                    return rgba.channels[1];
-                }.__accept(['RGBA']),
-                blue: function (rgba) {
-                    return rgba.channels[2];
-                }.__accept(['RGBA']),
                 rgba: function (r, g, b, a) {
-                }.__accept(['RGBA']),
+                    if (r.type === 'color') {
+                        return new tree.Color(r, g && g.value);
+                    } else {
+                        return new tree.Color([
+                            r.value,
+                            g.value,
+                            b.value
+                        ], a && a.value);
+                    }
+                }.__accept([
+                    'DIMENSION color',
+                    'DIMENSION',
+                    'DIMENSION',
+                    'DIMENSION'
+                ]),
                 rgb: function () {
                     return _.rgba.apply(this, arguments);
                 },
-                hsla: function () {
-                }.__accept(['RGBA']),
+                hsla: function (h, s, l, a) {
+                    return Color.hsl([
+                        h.value,
+                        s.value,
+                        l.value
+                    ], a && a.value);
+                }.__accept([
+                    'DIMENSION',
+                    'DIMENSION',
+                    'DIMENSION',
+                    'DIMENSION'
+                ]),
                 hsl: function () {
                     return _.hsla.apply(this.arguments);
                 },
-                hue: function () {
-                }.__accept(['RGBA']),
-                saturation: function () {
-                }.__accept(['RGBA']),
-                lightness: function () {
-                }.__accept(['RGBA']),
-                abs: function () {
+                mix: function () {
+                }.__accept([
+                    'color',
+                    'color'
+                ]),
+                abs: function (d) {
                 }.__accept(['DIMENSION']),
-                floor: function () {
+                floor: function (d) {
                 }.__accept(['DIMENSION']),
-                round: function () {
+                round: function (d) {
                 }.__accept(['DIMENSION']),
-                ceil: function () {
+                ceil: function (d) {
                 }.__accept(['DIMENSION']),
-                max: function () {
+                max: function (d1, d2) {
                 }.__accept(['DIMENSION']),
-                min: function () {
+                min: function (d1, d2) {
                 },
                 typeof: function (node) {
                     return node.type.toLowerCase();
@@ -3544,6 +4411,74 @@ var mcss;
                     }
                 }
             };
+        _['-adjust'] = function (color, prop, weight, absolute) {
+            var p = prop.value, key = channelsMap[p];
+            var isAbsolute = tree.toBoolean(absolute);
+            if (isRGBA(p)) {
+                if (!weight)
+                    return color[key];
+                if (p === 'a' && weight.unit === '%') {
+                    weight.unit = null;
+                    weight.value /= 100;
+                }
+                if (weight.unit)
+                    this.error('rgba adjust only accpet NUMBER');
+                var clone = color.clone();
+                if (isAbsolute) {
+                    clone[key] = weight.value;
+                } else {
+                    clone[key] += weight.value;
+                }
+                return clone;
+            }
+            if (isHSL(p)) {
+                var hsl = color.toHSL();
+                if (!weight) {
+                    switch (p) {
+                    case 'saturation':
+                    case 'lightness':
+                        return {
+                            type: 'DIMENSION',
+                            value: hsl[key],
+                            unit: '%'
+                        };
+                    }
+                    return hsl[key];
+                }
+                if (isAbsolute) {
+                    hsl[key] = weight.value;
+                } else {
+                    hsl[key] += weight.value;
+                }
+                return Color.hsl(hsl, color.alpha);
+            }
+            this.error('invalid adjust property ' + p + ' ' + color.lineno);
+        }.__accept([
+            'color',
+            'STRING',
+            'DIMENSION'
+        ]);
+        var RGBA_STR = 'red green blue alpha';
+        var HSL_STR = 'hue saturation lightness';
+        var isRGBA = u.makePredicate(RGBA_STR);
+        var isHSL = u.makePredicate(HSL_STR);
+        var channelsMap = {
+                'hue': 0,
+                'saturation': 1,
+                'lightness': 2,
+                'red': 0,
+                'green': 1,
+                'blue': 2,
+                'alpha': 'alpha'
+            };
+        ;
+        (RGBA_STR + ' ' + HSL_STR).split(' ').forEach(function (name) {
+            var text = tk.createToken('STRING', name);
+            _[name.charAt(0) + '-adjust'] = _[name] = function (color, amount, absolute) {
+                return _['-adjust'].call(this, color, text, amount, absolute);
+            };
+        });
+        delete _.alpha;
         var mediatypes = {
                 '.eot': 'application/vnd.ms-fontobject',
                 '.gif': 'image/gif',
@@ -3581,17 +4516,17 @@ var mcss;
             return channels;
         };
     },
-    'k': function (require, module, exports, global) {
-        var Hook = require('l');
+    'l': function (require, module, exports, global) {
+        var Hook = require('m');
         exports.hook = function (ast, options) {
             new Hook(options).walk(ast);
             return ast;
         };
     },
-    'l': function (require, module, exports, global) {
-        var Walker = require('h');
-        var Event = require('m');
-        var hooks = require('n');
+    'm': function (require, module, exports, global) {
+        var Walker = require('i');
+        var Event = require('n');
+        var hooks = require('o');
         function Hook(options) {
             options = options || {};
             this.load(options.hooks);
@@ -3678,7 +4613,7 @@ var mcss;
         };
         module.exports = Hook;
     },
-    'm': function (require, module, exports, global) {
+    'n': function (require, module, exports, global) {
         var slice = [].slice, ex = function (o1, o2, override) {
                 for (var i in o2)
                     if (o1[i] == null || override) {
@@ -3739,14 +4674,14 @@ var mcss;
         };
         module.exports = Event;
     },
-    'n': function (require, module, exports, global) {
+    'o': function (require, module, exports, global) {
         module.exports = {
-            prefixr: require('o'),
-            csscomb: require('q')
+            prefixr: require('p'),
+            csscomb: require('r')
         };
     },
-    'o': function (require, module, exports, global) {
-        var prefixs = require('p').prefixs;
+    'p': function (require, module, exports, global) {
+        var prefixs = require('q').prefixs;
         var _ = require('4');
         var tree = require('8');
         var isTestProperties = _.makePredicate('border-radius transition');
@@ -3762,7 +4697,7 @@ var mcss;
             }
         };
     },
-    'p': function (require, module, exports, global) {
+    'q': function (require, module, exports, global) {
         exports.orders = {
             'position': 1,
             'z-index': 1,
@@ -4044,8 +4979,8 @@ var mcss;
             'line-height': 7
         };
     },
-    'q': function (require, module, exports, global) {
-        var orders = require('p').orders;
+    'r': function (require, module, exports, global) {
+        var orders = require('q').orders;
         module.exports = {
             'block': function (tree) {
                 tree.list.sort(function (d1, d2) {
@@ -4054,15 +4989,15 @@ var mcss;
             }
         };
     },
-    'r': function (require, module, exports, global) {
-        var Translator = require('s');
+    's': function (require, module, exports, global) {
+        var Translator = require('t');
         module.exports = Translator;
     },
-    's': function (require, module, exports, global) {
-        var Walker = require('h');
+    't': function (require, module, exports, global) {
+        var Walker = require('i');
         var tree = require('8');
         var u = require('4');
-        var options = require('d');
+        var options = require('e');
         var tmpl = require('7');
         function Translator(options) {
             this.options = options || {};
@@ -4130,6 +5065,7 @@ var mcss;
         };
         _.walk_values = function (ast) {
             var text = this.walk(ast.list).join(' ');
+            text = text.replace(/ \/ /g, '/');
             return text;
         };
         _.walk_import = function (ast) {
@@ -4143,7 +5079,7 @@ var mcss;
             return outport.join(' ') + ';';
         };
         _.walk_debug = function (ast) {
-            console.debug(this.walk(ast.value));
+            console.log('!debug: ' + this.walk(ast.value));
         };
         _.walk_media = function (ast) {
             var str = '@media ';
@@ -4185,8 +5121,8 @@ var mcss;
         _.walk_url = function (ast) {
             return 'url("' + ast.value + '")';
         };
-        _.walk_rgba = function (ast) {
-            return ast.tocss();
+        _.walk_color = function (ast) {
+            return ast.toCSS();
         };
         _.walk_directive = function (ast) {
             var str = '@' + ast.name + ' ';

@@ -1,0 +1,3 @@
+@import 'nec/reset.mcss';
+
+$reset(#dadada, rgba(211, 102, 51, 0.8));
