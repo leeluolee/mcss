@@ -1,9 +1,0 @@
-$func1 = ($color){
-    @return 10px, solid, 20px;
-}
-
-
-
-$nocolor = $func1(#fff);
-
-$nocolor(hello)

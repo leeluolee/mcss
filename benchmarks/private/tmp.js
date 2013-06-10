@@ -481,3 +481,47 @@
 //         return 'rgba(' + chs[0] + ',' + chs[1] + ',' + chs[2] + ',' + chs[3] +')';
 //     }
 // }
+
+    // _add: function(actor1, actor2, op){
+    //     var value, unit;
+
+    //     if(actor1.unit){
+    //         unit = actor1.unit;
+    //     }else{
+    //         unit = actor2.unit;
+    //     }
+    //     if(op === '+'){ //+
+    //         value = actor1.value + actor2.value;
+    //     }else{ //-
+    //         value = actor1.value -actor2.value;
+    //     }
+    //     return {
+    //         type: 'DIMENSION',
+    //         value: value,
+    //         unit: unit
+    //     }
+
+    // },
+    // // DIMENSION * DIMENSION
+    // // DIMENSION / DIMENSION
+    // _mult: function(actor1, actor2, op){
+    //     var unit, value;
+
+    //     if(actor1.unit){
+    //         unit = actor1.unit;
+    //     }else{
+    //         unit = actor2.unit;
+    //     }
+
+    //     if(op === '*'){ //+
+    //         value = actor1.value * actor2.value;
+    //     }else{ //-
+    //         if(actor2.value === 0) this.error('can"t divid by zero');
+    //         value = actor1.value / actor2.value;
+    //     }
+    //     return {
+    //         type: 'DIMENSION',
+    //         value: value,
+    //         unit: unit
+    //     }
+    // },

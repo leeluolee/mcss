@@ -1,0 +1,11 @@
+simple-format{
+    s-format: 'haha %s heihei' % 'hello';
+    x-format: 'haha #%x heihei' %  16711422;
+    X-format: 'haha #%X heihei' %  16711422;
+    d-format: 'haha %d heihei' % '20dada';
+    f-format: 'haha %f heihei' % 12.36;
+}
+
+format-with-interplation{
+    
+}

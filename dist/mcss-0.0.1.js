@@ -989,44 +989,6 @@ var mcss;
                 this.match(';');
                 return node;
             },
-            _add: function (actor1, actor2, op) {
-                var value, unit;
-                if (actor1.unit) {
-                    unit = actor1.unit;
-                } else {
-                    unit = actor2.unit;
-                }
-                if (op === '+') {
-                    value = actor1.value + actor2.value;
-                } else {
-                    value = actor1.value - actor2.value;
-                }
-                return {
-                    type: 'DIMENSION',
-                    value: value,
-                    unit: unit
-                };
-            },
-            _mult: function (actor1, actor2, op) {
-                var unit, value;
-                if (actor1.unit) {
-                    unit = actor1.unit;
-                } else {
-                    unit = actor2.unit;
-                }
-                if (op === '*') {
-                    value = actor1.value * actor2.value;
-                } else {
-                    if (actor2.value === 0)
-                        this.error('can"t divid by zero');
-                    value = actor1.value / actor2.value;
-                }
-                return {
-                    type: 'DIMENSION',
-                    value: value,
-                    unit: unit
-                };
-            },
             _lookahead: function () {
                 return this.lookahead.map(function (item) {
                     return item.type;
@@ -2305,6 +2267,20 @@ var mcss;
         Directive.prototype.clone = function () {
             var clone = new Directive(this.name, cloneNode(this.value), cloneNode(this.block));
             return clone;
+        };
+        Print.formats = {
+            'd': function (value) {
+                return parseInt(value, 10);
+            },
+            'f': function (value) {
+                return parseFloat(value, 10);
+            },
+            'x': function (value) {
+                return parseInt(value, 10).toString(16);
+            },
+            's': function (value) {
+                return String(value);
+            }
         };
         exports.Stylesheet = Stylesheet;
         exports.SelectorList = SelectorList;
@@ -3605,21 +3581,24 @@ var mcss;
                     'DIMENSION'
                 ]),
                 '%': function (left, right) {
-                    if (right.value === 0)
-                        throw 'Divid by zero' + right.lineno;
-                    var value = left.value % right.value;
-                    var unit = left.unit || right.unit;
-                    if (left.unit && right.unit && left.unit !== right.unit)
-                        _.warn('unmatched unit, forced 2rd unit equal with the 1st one');
-                    return {
-                        type: left.type,
-                        value: value,
-                        unit: unit
-                    };
-                }.__accept([
-                    'DIMENSION',
-                    'DIMENSION'
-                ]),
+                    if (left.type === 'STRING') {
+                        var values = right.list || [right];
+                        values.forEach(function () {
+                        });
+                    } else {
+                        if (right.value === 0)
+                            throw 'Divid by zero' + right.lineno;
+                        var value = left.value % right.value;
+                        var unit = left.unit || right.unit;
+                        if (left.unit && right.unit && left.unit !== right.unit)
+                            _.warn('unmatched unit, forced 2rd unit equal with the 1st one');
+                        return {
+                            type: left.type,
+                            value: value,
+                            unit: unit
+                        };
+                    }
+                }.__accept(['DIMENSION STRING']),
                 'relation': function (left, right, op) {
                     var bool = { type: 'BOOLEAN' };
                     if (left.type !== right.type) {

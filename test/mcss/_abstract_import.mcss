@@ -1,9 +1,9 @@
 // exports variable
-$right = 20px; 
+$right = 20px;
 
 // extended class
 .abs4{
-    name: abs3;        
+    name: abs3;
     left: $left;
 }
 .abs5{
@@ -11,4 +11,3 @@ $right = 20px;
     left: $left;
 }
 
-// 

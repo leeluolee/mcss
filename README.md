@@ -1,6 +1,6 @@
 ##MCSS - module css preprocessor
 
-mcss is a css preprocessor, aim to write abstract css use @module.
+mcss is a css preprocessor, aim to help writing abstract css;
 
  * Homepage: <http://netease.github.com/mcss>
  * Documentation: <http://mcss.readthedocs.org>
@@ -8,14 +8,18 @@ mcss is a css preprocessor, aim to write abstract css use @module.
  * Issues: <https://github.com/netease/mcss/issues/>
  * Tags: css, nodejs, csspreprocessor
 
-## Features（项目特点）
+## Feature
 
 __ 整理中... __
 
-## HOW TO USAGE(如何使用，可选）
+## 使用
     git clone git://github.com/leeluolee/mcss.git
 ## Contributors
-leeluolee
+1. [@leeluolee | http://weibo.com/luobolee]
+2. __you...__
+
+## 如何贡献代码
+
 
 ## License
 
