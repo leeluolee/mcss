@@ -5,7 +5,7 @@
   "scripts": {
     "start": "node app"
   },
-  "main": "./lib/index.js",
+  "main": "./lib/mcss.js",
   "dependencies": {
     "commander": "1.1.x",
     "globule": "0.1.0",

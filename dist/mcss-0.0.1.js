@@ -14,17 +14,19 @@ var mcss;
     '0': function (require, module, exports, global) {
         var mcss = require('1');
         module.exports = mcss;
+        function getLinks() {
+        }
     },
     '1': function (require, module, exports, global) {
         var Parser = require('2');
-        var Interpreter = require('g');
-        var Translator = require('s');
+        var Interpreter = require('f');
+        var Translator = require('r');
         var tk = require('3');
-        var promise = require('b');
+        var promise = require('a');
         var _ = require('4');
-        var io = require('a');
-        var options = require('e');
-        var state = require('c');
+        var io = require('9');
+        var options = require('d');
+        var state = require('b');
         function Mcss(options) {
             this.options = _.extend(options || {}, {
                 pathes: [],
@@ -79,16 +81,16 @@ var mcss;
     },
     '2': function (require, module, exports, global) {
         var tk = require('3');
-        var tree = require('8');
+        var tree = require('7');
         var _ = require('4');
-        var io = require('a');
-        var binop = require('d');
-        var promise = require('b');
-        var options = require('e');
+        var io = require('9');
+        var binop = require('c');
+        var promise = require('a');
+        var options = require('d');
         var path = require('6');
         var fs = null;
-        var symtab = require('f');
-        var state = require('c');
+        var symtab = require('e');
+        var state = require('b');
         var perror = new Error();
         var slice = [].slice;
         var errors = {
@@ -1033,7 +1035,7 @@ var mcss;
     },
     '3': function (require, module, exports, global) {
         var util = require('4');
-        var tree = require('8');
+        var tree = require('7');
         var slice = [].slice;
         var $ = function () {
                 var table = {};
@@ -1384,7 +1386,7 @@ var mcss;
         var fs = null;
         var mkdirp = require('5');
         var path = require('6');
-        var tmpl = require('7');
+        var tmpl = null;
         var acceptError = tmpl('the "{{i}}" argument passed to this function only accept {{accept}}, but got "{{type}}"');
         var fp = Function.prototype, np = Number.prototype;
         function returnTrue() {
@@ -1746,100 +1748,6 @@ var mcss;
         }
     },
     '7': function (require, module, exports, global) {
-        function templayed(template, vars) {
-            var get = function (path, i) {
-                    i = 1;
-                    path = path.replace(/\.\.\//g, function () {
-                        i++;
-                        return '';
-                    });
-                    var js = [
-                            'vars[vars.length - ',
-                            i,
-                            ']'
-                        ], keys = path == '.' ? [] : path.split('.'), j = 0;
-                    for (j; j < keys.length; j++) {
-                        js.push('.' + keys[j]);
-                    }
-                    ;
-                    return js.join('');
-                }, tag = function (template) {
-                    return template.replace(/\{\{(!|&|\{)?\s*(.*?)\s*}}+/g, function (match, operator, context) {
-                        if (operator == '!')
-                            return '';
-                        var i = inc++;
-                        return [
-                            '"; var o',
-                            i,
-                            ' = ',
-                            get(context),
-                            ', s',
-                            i,
-                            ' = (((typeof(o',
-                            i,
-                            ') == "function" ? o',
-                            i,
-                            '.call(vars[vars.length - 1]) : o',
-                            i,
-                            ') || "") + ""); s += ',
-                            operator ? 's' + i : '(/[&"><]/.test(s' + i + ') ? s' + i + '.replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/>/g,"&gt;").replace(/</g,"&lt;") : s' + i + ')',
-                            ' + "'
-                        ].join('');
-                    });
-                }, block = function (template) {
-                    return tag(template.replace(/\{\{(\^|#)(.*?)}}(.*?)\{\{\/\2}}/g, function (match, operator, key, context) {
-                        var i = inc++;
-                        return [
-                            '"; var o',
-                            i,
-                            ' = ',
-                            get(key),
-                            '; ',
-                            (operator == '^' ? [
-                                'if ((o',
-                                i,
-                                ' instanceof Array) ? !o',
-                                i,
-                                '.length : !o',
-                                i,
-                                ') { s += "',
-                                block(context),
-                                '"; } '
-                            ] : [
-                                'if (typeof(o',
-                                i,
-                                ') == "boolean" && o',
-                                i,
-                                ') { s += "',
-                                block(context),
-                                '"; } else if (o',
-                                i,
-                                ') { for (var i',
-                                i,
-                                ' = 0; i',
-                                i,
-                                ' < o',
-                                i,
-                                '.length; i',
-                                i,
-                                '++) { vars.push(o',
-                                i,
-                                '[i',
-                                i,
-                                ']); s += "',
-                                block(context),
-                                '"; vars.pop(); }}'
-                            ]).join(''),
-                            '; s += "'
-                        ].join('');
-                    }));
-                }, inc = 0;
-            return new Function('vars', 'vars = [vars], s = "' + block(template.replace(/"/g, '\\"').replace(/\n/g, '\\n')) + '"; return s;');
-        }
-        ;
-        module.exports = templayed;
-    },
-    '8': function (require, module, exports, global) {
         var _ = require('4'), splice = [].splice, tk = require('3'), isPrimary = _.makePredicate('hash rgba dimension string boolean text null url');
         function Stylesheet(list) {
             this.type = 'stylesheet';
@@ -2268,20 +2176,6 @@ var mcss;
             var clone = new Directive(this.name, cloneNode(this.value), cloneNode(this.block));
             return clone;
         };
-        Print.formats = {
-            'd': function (value) {
-                return parseInt(value, 10);
-            },
-            'f': function (value) {
-                return parseFloat(value, 10);
-            },
-            'x': function (value) {
-                return parseInt(value, 10).toString(16);
-            },
-            's': function (value) {
-                return String(value);
-            }
-        };
         exports.Stylesheet = Stylesheet;
         exports.SelectorList = SelectorList;
         exports.ComplexSelector = ComplexSelector;
@@ -2305,7 +2199,7 @@ var mcss;
         exports.Import = Import;
         exports.Page = Page;
         exports.Directive = Directive;
-        exports.Color = require('9');
+        exports.Color = require('8');
         exports.Assign = Assign;
         exports.Call = Call;
         exports.Operator = Operator;
@@ -2315,6 +2209,12 @@ var mcss;
         exports.MediaExpression = MediaExpression;
         exports.Keyframes = Keyframes;
         exports.KeyframesBlock = KeyframesBlock;
+        exports.null = function (lineno) {
+            return {
+                type: 'NULL',
+                lineno: lineno
+            };
+        };
         exports.inspect = function (node) {
             return node.type ? node.type.toLowerCase() : null;
         };
@@ -2406,7 +2306,7 @@ var mcss;
             return primary;
         };
     },
-    '9': function (require, module, exports, global) {
+    '8': function (require, module, exports, global) {
         var _ = require('4');
         function Color(channels, alpha) {
             this.type = 'color';
@@ -3252,11 +3152,11 @@ var mcss;
         };
         module.exports = Color;
     },
-    'a': function (require, module, exports, global) {
+    '9': function (require, module, exports, global) {
         var fs = null;
         var path = null;
-        var promise = require('b');
-        var state = require('c');
+        var promise = require('a');
+        var state = require('b');
         var parser = require('2');
         exports.get = function (path, options) {
             options = options || {};
@@ -3304,7 +3204,7 @@ var mcss;
             return p;
         };
     },
-    'b': function (require, module, exports, global) {
+    'a': function (require, module, exports, global) {
         var slice = Array.prototype.slice, isFunction = function (fn) {
                 return typeof fn == 'function';
             }, typeOf = function (obj) {
@@ -3497,7 +3397,7 @@ var mcss;
             }
         });
     },
-    'c': function (require, module, exports, global) {
+    'b': function (require, module, exports, global) {
         var _ = {};
         _.debug = true;
         _.pathes = [];
@@ -3511,9 +3411,26 @@ var mcss;
         };
         module.exports = _;
     },
-    'd': function (require, module, exports, global) {
+    'c': function (require, module, exports, global) {
         var _ = require('4');
-        var tree = require('8');
+        var tree = require('7');
+        var formats = {
+                'd': function (value) {
+                    return parseInt(value.value, 10).toString(10);
+                },
+                'f': function (value) {
+                    return parseFloat(value.value, 10).toString(10);
+                },
+                'x': function (value) {
+                    return parseInt(value.value, 10).toString(16);
+                },
+                'X': function (value) {
+                    return parseInt(value.value, 10).toString(16).toUpperCase();
+                },
+                's': function (value) {
+                    return tree.toStr(value);
+                }
+            };
         var $ = module.exports = {
                 '+': function (left, right) {
                     var value = left.value + right.value;
@@ -3582,9 +3499,16 @@ var mcss;
                 ]),
                 '%': function (left, right) {
                     if (left.type === 'STRING') {
-                        var values = right.list || [right];
-                        values.forEach(function () {
+                        var values = right.list || [right], index = 0;
+                        left.value = left.value.replace(/\%(x|f|s|d|X)/g, function (all, format) {
+                            var replace = values[index];
+                            if (!replace)
+                                return tree.null();
+                            return formats[format](replace);
+                            index++;
                         });
+                        debugger;
+                        return left;
                     } else {
                         if (right.value === 0)
                             throw 'Divid by zero' + right.lineno;
@@ -3639,7 +3563,7 @@ var mcss;
                 }
             };
     },
-    'e': function (require, module, exports, global) {
+    'd': function (require, module, exports, global) {
         var _ = require('4');
         var API = {
                 set: function (name, value) {
@@ -3666,7 +3590,7 @@ var mcss;
             return _.extend(obj, API);
         };
     },
-    'f': function (require, module, exports, global) {
+    'e': function (require, module, exports, global) {
         var Symtable = exports.SymbolTable = function () {
             };
         var Scope = exports.Scope = function (parentScope) {
@@ -3706,24 +3630,24 @@ var mcss;
             }
         };
     },
-    'g': function (require, module, exports, global) {
-        var Interpreter = require('h');
-        var Hook = require('l');
+    'f': function (require, module, exports, global) {
+        var Interpreter = require('g');
+        var Hook = require('k');
         module.exports = Interpreter;
     },
-    'h': function (require, module, exports, global) {
-        var Walker = require('i');
+    'g': function (require, module, exports, global) {
+        var Walker = require('h');
         var parser = require('2');
-        var tree = require('8');
-        var symtab = require('f');
-        var state = require('j');
-        var promise = require('b');
+        var tree = require('7');
+        var symtab = require('e');
+        var state = require('i');
+        var promise = require('a');
         var path = require('6');
         var u = require('4');
-        var io = require('a');
-        var binop = require('d');
-        var functions = require('k');
-        var color = require('9');
+        var io = require('9');
+        var binop = require('c');
+        var functions = require('j');
+        var color = require('8');
         function Interpreter(options) {
             this.options = options;
         }
@@ -4230,7 +4154,7 @@ var mcss;
         };
         module.exports = Interpreter;
     },
-    'i': function (require, module, exports, global) {
+    'h': function (require, module, exports, global) {
         var _ = require('4');
         var Walker = function () {
         };
@@ -4279,7 +4203,7 @@ var mcss;
         };
         module.exports = Walker;
     },
-    'j': function (require, module, exports, global) {
+    'i': function (require, module, exports, global) {
         function ex(o1, o2, override) {
             for (var i in o2)
                 if (o1[i] == null || override) {
@@ -4309,8 +4233,8 @@ var mcss;
             ex(obj, API);
         };
     },
-    'k': function (require, module, exports, global) {
-        var tree = require('8');
+    'j': function (require, module, exports, global) {
+        var tree = require('7');
         var u = require('4');
         var tk = require('3');
         var _ = module.exports = {
@@ -4495,17 +4419,17 @@ var mcss;
             return channels;
         };
     },
-    'l': function (require, module, exports, global) {
-        var Hook = require('m');
+    'k': function (require, module, exports, global) {
+        var Hook = require('l');
         exports.hook = function (ast, options) {
             new Hook(options).walk(ast);
             return ast;
         };
     },
-    'm': function (require, module, exports, global) {
-        var Walker = require('i');
-        var Event = require('n');
-        var hooks = require('o');
+    'l': function (require, module, exports, global) {
+        var Walker = require('h');
+        var Event = require('m');
+        var hooks = require('n');
         function Hook(options) {
             options = options || {};
             this.load(options.hooks);
@@ -4592,7 +4516,7 @@ var mcss;
         };
         module.exports = Hook;
     },
-    'n': function (require, module, exports, global) {
+    'm': function (require, module, exports, global) {
         var slice = [].slice, ex = function (o1, o2, override) {
                 for (var i in o2)
                     if (o1[i] == null || override) {
@@ -4653,16 +4577,16 @@ var mcss;
         };
         module.exports = Event;
     },
-    'o': function (require, module, exports, global) {
+    'n': function (require, module, exports, global) {
         module.exports = {
-            prefixr: require('p'),
-            csscomb: require('r')
+            prefixr: require('o'),
+            csscomb: require('q')
         };
     },
-    'p': function (require, module, exports, global) {
-        var prefixs = require('q').prefixs;
+    'o': function (require, module, exports, global) {
+        var prefixs = require('p').prefixs;
         var _ = require('4');
-        var tree = require('8');
+        var tree = require('7');
         var isTestProperties = _.makePredicate('border-radius transition');
         module.exports = {
             'block': function (tree) {
@@ -4676,7 +4600,7 @@ var mcss;
             }
         };
     },
-    'q': function (require, module, exports, global) {
+    'p': function (require, module, exports, global) {
         exports.orders = {
             'position': 1,
             'z-index': 1,
@@ -4958,8 +4882,8 @@ var mcss;
             'line-height': 7
         };
     },
-    'r': function (require, module, exports, global) {
-        var orders = require('q').orders;
+    'q': function (require, module, exports, global) {
+        var orders = require('p').orders;
         module.exports = {
             'block': function (tree) {
                 tree.list.sort(function (d1, d2) {
@@ -4968,16 +4892,16 @@ var mcss;
             }
         };
     },
-    's': function (require, module, exports, global) {
-        var Translator = require('t');
+    'r': function (require, module, exports, global) {
+        var Translator = require('s');
         module.exports = Translator;
     },
-    't': function (require, module, exports, global) {
-        var Walker = require('i');
-        var tree = require('8');
+    's': function (require, module, exports, global) {
+        var Walker = require('h');
+        var tree = require('7');
         var u = require('4');
-        var options = require('e');
-        var tmpl = require('7');
+        var options = require('d');
+        var tmpl = null;
         function Translator(options) {
             this.options = options || {};
         }
