@@ -1,7 +1,8 @@
+#!/usr/bin/env node
 var fs = require('fs'),
   globule = require('globule'),
   path = require('path'),
-  mcss = require('./'),
+  mcss = require('../'),
   _ = require('../lib/helper/util'),
   promise = require('../lib/helper/promise'),
   cwd = process.cwd(),
@@ -56,32 +57,29 @@ function build(fullpath, first){
   building = true;
   var promises = files.map(function(file){
     var fullpath = path.resolve(cwd, file);
-    try{
-      return mcss({
-        format: program.format,
-        filename: fullpath,
-      // @TODO remove
-      }).include(path.join(cwd, 'test/mcss/include'))
-       .translate(fs.readFileSync(fullpath, 'utf8')).done(function(content){
-        if(!outport) return console.log(file + '\n' +content);
-        if(inputDir){
-          var rpath = path.relative(inputDir, file);
-          var dest = path.join(outport, rpath).replace(/\.mcss/,'.css');
-        }else{
-          dest = outport;
-        }
-        _.writeFile(dest, content, function(err){
-          if(err) return console.log(err)
-          console.log(dest + ' writed')
-        })
+    return mcss({
+      format: program.format,
+      filename: fullpath
+    // @TODO remove
+    }).include(path.join(cwd, 'test/mcss/include'))
+     .translate().done(function(content){
+      if(!outport) return console.log(file + '\n' +content);
+      if(inputDir){
+        var rpath = path.relative(inputDir, file);
+        var dest = path.join(outport, rpath).replace(/\.mcss/,'.css');
+      }else{
+        dest = outport;
+      }
+      _.writeFile(dest, content, function(err){
+        if(err) return console.log(err)
+        console.log(dest + ' writed')
       })
-    }catch(e){
-      console.log(e)
-    }
+    }).fail(function(err, options){
+      console.log(mcss.error.format(err, options.imports[options.filename]))
+    })
   }).filter(promise.isPromise);
-  mcss.promise.when.apply(mcss.promise, promises).done(function(){
+  mcss.promise.when.apply(mcss.promise, promises).always(function(){
     building = false;
-    console.log('done')
     if(first && watch){
       var watchers = _.slice(files);
       mcss.state.requires.forEach(function(file){

@@ -9,5 +9,5 @@ body{
     *left: 20px;
     // base escape value, convert to unicode
     left: 20px \cc11;
-    
+
 }
