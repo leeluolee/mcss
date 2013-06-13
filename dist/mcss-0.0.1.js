@@ -3972,6 +3972,7 @@ var mcss;
             if (!values)
                 ast.selector = this.concatSelector(rawSelector);
             ast.lineno = rawSelector.lineno;
+            ast.filename = this.get('filename');
             if (values) {
                 for (var i = 0, len = values.length; i < len; i++) {
                     iscope = new symtab.Scope();
@@ -5179,29 +5180,38 @@ var mcss;
             };
         _.translate = function (ast) {
             this.ast = ast;
-            this.buffer = buffer();
+            this.buffer = buffer(this.options);
             this.level = 0;
             this.indent = this.get('indent') || '\t';
             this.newline = this.get('format') > 1 ? '' : '\n';
-            var text = this.walk_stylesheet(ast, true);
-            if (path && this.options.sourceMap) {
-                text += '/*@ sourceMappingURL= ' + path.basename(this.get('filename'), '.mcss') + '.css.map */';
+            this.walk_stylesheet(ast, true);
+            var text = this.buffer.toString();
+            if (path && this.options.sourceMap && this.options.dest) {
+                var base64 = new Buffer(this.buffer.getMap()).toString('base64');
+                text += '/*@ sourceMappingURL= ' + path.basename(this.get('dest'), '.css') + '.css.map */';
+                u.writeFile(this.get('dest') + '.map', this.buffer.getMap(), function (err) {
+                    if (err)
+                        console.error('sourcemap wirte fail');
+                });
             }
             return text;
         };
         _.walk_stylesheet = function (ast, blank) {
-            return this.walk_block(ast, blank);
+            this.walk_block(ast, blank);
         };
         _.walk_ruleset = function (ast) {
+            var buffer = this.buffer;
             if (!ast.block.list.length)
-                return '';
+                return false;
             var slist = ast.getSelectors();
             if (!slist.length)
-                return '';
-            var cssTexts = [];
-            cssTexts.push(this.walk(slist).join(','));
-            cssTexts.push(this.walk(ast.block));
-            return cssTexts.join('');
+                return false;
+            buffer.addMap({
+                line: ast.lineno - 1,
+                source: ast.filename
+            });
+            buffer.add(this.walk(slist).join(','));
+            this.walk(ast.block);
         };
         _.walk_selectorlist = function (ast) {
             return this.walk(ast.list).join(',' + this.newline);
@@ -5215,23 +5225,21 @@ var mcss;
             var buffer = this.buffer;
             var res = [];
             if (!blank)
-                res.push('{');
+                buffer.add('{');
             var list = ast.list;
             for (var i = 0, len = list.length; i < len; i++) {
+                buffer.add(this.newline + indent);
                 var item = this.walk(list[i]);
-                if (item) {
+                if (item !== false) {
                     if (list[i].type !== 'declaration' && this.has('format', 3)) {
-                        item += '\n';
+                        buffer.add('\n');
                     }
-                    res.push(item);
                 }
             }
-            var str = res.join(this.newline + indent);
             this.level--;
             if (!blank) {
-                str += this.newline + this.indents() + '}';
+                buffer.add(this.newline + this.indents() + '}');
             }
-            return str;
         };
         _.walk_valueslist = function (ast) {
             var text = this.walk(ast.list).join(',');
@@ -5250,16 +5258,17 @@ var mcss;
             if (ast.queryList && ast.queryList.length) {
                 outport.push(this.walk(ast.queryList).join(','));
             }
-            return outport.join(' ') + ';';
+            this.buffer.add(outport.join(' ') + ';');
         };
         _.walk_debug = function (ast) {
             console.log('!debug: ' + this.walk(ast.value));
+            return false;
         };
         _.walk_media = function (ast) {
             var str = '@media ';
             str += this.walk(ast.queryList).join(',');
-            str += this.walk_stylesheet(ast.stylesheet);
-            return str;
+            this.buffer.add(str);
+            this.walk_stylesheet(ast.stylesheet);
         };
         _.walk_mediaquery = function (ast) {
             var outport = this.walk(ast.expressions);
@@ -5277,7 +5286,7 @@ var mcss;
         _.walk_declaration = function (ast) {
             var text = this.walk(ast.property);
             var value = this.walk(ast.value);
-            return text + ': ' + value + ';';
+            this.buffer.add(text + ': ' + value + ';');
         };
         _.walk_string = function (ast) {
             return '"' + ast.value + '"';
@@ -5304,8 +5313,10 @@ var mcss;
             }
             if (ast.block) {
                 str += this.walk(ast.block);
+            } else {
+                str += ';';
             }
-            return str;
+            this.buffer.add(str);
         };
         _.walk_call = function (ast) {
             return ast.name + '(' + this.walk(ast.args).join(',') + ')';
@@ -5338,39 +5349,43 @@ var mcss;
             var options = options || {};
             var buffers = [];
             var mapper = {};
-            var generator = sourceMap ? new sourceMap.SourceMapGenerator({ file: path.basename(options.filename) }) : null;
-            this.lines = 1;
-            this.column = 1;
-            this.content = '';
+            var generator = path && options.sourceMap ? new sourceMap.SourceMapGenerator({ file: path.basename(options.dest) }) : null;
+            var lines = 1;
+            var column = 1;
+            var outport = '';
             return {
                 add: function (content) {
-                    var newline = (content.match(/\n/g) || '').length;
-                    this.lines += newline;
-                    this.content += content;
-                    var clen = content.length;
-                    if (newline) {
-                        this.column = clen - content.lastIndex('\n') - 1;
-                    } else {
-                        this.column += clen;
+                    if (options.sourceMap) {
+                        var newline = (content.match(/\n/g) || '').length;
+                        lines += newline;
+                        var clen = content.length;
+                        if (newline) {
+                            column = clen - content.lastIndexOf('\n') - 1;
+                        } else {
+                            column += clen;
+                        }
                     }
+                    outport += content;
                 },
                 addMap: function (map) {
-                    generator.addMapping({
-                        generated: {
-                            column: this.column,
-                            line: this.lines
-                        },
-                        source: path.relative(options.filename, map.source),
-                        original: {
-                            column: 1,
-                            line: map.line
-                        }
-                    });
+                    if (options.sourceMap) {
+                        generator.addMapping({
+                            generated: {
+                                column: column,
+                                line: lines
+                            },
+                            source: path.relative(path.dirname(options.dest), map.source),
+                            original: {
+                                column: 1,
+                                line: map.line
+                            }
+                        });
+                    }
                 },
                 toString: function () {
-                    return buffers.join('\n');
+                    return outport;
                 },
-                genMap: function () {
+                getMap: function () {
                     if (!generator)
                         return null;
                     return generator.toString();

@@ -26,7 +26,7 @@ if(!program.args.length) throw 'the <file> arguments to build is required'
 
 
 var watch = program.watch;
-var sourceMap = program.sourceMap;
+var sourceMap = program.sourcemap;
 if(program.outport)  var outport = path.resolve(cwd, program.outport);
 
 var file = path.resolve(cwd, program.args[0]);
