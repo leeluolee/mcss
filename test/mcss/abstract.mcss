@@ -49,11 +49,14 @@ p{
     @extend .abs3;
     left: $right 10px ;
 }
+
+$test = ($left){
+    $left ?= 1000px;
+    p{
+        left: $left;
+    }
+}
 body{
     background-color: #ccc !important;
 }
 
-$test = ($left){
-    $left ?= 
-    left: 1000px;
-}

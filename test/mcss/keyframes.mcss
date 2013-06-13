@@ -1,5 +1,5 @@
 // base
-@keyframes transform {
+@keyframes shake {
     from {
         transform: translate(0,0);
     }

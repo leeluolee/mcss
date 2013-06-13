@@ -5286,7 +5286,7 @@ var mcss;
         _.walk_declaration = function (ast) {
             var text = this.walk(ast.property);
             var value = this.walk(ast.value);
-            this.buffer.add(text + ': ' + value + ';');
+            this.buffer.add(text + ':' + value + ';');
         };
         _.walk_string = function (ast) {
             return '"' + ast.value + '"';

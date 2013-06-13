@@ -1,5 +1,6 @@
 // unicode escape
 body{
+    $left = 'te';
     // simple value hack ;
     // if the hex value < 10 then no convert to unicode char
     left: 20px\9;
@@ -9,5 +10,6 @@ body{
     *left: 20px;
     // base escape value, convert to unicode
     left: 20px \cc11;
+    left: -$left;
 
 }
