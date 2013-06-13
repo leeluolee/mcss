@@ -1,6 +1,5 @@
 // exports variable
 $right = 20px;
-@import 'abstract.mcss';
 
 // extended class
 .abs4{
@@ -11,4 +10,5 @@ $right = 20px;
     name: abs4;
     left: $left;
 }
+
 
