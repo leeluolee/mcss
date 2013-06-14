@@ -1,0 +1,31 @@
+// the $btn function get the $color arg and return a function to 
+// accpet other param
+$btn = ($color){
+    $text-align = center;
+    // the res accept other options, and can accept a function!
+    $res = ($radius, $other-function){
+        $radius ?= 5px;
+        color: $color;
+        text-align: $text-align;
+        vertical-align: middle;
+        cursor: pointer;
+    }
+    @return $res;
+}
+
+//basic function
+$border-radius = ($radius){
+    -webkit-border-radius: $radius;
+       -moz-border-radius: $radius;
+            border-radius: $radius;
+}
+
+// then the $btn-with-color is a function and has the color definition already
+// just like javascript's closure
+$btn-with-color = $btn(#fff);
+
+// outport as we expect
+body{
+   $btn-with-color();
+}
+

@@ -2,6 +2,9 @@
   "name": "mcss",
   "version": "0.0.1",
   "main": "./lib/mcss.js",
+  "bin": {
+    "mcss": "./bin/mcss"
+  },  
   "dependencies": {
     "commander": "1.1.x",
     "globule": "0.1.0",

@@ -1,2 +1,6 @@
 $heihei = 10px;
 @import './_import1.mcss';
+
+#markdown {
+    @import './_import1.mcss';
+}

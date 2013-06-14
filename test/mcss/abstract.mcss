@@ -1,6 +1,6 @@
-// set up
-// ================
 
+
+// simple @abstract
 @abstract .abs1{
     name: abs1;
 }
@@ -44,19 +44,12 @@ body{
     left: 10px;
 }
 p{
-    @extend .abs2;
+    @extend .abs2, .abs3;
     // then .abs3 exports
-    @extend .abs3;
     left: $right 10px ;
-}
-
-$test = ($left){
-    $left ?= 1000px;
-    p{
-        left: $left;
-    }
 }
 body{
     background-color: #ccc !important;
 }
+
 

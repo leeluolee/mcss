@@ -1,0 +1,19 @@
+$no-param = (){
+    left: no-param;
+} 
+$no-paren = {
+    left: no-paren;
+}
+
+$one-param = ($left){
+    left: $left;
+}
+
+$default-param = ($left = 10px){
+    left: $left;
+}
+
+
+body{
+
+}
