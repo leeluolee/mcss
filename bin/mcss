@@ -19,6 +19,7 @@ var program = require('commander')
   .option('-s, --sourcemap', 'generate the sourcemap')
   .option('-o, --outport <filename>', 'the outport filename or dirname')
   .option('-i, --indent <indent>', 'the indent string default "\\t"')
+  .option('-t, --test', 'just for test , forbit underscore file')
   .parse(process.argv);
 
 if(!program.args.length) throw 'the <file> arguments to build is required'
@@ -35,6 +36,10 @@ var stat = fs.statSync(file);
 // is directory
 if(stat.isDirectory()){
   var files = globule.find(path.join(file , '**/*.mcss'))
+  .filter(function(item){
+    if(program.test) return path.basename(item).indexOf('_') !== 0
+    return true;
+  })
   .map(function(rpath){
     return path.resolve(cwd, rpath);
   });
@@ -51,6 +56,7 @@ if(!files.length) throw 'no matched mcss file';
 
 var building;
 function build(fullpath, first){
+  var imports = [];
   if(building){
     console.log('is busy building')
     return;
@@ -65,14 +71,15 @@ function build(fullpath, first){
     }else{
       dest = outport;
     }
-
-    return mcss({
+    var date = +new Date()
+    var instance = mcss({
       format: program.format,
       filename: fullpath,
       dest: dest,
       sourceMap: sourceMap,
     // @TODO remove
-    }).include(path.join(cwd, 'test/mcss/include'))
+    });
+    return instance.include(path.join(__dirname, '../test/mcss/include'))
      .translate().done(function(content){
       if(!outport) return console.log(file + '\n' +content);
       _.writeFile(dest, content, function(err){
@@ -80,14 +87,19 @@ function build(fullpath, first){
         console.log(dest + ' writed')
       })
     }).fail(function(err){
-      console.log(mcss.error.format(err))
+      mcss.error.format(err)
+      console.log(err.message);
+    }).always(function(){
+      Object.keys(instance.get('imports')).forEach(function(ipt){
+        if(!~imports.indexOf(ipt)) imports.push(ipt);
+      })
     })
   }).filter(promise.isPromise);
   mcss.promise.when.apply(mcss.promise, promises).always(function(){
     building = false;
     if(first && watch){
       var watchers = _.slice(files);
-      mcss.state.requires.forEach(function(file){
+      imports.forEach(function(file){
         if(!~watchers.indexOf(file)){
           watchers.push(file); 
         }

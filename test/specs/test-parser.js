@@ -2,7 +2,7 @@
 
 
 
-http('/test/mcss/abstract.mcss', function(text){
+http('/test/mcss/import_module.mcss', function(text){
     var date = Date.now();
     mcss({
         filename: '/test/mcss/abstract.mcss'

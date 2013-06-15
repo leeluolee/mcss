@@ -25,17 +25,17 @@ describe('Array', function(){
         }
         mcss({
             filename: fullpath
-        }).include(__dirname+'/test/include')
+        }).include(__dirname+'/mcss/include')
             .translate(content)
             .done(function(content){
                 if(csscontent){
                     it(fullpath + 'compile result should equal css outport', function(){
-                        assert.equal(content,csscontent);
+                        assert.equal(content, csscontent);
                     })
                 }
             }).fail(function(error){
-                console.log(mcss.error.format(error))
-                throw error
+                mcss.error.format(error)
+                console.log(error.message);
             })
     })
 })

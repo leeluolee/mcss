@@ -9,11 +9,42 @@ $one-param = ($left){
     left: $left;
 }
 
-$default-param = ($left = 10px){
+$default-param = ($left, $right = 30px ){
+    $left();
+    right: $right;
+}
+
+$rest-param-1 = ($left , $right){
     left: $left;
+    right: $right;
+}
+$rest-param-2 = ($left, $middle... , $right){
+    left: $left;
+    middle: $middle;
+    right: $right;
+}
+$rest-param-3 = ($left... , $right){
+    left: $left;
+    right: $right;
+}
+
+body{
+    $one-param();
+    $one-param(10px);
+}
+
+body{
+    $default-param({
+        left: 10px;
+        top: 10px;
+        }, 30px);
 }
 
 
 body{
+    $rest-param-1(1, 2, 3, 4);
+}
 
+body{
+    $rest-param-2(1, 2, 3, 4);
 }

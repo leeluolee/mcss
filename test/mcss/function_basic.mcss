@@ -1,0 +1,14 @@
+
+$a = ($left){
+    @return ($right){
+        left: $left;
+        right: $right;
+    }
+    
+}
+
+$aa = $a(10px);
+
+body{
+    $aa();
+}

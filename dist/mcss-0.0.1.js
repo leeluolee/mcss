@@ -1100,7 +1100,7 @@ var mcss;
                     if (typeof pattern !== 'string') {
                         pattern = String(pattern).slice(1, -1);
                     }
-                    pattern = pattern.replace(/\{(\w+)}/g, function (all, name) {
+                    pattern = pattern.replace(/\{([a-zA-Z]+)}/g, function (all, name) {
                         var p = table[name];
                         if (!p)
                             throw Error('no register pattern "' + name + '" before');
@@ -1160,7 +1160,7 @@ var mcss;
         $('nl', /\r\n|[\r\f\n]/);
         $('w', /[ \t\r\n\f]/);
         $('d', /[0-9]/);
-        $('nmchar', /[-a-z0-9\u00A1-\uFFFF]/);
+        $('nmchar', /[-\w\u00A1-\uFFFF]/);
         addRules([
             {
                 regexp: /$/,
@@ -1279,7 +1279,7 @@ var mcss;
                 }
             },
             {
-                regexp: $(/#({nmchar}+)/),
+                regexp: $(/#{nmchar}+/),
                 action: function (yytext, value) {
                     this.yyval = yytext;
                     return 'HASH';
