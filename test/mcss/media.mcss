@@ -1,0 +1,16 @@
+// basic @media
+@media screen {
+    body1 {
+        content: body1 in media;     
+    }
+}
+
+// media in ruleset
+
+body2{
+    @media screen{
+        .class {
+            left: 10px;
+        }
+    }
+}
