@@ -45,7 +45,7 @@ body{
 }
 p{
     @extend .abs2, .abs3;
-    // then .abs3 exports
+    // then .abs3 exports; $right is from the './_abstract_import.mcss'
     left: $right 10px ;
 }
 body{

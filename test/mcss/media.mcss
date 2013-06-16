@@ -1,16 +1,24 @@
 // basic @media
-@media screen {
+@media screen,print {
     body1 {
         content: body1 in media;     
+    }
+    @media screen and (max-width: hello){
+            body{
+                right:20px;
+            }
     }
 }
 
 // media in ruleset
 
 body2{
-    @media screen{
-        .class {
-            left: 10px;
+    left: 20px;
+    @media left{
+        screen: 10px;
+        body{
+            right: 20px;
         }
+
     }
 }

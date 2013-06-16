@@ -1,6 +1,6 @@
 
 @-o-keyframes shake{
-	0%{
+	from{
 		transform:translate(0,0);
 	}
 	10%,20%{
@@ -9,12 +9,12 @@
 	20%{
 		transform:translate(0,0);
 	}
-	100%{
+	to{
 		transfrom:translate(0,0);
 	}
 }
 @keyframes hello{
-	0%{
+	from{
 		transform:scaleX(0);
 	}
 	10%{
@@ -23,12 +23,12 @@
 	20%{
 		transform:scaleX(0);
 	}
-	100%{
+	to{
 		transfrom:scaleX(0);
 	}
 }
 @-webkit-keyframes hello{
-	0%{
+	from{
 		transform:scaleX(0);
 	}
 	10%{
@@ -37,12 +37,12 @@
 	20%{
 		transform:scaleX(0);
 	}
-	100%{
+	to{
 		transfrom:scaleX(0);
 	}
 }
 @-moz-keyframes hello{
-	0%{
+	from{
 		transform:scaleX(0);
 	}
 	10%{
@@ -51,12 +51,12 @@
 	20%{
 		transform:scaleX(0);
 	}
-	100%{
+	to{
 		transfrom:scaleX(0);
 	}
 }
 @-ms-keyframes hello{
-	0%{
+	from{
 		transform:scaleX(0);
 	}
 	10%{
@@ -65,12 +65,12 @@
 	20%{
 		transform:scaleX(0);
 	}
-	100%{
+	to{
 		transfrom:scaleX(0);
 	}
 }
 @-o-keyframes hello{
-	0%{
+	from{
 		transform:scaleX(0);
 	}
 	10%{
@@ -79,12 +79,12 @@
 	20%{
 		transform:scaleX(0);
 	}
-	100%{
+	to{
 		transfrom:scaleX(0);
 	}
 }
 @keyframes name{
-	0%{
+	from{
 		transform:scaleX(0);
 	}
 	10%,100%{
@@ -93,12 +93,12 @@
 	20%{
 		transform:scaleX(0);
 	}
-	100%{
+	to{
 		transfrom:scaleX(0);
 	}
 }
 @-webkit-keyframes name{
-	0%{
+	from{
 		transform:scaleX(0);
 	}
 	10%,100%{
@@ -107,12 +107,12 @@
 	20%{
 		transform:scaleX(0);
 	}
-	100%{
+	to{
 		transfrom:scaleX(0);
 	}
 }
 @-moz-keyframes name{
-	0%{
+	from{
 		transform:scaleX(0);
 	}
 	10%,100%{
@@ -121,12 +121,12 @@
 	20%{
 		transform:scaleX(0);
 	}
-	100%{
+	to{
 		transfrom:scaleX(0);
 	}
 }
 @-ms-keyframes name{
-	0%{
+	from{
 		transform:scaleX(0);
 	}
 	10%,100%{
@@ -135,12 +135,12 @@
 	20%{
 		transform:scaleX(0);
 	}
-	100%{
+	to{
 		transfrom:scaleX(0);
 	}
 }
 @-o-keyframes name{
-	0%{
+	from{
 		transform:scaleX(0);
 	}
 	10%,100%{
@@ -149,7 +149,7 @@
 	20%{
 		transform:scaleX(0);
 	}
-	100%{
+	to{
 		transfrom:scaleX(0);
 	}
 }

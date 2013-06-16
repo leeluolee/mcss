@@ -1,11 +1,13 @@
 
 @media screen{
-	body1{
-		content:body1 in media;
-	}
+	
+}
+body1{
+	content:body1 in media;
 }
 @media screen{
-	body2 .class{
-		left:10px;
-	}
+	
+}
+body2 .class{
+	left:10px;
 }
