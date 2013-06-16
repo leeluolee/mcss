@@ -3,14 +3,18 @@
 $btn = ($color){
     $text-align = center;
     // the res accept other options, and can accept a function!
-    $res = ($radius, $other-function){
+    @return ($radius, $function){
         $radius ?= 5px;
-        color: $color;
+        color: s-adjust($color, 10%);
+        // $text-aligh from outer function scope
         text-align: $text-align;
         vertical-align: middle;
         cursor: pointer;
+        // $function from argument
+        @if $function{
+            $function($radius);
+        }
     }
-    @return $res;
 }
 
 //basic function
@@ -22,10 +26,10 @@ $border-radius = ($radius){
 
 // then the $btn-with-color is a function and has the color definition already
 // just like javascript's closure
-$btn-with-color = $btn(#fff);
+$btn-with-color = $btn(hsl(100, 10%, 10%, 10%));
 
 // outport as we expect
 body{
-   $btn-with-color();
+   $btn-with-color(6px, $border-radius);
 }
 
