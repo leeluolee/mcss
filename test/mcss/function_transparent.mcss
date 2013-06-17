@@ -1,0 +1,12 @@
+//transparent call
+//transported from stylus, but use mcss syntax
+//http://learnboost.github.io/stylus/docs/mixins.html
+$border-radius = ($radius){
+    -webkit-border-radius: $radius;
+       -moz-border-radius: $radius;
+            border-radius: $radius;
+}
+
+body{
+    $border-radius: 10px;
+}

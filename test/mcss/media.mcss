@@ -4,21 +4,38 @@
         content: body1 in media;     
     }
     @media screen and (max-width: hello){
-            body{
-                right:20px;
-            }
+        body{
+            right:20px;
+        }
     }
 }
 
-// media in ruleset
-
+// simple media in ruleset
 body2{
     left: 20px;
-    @media left{
-        screen: 10px;
+    @media screen and (hello: 10px){
+        left: 10px;
         body{
             right: 20px;
         }
 
+    }
+}
+
+// complex nested ruleset and media
+body2{
+    left: 20px;
+    @media screen and (max-width: 10px), print{
+        left: 10px;
+        body{
+            right: 20px;
+            $minw = 100px;
+            $prop = min-width; 
+            @media($prop: $minw){
+                div{
+                    right: 20px;
+                }
+            }
+        }
     }
 }

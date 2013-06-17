@@ -1,0 +1,5 @@
+@for $item, $i of test, hello, hoho{
+    .name-#{$item}{
+        width: 10px * $i;
+    }
+}

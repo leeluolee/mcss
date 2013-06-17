@@ -7,7 +7,6 @@ http('/test/mcss/import_module.mcss', function(text){
     mcss({
         filename: '/test/mcss/abstract.mcss'
     }).translate().done(function(text){
-        console.log(text)
         console.log(Date.now() - date)
     }).fail(function(err){
         console.log(mcss.error.format(err))

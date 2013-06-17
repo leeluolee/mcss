@@ -2,11 +2,17 @@
   <head>
     <title>Example Test Suite</title>
     <link rel="stylesheet" href="./vendor/nodeunit.css" type="text/css" />
-    <link rel="stylesheet" href="/test/css/abstract.css" type="text/css" />
+ <!--    <link rel="stylesheet" href="/test/css/abstract.css" type="text/css" /> -->
+    <link rel="stylesheet/mcss" href="test.mcss"/>
+    <style type = 'text/mcss'>
+      $color = #fff;
+      p{
+        border: 20px solid $color;
+      }
+    </style>
     <script src="./vendor/nodeunit.js"></script>
     <script src="../../dist/mcss-0.0.1.js"></script>
-    <script src="../specs/test-tokenizer.js"></script>
-    <script src="../specs/test-parser.js"></script>
+    <!-- <script src="../specs/test-tokenizer.js"></script> <script src="../specs/test-parser.js"></script> -->
     </head>
   <body>
     <h1 id="nodeunit-header">Example Test Suite</h1>

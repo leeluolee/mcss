@@ -53,12 +53,12 @@ del,ins,u,s,a,a:hover{
 }
 body,textarea,input,button,select,keygen,legend{
 	font:12px/1.14 arial,宋;
-	color:rgb(51,51,51);
+	color:rgba(211,102,51,0.8);
 	outline:0;
 }
 body{
 	background:rgb(255,255,255);
 }
 a,a:hover{
-	color:rgb(51,51,51);
+	color:rgba(211,102,51,0.8);
 }

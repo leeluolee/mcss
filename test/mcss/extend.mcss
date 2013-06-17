@@ -35,8 +35,3 @@ div.body-4, .other-body{
     @extend .class-1;
 }
 
-div 10%{
-    div 20%{
-        left: 20px;
-    }
-}

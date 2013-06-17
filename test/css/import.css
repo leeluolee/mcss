@@ -1,119 +1,37 @@
 
 body{
 	line-height:1.4em;
-	color:rgb(0,0,0);
-	padding:1em;
-	margin:auto;
 	max-width:42em;
 }
-li{
-	color:rgb(0,0,0);
+body p{
+	left:20px;
 }
-h1,h2,h3,h4,h5,h6{
-	border:0 none !important;
-}
-h1{
-	margin-top:0.5em;
-	margin-bottom:0.5em;
-	border-bottom:2px solid rgb(0,0,128) !important;
-}
-h2{
-	margin-top:1em;
-	margin-bottom:0.5em;
-	border-bottom:2px solid rgb(0,0,128) !important;
-}
-pre{
-	background-color:rgb(248,248,248);
-	border:1px solid rgb(47,111,171);
-	border-radius:3px;
-	overflow:auto;
-	padding:5px;
-}
-pre code{
-	background-color:inherit;
-	border:none;
-	padding:0;
-}
-code{
-	background-color:rgb(255,255,224);
-	border:1px solid rgb(255,165,0);
-	border-radius:3px;
-	padding:0 0.2em;
-}
-a{
-	text-decoration:underline;
-}
-ul,ol{
-	padding-left:30px;
-}
-li{
-	margin:0.2em 0 0 0em;
-	padding:0px;
-}
-em{
-	color:rgb(176,80,0);
-}
-table.text th,table.text td{
-	vertical-align:top;
-	border-top:1px solid rgb(204,204,204);
-	padding:5px;
+#markdown{
+	left:20px;
 }
 #markdown body{
 	line-height:1.4em;
-	color:rgb(0,0,0);
-	padding:1em;
-	margin:auto;
 	max-width:42em;
 }
-#markdown li{
-	color:rgb(0,0,0);
+#markdown body p{
+	left:20px;
 }
-#markdown h1,#markdown h2,#markdown h3,#markdown h4,#markdown h5,#markdown h6{
-	border:0 none !important;
+@media screen and (max-width: 200px){
+	body{
+		line-height:1.4em;
+		max-width:42em;
+	}
+	body p{
+		left:20px;
+	}
 }
-#markdown h1{
-	margin-top:0.5em;
-	margin-bottom:0.5em;
-	border-bottom:2px solid rgb(0,0,128) !important;
+body{
+	name:"_import2.mcss";
 }
-#markdown h2{
-	margin-top:1em;
-	margin-bottom:0.5em;
-	border-bottom:2px solid rgb(0,0,128) !important;
+body{
+	line-height:1.4em;
+	max-width:42em;
 }
-#markdown pre{
-	background-color:rgb(248,248,248);
-	border:1px solid rgb(47,111,171);
-	border-radius:3px;
-	overflow:auto;
-	padding:5px;
-}
-#markdown pre code{
-	background-color:inherit;
-	border:none;
-	padding:0;
-}
-#markdown code{
-	background-color:rgb(255,255,224);
-	border:1px solid rgb(255,165,0);
-	border-radius:3px;
-	padding:0 0.2em;
-}
-#markdown a{
-	text-decoration:underline;
-}
-#markdown ul,#markdown ol{
-	padding-left:30px;
-}
-#markdown li{
-	margin:0.2em 0 0 0em;
-	padding:0px;
-}
-#markdown em{
-	color:rgb(176,80,0);
-}
-#markdown table.text th,#markdown table.text td{
-	vertical-align:top;
-	border-top:1px solid rgb(204,204,204);
-	padding:5px;
+body p{
+	left:20px;
 }

@@ -1,24 +1,27 @@
+// $variable has scope
 $a = 10px;
-.scope1{
-    $a = 20px;
-    left: $a;
-    .scope2{
-        $a = 30px;
+$a ?= 20px;
+
+// simple block(function)
+$b = {
+    body{
         left: $a;
     }
 }
-.scope3{
-    left: $a;
-}
-$f1 = (){
-    left: 20px;
-}
-.scope4{
-    $f1 = {
-        right: 30px;
+
+$b(); // exports left: 10px;
+
+// override before
+$a = 30px;
+
+// $c is not exsit , so assign is success
+$c ?= (){
+    body{
+        left: $a;
     }
-    $f1();
 }
 
+$c();// exports left: 30px;
+$b();// exports left: 30px; beacuse $a is in same scope;
 
 

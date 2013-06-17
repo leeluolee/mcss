@@ -1,0 +1,14 @@
+// mcss has two type scope, all scope is __static__(like javascript) 
+
+
+
+// 1. global, local scope
+// ======================
+
+
+
+// 2. function scope created when function be called
+// ==============================================
+
+
+
