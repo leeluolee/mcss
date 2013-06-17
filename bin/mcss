@@ -4,6 +4,7 @@ var fs = require('fs'),
   path = require('path'),
   mcss = require('../'),
   _ = require('../lib/helper/util'),
+  color = require('../lib/helper/color'),
   promise = require('../lib/helper/promise'),
   cwd = process.cwd(),
   version = fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8').version;
@@ -56,6 +57,7 @@ if(!files.length) throw 'no matched mcss file';
 
 var building;
 function build(fullpath, first){
+  var start = Date.now();
   var imports = [];
   if(building){
     console.log('is busy building')
@@ -96,6 +98,7 @@ function build(fullpath, first){
     })
   }).filter(promise.isPromise);
   mcss.promise.when.apply(mcss.promise, promises).always(function(){
+    console.log(color('building complete in ' + (Date.now() - start) + 'ms', 'green'))
     building = false;
     if(first && watch){
       var watchers = _.slice(files);
