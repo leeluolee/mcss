@@ -1,0 +1,7 @@
+// simple nested
+
+.scope-1{
+    p, div{
+        
+    }
+}

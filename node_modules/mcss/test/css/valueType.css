@@ -1,0 +1,16 @@
+
+valueType{
+	dimension-number:10,20,30;
+	dimension-percent:10%,20%,30%;
+	dimension:10px,10em,10pt,10em;
+	color-hsl:rgb(49,56,46);
+	color-hsla:rgba(49,56,46,0.1);
+	color-rgb:rgb(100,10,20);
+	color-rgba:rgba(100,255,20,0.1);
+	color-hash:rgb(204,221,238);
+	text:hello-mcss;
+	oq-string:"hello-mcss";
+	tq-string:"hello-mcss";
+	values:10px rgb(255,255,255) hello;
+	valueslist:10px rgb(255,255,255),hello,20px;
+}
