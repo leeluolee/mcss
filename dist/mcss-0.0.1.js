@@ -53,7 +53,7 @@ var mcss;
     '1': function (require, module, exports, global) {
         var Parser = require('2');
         var Interpreter = require('i');
-        var Translator = require('u');
+        var Translator = require('o');
         var tk = require('3');
         var promise = require('e');
         var path = require('6');
@@ -61,6 +61,7 @@ var mcss;
         var io = require('h');
         var options = require('f');
         var error = require('a');
+        var hooks = require('r');
         function Mcss(options) {
             if (typeof options.prefix === 'string') {
                 options.prefix = options.prefix.split(/\s+/);
@@ -68,6 +69,7 @@ var mcss;
             this.options = _.extend(options, {
                 imports: {},
                 pathes: [],
+                walkers: {},
                 prefix: [
                     'webkit',
                     'moz',
@@ -120,7 +122,18 @@ var mcss;
             var translator = new Translator(options);
             var interpreter = new Interpreter(options);
             var pr = promise();
+            if (options.walkers)
+                interpreter.on(options.walkers);
+            if (options.hooks) {
+                options.hooks.forEach(function (hook) {
+                    if (typeof hook === 'string') {
+                        hook = hooks[hook];
+                    }
+                    hook && interpreter.on(hook);
+                });
+            }
             this.parse(text).done(function (ast) {
+                var date = Date.now();
                 try {
                     ast = interpreter.interpret(ast);
                     pr.resolve(translator.translate(ast));
@@ -726,6 +739,7 @@ var mcss;
                 if (this.eat('IMPORTANT')) {
                     node.important = true;
                 }
+                this.eat('WS');
                 if (!noEnd) {
                     if (this.la() !== '}') {
                         this.match(';');
@@ -830,16 +844,17 @@ var mcss;
                 return this.logicOrExpr();
             },
             logicOrExpr: function () {
-                var left = this.logicAndExpr(), ll, right;
+                var left = this.logicAndExpr(), ll, la, right;
                 while ((la = this.la()) === '||') {
                     this.next();
                     right = this.logicAndExpr();
                     var bValue = tree.toBoolean(left);
-                    if (bValue !== null) {
+                    if (bValue != null) {
                         if (bValue === false) {
                             left = right;
                         }
                     } else {
+                        console.log(la);
                         left = new tree.Operator(la, left, right);
                     }
                     this.eat('WS');
@@ -847,20 +862,14 @@ var mcss;
                 return left;
             },
             logicAndExpr: function () {
-                var node = this.relationExpr(), ll, right;
+                var node = this.relationExpr(), ll, la, right;
                 while ((la = this.la()) === '&&') {
                     this.next();
                     right = this.relationExpr();
                     var bValue = tree.toBoolean(node);
-                    if (bValue !== null) {
+                    if (bValue != null) {
                         if (bValue === true) {
                             node = right;
-                        } else {
-                            node = {
-                                type: 'BOOLEAN',
-                                value: false,
-                                lineno: node.lineno
-                            };
                         }
                     } else {
                         node = new tree.Operator(la, node, right);
@@ -1229,8 +1238,8 @@ var mcss;
         $('nl', /\r\n|[\r\f\n]/);
         $('w', /[ \t\r\n\f]/);
         $('d', /[0-9]/);
-        $('nmchar', /[-\w\u00A1-\uFFFF]/);
-        $('nmstart', /[a-zA-Z\u00A1-\uFFFF]/);
+        $('nmchar', /[_-\w\u00A1-\uFFFF]/);
+        $('nmstart', /[_a-zA-Z\u00A1-\uFFFF]/);
         $('ident', /-?{nmstart}{nmchar}*/);
         addRules([
             {
@@ -1243,18 +1252,6 @@ var mcss;
                             content: isSingle ? scomment : mcomment
                         });
                     }
-                }
-            },
-            {
-                reg: /@css{w}*{/,
-                action: function (yytext) {
-                }
-            },
-            {
-                regexp: /@(-?[_A-Za-z][-_\w]*)/,
-                action: function (yytext, value) {
-                    this.yyval = value;
-                    return 'AT_KEYWORD';
                 }
             },
             {
@@ -1301,12 +1298,6 @@ var mcss;
                 }
             },
             {
-                regexp: $(/!{w}*important/),
-                action: function (yytext) {
-                    return 'IMPORTANT';
-                }
-            },
-            {
                 regexp: $(/(-?(?:{d}*\.{d}+|{d}+))(\w*|%)?/),
                 action: function (yytext, value, unit) {
                     if (unit && !isUnit(unit)) {
@@ -1320,9 +1311,28 @@ var mcss;
                 }
             },
             {
+                regexp: $(/\.({nmchar}+)/),
+                action: function (yytext) {
+                    this.yyval = yytext;
+                    return 'CLASS';
+                }
+            },
+            {
+                regexp: /@(-?[_A-Za-z][-_\w]*)/,
+                action: function (yytext, value) {
+                    this.yyval = value;
+                    return 'AT_KEYWORD';
+                }
+            },
+            {
+                regexp: $(/!{w}*important/),
+                action: function (yytext) {
+                    return 'IMPORTANT';
+                }
+            },
+            {
                 regexp: $(':([-_a-zA-Z]+)' + '(?:\\(' + '([^\\(\\)]*' + '|(?:' + '\\([^\\)]+\\)' + ')+)' + '\\))'),
                 action: function (yytext, value) {
-                    console.log('ahahaai');
                     if (~yytext.indexOf('(') && !isPseudoClassWithParen(value)) {
                         return false;
                     }
@@ -1352,29 +1362,6 @@ var mcss;
                 }
             },
             {
-                regexp: $(/\\([0-9a-fA-F]{1,6})/),
-                action: function (yytext, value) {
-                    var hex = parseInt(value, 16);
-                    if (hex > MAX_ALLOWED_CODEPOINT) {
-                        hex = '\ufffd';
-                    }
-                    if (hex < 10) {
-                        hex = '\\' + hex;
-                    } else {
-                        hex = String.fromCharCode(hex);
-                    }
-                    this.yyval = hex;
-                    return 'TEXT';
-                }
-            },
-            {
-                regexp: $(/\.({nmchar}+)/),
-                action: function (yytext) {
-                    this.yyval = yytext;
-                    return 'CLASS';
-                }
-            },
-            {
                 regexp: /(['"])([^\r\n\f]*?)\1/,
                 action: function (yytext, quote, value) {
                     this.yyval = value || '';
@@ -1382,7 +1369,7 @@ var mcss;
                 }
             },
             {
-                regexp: $(/{w}*([\{;,><]|&&|\|\||[\*\$\^~\|>=<!?]?=|\.\.\.){w}*/),
+                regexp: $(/{w}*(&&|\|\||[\*\$\^~\|>=<!?]?=|\.\.\.|[\{;,><]){w}*/),
                 action: function (yytext, punctuator) {
                     return punctuator;
                 }
@@ -1399,6 +1386,22 @@ var mcss;
                     if (!punctuator)
                         return 'EOF';
                     return punctuator;
+                }
+            },
+            {
+                regexp: $(/\\([0-9a-fA-F]{1,6})/),
+                action: function (yytext, value) {
+                    var hex = parseInt(value, 16);
+                    if (hex > MAX_ALLOWED_CODEPOINT) {
+                        hex = '\ufffd';
+                    }
+                    if (hex < 10) {
+                        hex = '\\' + hex;
+                    } else {
+                        hex = String.fromCharCode(hex);
+                    }
+                    this.yyval = hex;
+                    return 'TEXT';
                 }
             }
         ]);
@@ -1529,7 +1532,7 @@ var mcss;
                     var type = args[i].type;
                     var test = tlist[i];
                     if (test && !test(type)) {
-                        var message = 'not accpet param type or operator ' + type;
+                        var message = 'invalid param or operand : ' + type;
                         if (this.error) {
                             this.error(message, args[i].lineno);
                         } else {
@@ -2499,7 +2502,7 @@ var mcss;
                 return node.value != 0;
             case 'STRING':
             case 'TEXT':
-                return node.value.length !== '';
+                return node.value.length !== 0;
             case 'BOOLEAN':
                 return node.value === true;
             case 'NULL':
@@ -2566,6 +2569,7 @@ var mcss;
             this[0] = channels[0];
             this[1] = channels[1];
             this[2] = channels[2];
+            Color.limit(this);
             this.alpha = alpha || 1;
         }
         var c = Color.prototype;
@@ -2575,7 +2579,14 @@ var mcss;
         c.toCSS = function () {
             var r = Math.round(this[0]), g = Math.round(this[1]), b = Math.round(this[2]);
             if (!this.alpha || this.alpha === 1) {
-                return 'rgb(' + r + ',' + g + ',' + b + ')';
+                var rs = r.toString(16), gs = g.toString(16), bs = b.toString(16);
+                if (rs.length === 1)
+                    rs += rs;
+                if (gs.length === 1)
+                    gs += gs;
+                if (bs.length === 1)
+                    bs += bs;
+                return '#' + rs + gs + bs;
             } else {
                 return 'rgba(' + r + ',' + g + ',' + b + ',' + this.alpha + ')';
             }
@@ -2642,8 +2653,10 @@ var mcss;
         };
         Color.limit = function (values) {
             values[0] = values[0].__limit(0, 255);
-            values[1] = values[2].__limit(0, 255);
+            values[1] = values[1].__limit(0, 255);
             values[2] = values[2].__limit(0, 255);
+            if (values.alpha)
+                values.alpha = values.alpha.__limit(0, 1);
         };
         Color.hsl = function (channels, a) {
             return new Color(Color.hsl2rgb(channels), a);
@@ -3431,7 +3444,7 @@ var mcss;
             }
             var source = error.source, lines = source.split(/\r\n|[\r\f\n]/), pos = error.pos, message = error.message, line = error.line || 1, column = error.column || 0, start = Math.max(1, line - 5);
             end = Math.min(lines.length, line + 4), res = [
-                color(message, 'red', null, 'bold'),
+                color(error.name + ':' + message, 'red', null, 'bold'),
                 '\tat (' + color(error.filename, 'yellow') + ' : ' + line + ')'
             ];
             for (var i = start; i <= end; i++) {
@@ -3576,12 +3589,14 @@ var mcss;
                         return {
                             type: left.type,
                             value: value,
-                            unit: unit
+                            unit: unit,
+                            lineno: left.lineno
                         };
                     } else {
                         return {
-                            type: left.type,
-                            value: tree.toStr(left) + tree.toStr(right)
+                            type: left.type === 'DIMENSION' ? right.type : left.type,
+                            value: tree.toStr(left) + tree.toStr(right),
+                            lineno: left.lineno
                         };
                     }
                 }.__accept([
@@ -3596,7 +3611,8 @@ var mcss;
                     return {
                         type: left.type,
                         value: value,
-                        unit: unit
+                        unit: unit,
+                        lineno: left.lineno
                     };
                 }.__accept([
                     'DIMENSION',
@@ -3610,7 +3626,8 @@ var mcss;
                     return {
                         type: left.type,
                         value: value,
-                        unit: unit
+                        unit: unit,
+                        lineno: left.lineno
                     };
                 }.__accept([
                     'DIMENSION',
@@ -3635,15 +3652,18 @@ var mcss;
                 '%': function (left, right) {
                     if (left.type === 'STRING') {
                         var values = right.list || [right], index = 0;
-                        left.value = left.value.replace(/\%(x|f|s|d|X)/g, function (all, format) {
-                            var replace = values[index];
-                            console.log(replace);
-                            if (!replace)
-                                return '';
-                            index++;
-                            return formats[format](replace);
-                        });
-                        return left;
+                        var value = left.value.replace(/\%(x|f|s|d|X)/g, function (all, format) {
+                                var replace = values[index];
+                                if (!replace)
+                                    return '';
+                                index++;
+                                return formats[format](replace);
+                            });
+                        return {
+                            type: 'STRING',
+                            value: value,
+                            lineno: left.lineno
+                        };
                     } else {
                         if (right.value === 0)
                             throw 'Divid by zero' + right.lineno;
@@ -3654,12 +3674,16 @@ var mcss;
                         return {
                             type: left.type,
                             value: value,
-                            unit: unit
+                            unit: unit,
+                            lineno: left.lineno
                         };
                     }
                 }.__accept(['DIMENSION STRING']),
                 'relation': function (left, right, op) {
-                    var bool = { type: 'BOOLEAN' };
+                    var bool = {
+                            type: 'BOOLEAN',
+                            lineno: left.lineno
+                        };
                     if (left.type !== right.type) {
                         bool.value = op === '!=';
                     } else {
@@ -3676,25 +3700,16 @@ var mcss;
                     return bool;
                 },
                 '&&': function (left, right) {
-                    if (tree.isPrimary(left)) {
-                        var bool = tree.toBoolean(left);
-                        if (bool === false)
-                            return {
-                                type: 'BOOLEAN',
-                                value: false
-                            };
-                        if (bool === true)
-                            return right;
-                    }
+                    var bool = tree.toBoolean(left);
+                    if (!bool)
+                        return left;
+                    return right;
                 },
                 '||': function (left, right) {
-                    if (tree.isPrimary(left)) {
-                        var bool = tree.toBoolean(left);
-                        if (bool === true)
-                            return left;
-                        if (bool === false)
-                            return right;
-                    }
+                    var bool = tree.toBoolean(left);
+                    if (bool)
+                        return left;
+                    return right;
                 }
             };
     },
@@ -3713,7 +3728,6 @@ var mcss;
                     if (!o2.hasOwnProperty(i))
                         continue;
                     if (typeOf(o1[i]) === 'array' || typeOf(o2[i]) === 'array') {
-                        console.log(o1, o2);
                         o1[i] = o1[i].concat(o2[i]);
                     } else {
                         o1[i] = o2[i];
@@ -4017,7 +4031,6 @@ var mcss;
     },
     'i': function (require, module, exports, global) {
         var Interpreter = require('j');
-        var Hook = require('n');
         module.exports = Interpreter;
     },
     'j': function (require, module, exports, global) {
@@ -4026,13 +4039,14 @@ var mcss;
         var tree = require('8');
         var symtab = require('g');
         var state = require('l');
+        var Event = require('m');
         var promise = require('e');
         var path = require('6');
         var u = require('4');
         var io = require('h');
         var options = require('f');
         var binop = require('d');
-        var functions = require('m');
+        var functions = require('n');
         var color = require('9');
         var colorify = require('b');
         var error = require('a');
@@ -4041,8 +4055,17 @@ var mcss;
         }
         ;
         var _ = Interpreter.prototype = new Walker();
+        var walk = _._walk;
         state.mixTo(_);
         options.mixTo(_);
+        Event.mixTo(_);
+        _._walk = function (ast) {
+            var name = ast.type.toLowerCase();
+            var walkers = this.get('walkers');
+            var res = walk.apply(this, arguments);
+            this.trigger(name, ast);
+            return res;
+        };
         var errors = { 'RETURN': u.uid() };
         var states = { 'DECLARATION': u.uid() };
         _.ierror = new Error();
@@ -4053,6 +4076,9 @@ var mcss;
             this.rulesets = [];
             this.medias = [];
             this.indent = 0;
+            if (!this._handles) {
+                this._walk = walk;
+            }
             return this.walk(ast);
         };
         _.walk_default = function (ast) {
@@ -4085,9 +4111,9 @@ var mcss;
             return ast;
         };
         _.walk_ruleset = function (ast) {
-            this.down(ast);
+            this.rulesets.push(ast);
             var rawSelector = this.walk(ast.selector), values = ast.values, iscope, res = [];
-            this.up(ast);
+            this.rulesets.pop();
             var self = this;
             rawSelector.list.forEach(function (complex) {
                 self.define(complex.string, ast);
@@ -4181,16 +4207,9 @@ var mcss;
             var left = this.walk(ast.left);
             var right = this.walk(ast.right);
             if (tree.isRelationOp(ast.op)) {
-                return binop.relation.apply(this, [
-                    left,
-                    right,
-                    ast.op
-                ]);
+                return binop.relation.call(this, left, right, ast.op);
             } else {
-                return binop[ast.op].apply(this, [
-                    left,
-                    right
-                ]);
+                return binop[ast.op].call(this, left, right);
             }
         };
         _.walk_assign = function (ast) {
@@ -4275,13 +4294,12 @@ var mcss;
             }
         };
         _.walk_for = function (ast) {
-            var list = this.walk(ast.list), index = ast.index, element = ast.element, block, iscope, len, iscope = new symtab.Scope(), res = [];
+            var list = this.walk(ast.list), index = ast.index, element = ast.element, block, iscope, len, res = [];
             if (!list.list) {
                 this.error('@for atrule need values or valueslist to loop but got: ' + list.type, ast.list.lineno);
             }
             list = list.flatten().list;
             for (var i = 0, len = list.length; i < len; i++) {
-                this.push(iscope);
                 this.define(element, list[i]);
                 if (index)
                     this.define(index, {
@@ -4289,7 +4307,6 @@ var mcss;
                         value: i
                     });
                 block = this.walk(ast.block.clone());
-                this.pop(iscope);
                 res.push(block);
             }
             return res;
@@ -4333,9 +4350,7 @@ var mcss;
                         this.define(param.name, tree.null(args.lineno));
                 }
             }
-            if (args.length) {
-                this.define('$arguments', new tree.ValuesList(args));
-            }
+            this.define('$arguments', new tree.ValuesList(args));
             try {
                 var prev = this.scope;
                 this.scope = func.scope;
@@ -4660,6 +4675,73 @@ var mcss;
         };
     },
     'm': function (require, module, exports, global) {
+        var slice = [].slice, ex = function (o1, o2, override) {
+                for (var i in o2)
+                    if (o1[i] == null || override) {
+                        o1[i] = o2[i];
+                    }
+            };
+        var API = {
+                on: function (event, fn) {
+                    if (typeof event === 'object') {
+                        for (var i in event) {
+                            this.on(i, event[i]);
+                        }
+                    } else {
+                        var handles = this._handles || (this._handles = {}), calls = handles[event] || (handles[event] = []);
+                        calls.push(fn);
+                    }
+                    return this;
+                },
+                off: function (event, fn) {
+                    if (event)
+                        this._handles = [];
+                    if (!this._handles)
+                        return;
+                    var handles = this._handles, calls;
+                    if (calls = handles[event]) {
+                        if (!fn) {
+                            handles[event] = [];
+                            return this;
+                        }
+                        for (var i = 0, len = calls.length; i < len; i++) {
+                            if (fn === calls[i]) {
+                                calls.splice(i, 1);
+                                return this;
+                            }
+                        }
+                    }
+                    return this;
+                },
+                trigger: function (event) {
+                    var args = slice.call(arguments, 1), handles = this._handles, calls;
+                    if (!handles || !(calls = handles[event]))
+                        return this;
+                    for (var i = 0, len = calls.length; i < len; i++) {
+                        calls[i].apply(this, args);
+                    }
+                    return this;
+                },
+                hasEvent: function (event) {
+                    var handles = this._handles;
+                    return handles && (calls = handles[event]) && calls.length;
+                }
+            };
+        function Event(handles) {
+            if (arguments.length)
+                this.on.apply(this, arguments);
+        }
+        ;
+        ex(Event.prototype, API);
+        Event.mixTo = function (obj) {
+            obj = typeof obj == 'function' ? obj.prototype : obj;
+            ex(obj, API);
+        };
+        module.exports = Event;
+    },
+    'n': function (require, module, exports, global) {
+        var fs = null;
+        var path = null;
         var tree = require('8');
         var u = require('4');
         var tk = require('3');
@@ -4714,7 +4796,6 @@ var mcss;
                     return node.type.toLowerCase();
                 },
                 js: function (string) {
-                    console.log(string.value);
                     try {
                         return eval('(' + string.value + ')');
                     } catch (e) {
@@ -4728,20 +4809,43 @@ var mcss;
                         lineno: str.lineno
                     };
                 }.__accept(['STRING']),
-                args: function (number) {
-                    var arguments = this.resolve('$arguments'), arg;
-                    if (!arguments) {
-                        throw Error('the args() must be called in function block');
+                index: function (list, index) {
+                    var elem;
+                    if (!index || index.type !== 'DIMENSION') {
+                        this.error('invalid param:index passed to args()');
                     }
-                    if (!number || number.type !== 'DIMENSION') {
-                        throw Error('invalid arguments passed to args()');
-                    }
-                    if (arg = arguments.list[number.value]) {
-                        return arg;
+                    if (elem = list.list[index.value]) {
+                        return elem;
                     } else {
-                        return { type: 'NULL' };
+                        return tree.null();
                     }
-                }
+                }.__accept([
+                    'valueslist values',
+                    'DIMENSION'
+                ]),
+                args: function (index) {
+                    var args = this.resolve('$arguments');
+                    if (!args) {
+                        this.error('the args() must be called in function block');
+                    }
+                    return _.index.call(this, args, index);
+                },
+                'data-uri': function (string) {
+                    var value = string.value, url = {
+                            type: 'URL',
+                            value: value
+                        };
+                    if (!fs)
+                        return url;
+                    else {
+                        var fullname = path.resolve(path.dirname(this.get('filename')), value);
+                        var base64 = converToBase64(fullname);
+                        if (!base64)
+                            return url;
+                        url.value = base64;
+                        return url;
+                    }
+                }.__accept(['STRING'])
             };
         _['-adjust'] = function (color, prop, weight, absolute) {
             var p = prop.value, key = channelsMap[p];
@@ -4761,6 +4865,7 @@ var mcss;
                 } else {
                     clone[key] += weight.value;
                 }
+                Color.limit(clone);
                 return clone;
             }
             if (isHSL(p)) {
@@ -4810,6 +4915,7 @@ var mcss;
                 return _['-adjust'].call(this, color, text, amount, absolute);
             };
         });
+        _.fade = _.alpha;
         delete _.alpha;
         [
             'floor',
@@ -4848,7 +4954,7 @@ var mcss;
             var extname = path.extname(imagePath), stat, img;
             try {
                 stat = fs.statSync(imagePath);
-                if (stat.size > 4096) {
+                if (stat.size > 1024 * 6) {
                     return false;
                 }
                 img = fs.readFileSync(imagePath, 'base64');
@@ -4857,182 +4963,301 @@ var mcss;
                 return false;
             }
         }
-        var fixColor = function (number) {
-            return number > 255 ? 255 : number < 0 ? 0 : number;
-        };
-        var fixChannels = function (channels) {
-            channels[0] = fixColor(channels[0]);
-            channels[1] = fixColor(channels[1]);
-            channels[2] = fixColor(channels[2]);
-            return channels;
-        };
-    },
-    'n': function (require, module, exports, global) {
-        var Hook = require('o');
-        exports.hook = function (ast, options) {
-            new Hook(options).walk(ast);
-            return ast;
-        };
     },
     'o': function (require, module, exports, global) {
-        var Walker = require('k');
-        var Event = require('p');
-        var hooks = require('q');
-        function Hook(options) {
-            options = options || {};
-            this.load(options.hooks);
-            this.indent = 0;
-        }
-        var _ = Hook.prototype = new Walker();
-        Event.mixTo(_);
-        var on = _.on;
-        var walk = _._walk;
-        _.load = function (names) {
-            if (!names)
-                return;
-            var name;
-            if (!(names instanceof Array)) {
-                names = [names];
-            }
-            for (var i = 0, len = names.length; i < len; i++) {
-                name = names[i];
-                if (typeof name === 'string') {
-                    this.on(hooks[name]);
-                } else {
-                    this.on(name);
-                }
-            }
-        };
-        _.on = function (name) {
-            if (typeof name === 'string' && !~name.indexOf(':')) {
-                name = name + ':up';
-            }
-            on.apply(this, arguments);
-        };
-        _._walk = function (tree) {
-            var name = this._inspect(tree);
-            if (name)
-                this.trigger(name + ':' + 'down', tree);
-            var res = walk.apply(this, arguments);
-            if (name)
-                this.trigger(name + ':' + 'up', tree);
-            return res;
-        };
-        _.walk_stylesheet = function (tree) {
-            this.walk(tree.list);
-        };
-        _.walk_ruleset = function (tree) {
-            this.indent++;
-            this.walk(tree.block);
-            this.indent--;
-        };
-        _.walk_selectorlist = function (tree) {
-            this.walk(tree.list);
-        };
-        _.walk_complexselector = function (tree) {
-        };
-        _.walk_block = function (tree) {
-            this.walk(tree.list);
-        };
-        _.walk_componentvalues = function (tree) {
-            this.walk(tree.list);
-        };
-        _.walk_declaration = function (tree) {
-            this.walk(tree.value);
-        };
-        _.walk_ident = function (tree) {
-            return tree.val;
-        };
-        _.walk_string = function (tree) {
-        };
-        _['walk_,'] = function (tree) {
-        };
-        _['walk_='] = function (tree) {
-        };
-        _.walk_unknown = function (tree) {
-            return tree.name;
-        };
-        _.walk_cssfunction = function (tree) {
-        };
-        _.walk_uri = function (tree) {
-        };
-        _.walk_rgba = function (tree) {
-        };
-        _.walk_dimension = function (tree) {
-        };
-        _.walk_variable = function () {
-        };
-        module.exports = Hook;
+        var Translator = require('p');
+        module.exports = Translator;
     },
     'p': function (require, module, exports, global) {
-        var slice = [].slice, ex = function (o1, o2, override) {
-                for (var i in o2)
-                    if (o1[i] == null || override) {
-                        o1[i] = o2[i];
-                    }
-            };
-        var API = {
-                on: function (event, fn) {
-                    if (typeof event === 'object') {
-                        for (var i in event) {
-                            this.on(i, event[i]);
-                        }
-                    } else {
-                        var handles = this._handles || (this._handles = {}), calls = handles[event] || (handles[event] = []);
-                        calls.push(fn);
-                    }
-                    return this;
-                },
-                off: function (event, fn) {
-                    if (event)
-                        this._handles = [];
-                    if (!this._handles)
-                        return;
-                    var handles = this._handles, calls;
-                    if (calls = handles[event]) {
-                        if (!fn) {
-                            handles[event] = [];
-                            return this;
-                        }
-                        for (var i = 0, len = calls.length; i < len; i++) {
-                            if (fn === calls[i]) {
-                                calls.splice(i, 1);
-                                return this;
-                            }
-                        }
-                    }
-                    return this;
-                },
-                trigger: function (event) {
-                    var args = slice.call(arguments, 1), handles = this._handles, calls;
-                    if (!handles || !(calls = handles[event]))
-                        return this;
-                    for (var i = 0, len = calls.length; i < len; i++) {
-                        calls[i].apply(this, args);
-                    }
-                    return this;
-                }
-            };
-        function Event(handles) {
-            if (arguments.length)
-                this.on.apply(this, arguments);
+        var Walker = require('k');
+        var tree = require('8');
+        var error = require('a');
+        var u = require('4');
+        var options = require('f');
+        var path = null;
+        var buffer = require('q');
+        function Translator(options) {
+            this.options = options || {};
         }
-        ;
-        ex(Event.prototype, API);
-        Event.mixTo = function (obj) {
-            obj = typeof obj == 'function' ? obj.prototype : obj;
-            ex(obj, API);
+        var _ = Translator.prototype = new Walker();
+        var walk = _.walk;
+        options.mixTo(_);
+        var formats = {
+                COMMON: 1,
+                COMPRESS: 2,
+                ONELINE: 3
+            };
+        _.translate = function (ast) {
+            this.ast = ast;
+            this.buffer = buffer(this.options);
+            this.level = 0;
+            this.indent = this.get('indent') || '\t';
+            this.newline = this.get('format') > 1 ? '' : '\n';
+            this.walk_stylesheet(ast, true);
+            var text = this.buffer.toString();
+            if (path && this.options.sourceMap && this.options.dest) {
+                var base64 = new Buffer(this.buffer.getMap()).toString('base64');
+                text += '/*@ sourceMappingURL= ' + path.basename(this.get('dest'), '.css') + '.css.map */';
+                u.writeFile(this.get('dest') + '.map', this.buffer.getMap(), function (err) {
+                    if (err)
+                        console.error('sourcemap wirte fail');
+                });
+            }
+            return text;
         };
-        module.exports = Event;
+        _.walk_stylesheet = function (ast, blank) {
+            this.walk_block(ast, blank);
+        };
+        _.walk_ruleset = function (ast) {
+            var buffer = this.buffer;
+            if (!ast.block.list.length)
+                return false;
+            var slist = ast.getSelectors();
+            if (!slist.length)
+                return false;
+            buffer.addMap({
+                line: ast.lineno - 1,
+                source: ast.filename
+            });
+            buffer.add(this.walk(slist).join(','));
+            this.walk(ast.block);
+        };
+        _.walk_selectorlist = function (ast) {
+            return this.walk(ast.list).join(',' + this.newline);
+        };
+        _.walk_complexselector = function (ast) {
+            return ast.string;
+        };
+        _.walk_block = function (ast, blank) {
+            this.level++;
+            var indent = this.indents();
+            var buffer = this.buffer;
+            var res = [];
+            if (!blank)
+                buffer.add('{');
+            var list = ast.list;
+            buffer.add(this.newline + indent);
+            for (var i = 0, len = list.length; i < len; i++) {
+                var item = this.walk(list[i]);
+                if (item !== false) {
+                    if (list[i].type !== 'declaration' && this.has('format', 3)) {
+                        buffer.add('\n');
+                    }
+                    if (i !== len - 1) {
+                        buffer.add(this.newline + indent);
+                    }
+                }
+            }
+            this.level--;
+            if (!blank) {
+                buffer.add(this.newline + this.indents() + '}');
+            }
+        };
+        _.walk_valueslist = function (ast) {
+            var text = this.walk(ast.list).join(',');
+            return text;
+        };
+        _.walk_values = function (ast) {
+            var text = this.walk(ast.list).join(' ');
+            text = text.replace(/ \/ /g, '/');
+            return text;
+        };
+        _.walk_import = function (ast) {
+            var outport = [
+                    '@import ',
+                    this.walk_url(ast.url)
+                ];
+            if (ast.queryList && ast.queryList.length) {
+                outport.push(this.walk(ast.queryList).join(','));
+            }
+            this.buffer.add(outport.join(' ') + ';');
+        };
+        _.walk_media = function (ast) {
+            var str = '@media ';
+            str += this.walk(ast.queryList).join(',');
+            this.buffer.add(str);
+            this.walk_block(ast.block);
+        };
+        _.walk_mediaquery = function (ast) {
+            var outport = this.walk(ast.expressions);
+            if (ast.mediaType)
+                outport.unshift(ast.mediaType);
+            return outport.join(' and ');
+        };
+        _.walk_mediaexpression = function (ast) {
+            var str = '';
+            str += this.walk(ast.feature);
+            if (ast.value)
+                str += ': ' + this.walk(ast.value);
+            return '(' + str + ')';
+        };
+        _.walk_keyframes = function (ast) {
+            var prefix = this.get('prefix'), buffer = this.buffer, store;
+            if (prefix && prefix.length && ast.fullname === 'keyframes')
+                buffer.mark();
+            var str = '@' + ast.fullname + ' ' + this.walk(ast.name);
+            buffer.add(str);
+            this.walk(ast.block);
+            if (store = buffer.restore()) {
+                for (var i = 0; i < prefix.length; i++) {
+                    buffer.add('\n' + store.replace('@keyframes', '@-' + prefix[i] + '-keyframes'));
+                }
+            }
+        };
+        var stepmap = {
+                from: '0%',
+                to: '100%'
+            };
+        _.walk_keyframe = function (ast) {
+            var self = this;
+            var steps = ast.steps.map(function (item) {
+                    var step;
+                    if (item.type === 'TEXT') {
+                        step = stepmap[item.value.toLowerCase()];
+                        if (step)
+                            return step;
+                    }
+                    if (item.type === 'DIMENSION') {
+                        if (item.unit == '%')
+                            return tree.toStr(item);
+                    }
+                    self.error('@keyframe step only accept [from | to | <percentage>]', item.lineno);
+                });
+            this.buffer.add(this.newline + this.indents() + steps.join(','));
+            this.walk(ast.block);
+        };
+        _.walk_declaration = function (ast) {
+            var text = this.walk(ast.property);
+            var value = this.walk(ast.value);
+            var str = text + ':' + value + (ast.important ? ' !important' : '');
+            this.buffer.add(str + ';');
+        };
+        _.walk_string = function (ast) {
+            return '"' + ast.value + '"';
+        };
+        _['walk_='] = function (ast) {
+            return '=';
+        };
+        _['walk_/'] = function (ast) {
+            return '/';
+        };
+        _.walk_unknown = function (ast) {
+            return ast.name;
+        };
+        _.walk_url = function (ast) {
+            return 'url("' + ast.value + '")';
+        };
+        _.walk_color = function (ast) {
+            return ast.toCSS();
+        };
+        _.walk_directive = function (ast) {
+            var str = '@' + ast.fullname + ' ';
+            if (ast.value) {
+                str += this.walk(ast.value);
+            }
+            this.buffer.add(str);
+            if (ast.block) {
+                this.walk(ast.block);
+            }
+        };
+        _.walk_call = function (ast) {
+            return ast.name + '(' + this.walk(ast.args).join(',') + ')';
+        };
+        _.walk_default = function (ast) {
+            if (!ast)
+                return '';
+            var str = tree.toStr(ast);
+            if (typeof str !== 'string') {
+                return '';
+            }
+            return str;
+        };
+        _.error = function (msg, ll) {
+            var lineno = ll.lineno || ll;
+            throw new error.McssError(msg, lineno, this.options);
+        };
+        _.indents = function () {
+            if (this.get('format') > 1) {
+                return '';
+            } else {
+                return Array(this.level).join(this.indent);
+            }
+        };
+        _._getSassDebugInfo = function () {
+            return '@media -sass-debug-info';
+        };
+        module.exports = Translator;
     },
     'q': function (require, module, exports, global) {
-        module.exports = {
-            prefixr: require('r'),
-            csscomb: require('t')
+        var path = null;
+        module.exports = function (options) {
+            var sourceMap = require('1').sourcemap;
+            var options = options || {};
+            var buffers = [];
+            var mapper = {};
+            var generator = path && options.sourceMap ? new sourceMap.SourceMapGenerator({ file: path.basename(options.dest) }) : null;
+            var lines = 1;
+            var column = 0;
+            var outport = '';
+            var marked = null;
+            return {
+                add: function (content) {
+                    if (options.sourceMap) {
+                        var newline = (content.match(/\n/g) || '').length;
+                        lines += newline;
+                        var clen = content.length;
+                        if (newline) {
+                            column = clen - content.lastIndexOf('\n') - 1;
+                        } else {
+                            column += clen;
+                        }
+                    }
+                    if (typeof marked === 'string')
+                        marked += content;
+                    outport += content;
+                },
+                addMap: function (map) {
+                    if (options.sourceMap) {
+                        generator.addMapping({
+                            generated: {
+                                column: column,
+                                line: lines
+                            },
+                            source: path.relative(path.dirname(options.dest), map.source),
+                            original: {
+                                column: 1,
+                                line: map.line
+                            }
+                        });
+                    }
+                },
+                toString: function () {
+                    return outport;
+                },
+                getMap: function () {
+                    if (!generator)
+                        return null;
+                    return generator.toString();
+                },
+                mark: function () {
+                    marked = '';
+                },
+                restore: function () {
+                    var res = marked;
+                    marked = null;
+                    return res;
+                }
+            };
         };
     },
     'r': function (require, module, exports, global) {
-        var prefixs = require('s').prefixs;
+        module.exports = {
+            prefixr: require('s'),
+            csscomb: require('u')
+        };
+    },
+    's': function (require, module, exports, global) {
+        var prefixs = require('t').prefixs;
         var _ = require('4');
         var tree = require('8');
         var isTestProperties = _.makePredicate('border-radius transition');
@@ -5048,7 +5273,7 @@ var mcss;
             }
         };
     },
-    's': function (require, module, exports, global) {
+    't': function (require, module, exports, global) {
         exports.orders = {
             'position': 1,
             'z-index': 1,
@@ -5330,1372 +5555,18 @@ var mcss;
             'line-height': 7
         };
     },
-    't': function (require, module, exports, global) {
-        var orders = require('s').orders;
+    'u': function (require, module, exports, global) {
+        var orders = require('t').orders;
+        var times = 0;
         module.exports = {
             'block': function (tree) {
-                tree.list.sort(function (d1, d2) {
-                    return (orders[d1.property] || 100) - (orders[d2.property] || 100);
-                });
-            }
-        };
-    },
-    'u': function (require, module, exports, global) {
-        var Translator = require('v');
-        module.exports = Translator;
-    },
-    'v': function (require, module, exports, global) {
-        var Walker = require('k');
-        var tree = require('8');
-        var error = require('a');
-        var u = require('4');
-        var options = require('f');
-        var path = null;
-        var buffer = require('w');
-        function Translator(options) {
-            this.options = options || {};
-        }
-        var _ = Translator.prototype = new Walker();
-        var walk = _.walk;
-        options.mixTo(_);
-        var formats = {
-                COMMON: 1,
-                COMPRESS: 2,
-                ONELINE: 3
-            };
-        _.translate = function (ast) {
-            this.ast = ast;
-            this.buffer = buffer(this.options);
-            this.level = 0;
-            this.indent = this.get('indent') || '\t';
-            this.newline = this.get('format') > 1 ? '' : '\n';
-            this.walk_stylesheet(ast, true);
-            var text = this.buffer.toString();
-            if (path && this.options.sourceMap && this.options.dest) {
-                var base64 = new Buffer(this.buffer.getMap()).toString('base64');
-                text += '/*@ sourceMappingURL= ' + path.basename(this.get('dest'), '.css') + '.css.map */';
-                u.writeFile(this.get('dest') + '.map', this.buffer.getMap(), function (err) {
-                    if (err)
-                        console.error('sourcemap wirte fail');
-                });
-            }
-            return text;
-        };
-        _.walk_stylesheet = function (ast, blank) {
-            this.walk_block(ast, blank);
-        };
-        _.walk_ruleset = function (ast) {
-            var buffer = this.buffer;
-            if (!ast.block.list.length)
-                return false;
-            var slist = ast.getSelectors();
-            if (!slist.length)
-                return false;
-            buffer.addMap({
-                line: ast.lineno - 1,
-                source: ast.filename
-            });
-            buffer.add(this.walk(slist).join(','));
-            this.walk(ast.block);
-        };
-        _.walk_selectorlist = function (ast) {
-            return this.walk(ast.list).join(',' + this.newline);
-        };
-        _.walk_complexselector = function (ast) {
-            return ast.string;
-        };
-        _.walk_block = function (ast, blank) {
-            this.level++;
-            var indent = this.indents();
-            var buffer = this.buffer;
-            var res = [];
-            if (!blank)
-                buffer.add('{');
-            var list = ast.list;
-            buffer.add(this.newline + indent);
-            for (var i = 0, len = list.length; i < len; i++) {
-                var item = this.walk(list[i]);
-                if (item !== false) {
-                    if (list[i].type !== 'declaration' && this.has('format', 3)) {
-                        buffer.add('\n');
-                    }
-                    if (i !== len - 1) {
-                        buffer.add(this.newline + indent);
-                    }
-                }
-            }
-            this.level--;
-            if (!blank) {
-                buffer.add(this.newline + this.indents() + '}');
-            }
-        };
-        _.walk_valueslist = function (ast) {
-            var text = this.walk(ast.list).join(',');
-            return text;
-        };
-        _.walk_values = function (ast) {
-            var text = this.walk(ast.list).join(' ');
-            text = text.replace(/ \/ /g, '/');
-            return text;
-        };
-        _.walk_import = function (ast) {
-            var outport = [
-                    '@import ',
-                    this.walk_url(ast.url)
-                ];
-            if (ast.queryList && ast.queryList.length) {
-                outport.push(this.walk(ast.queryList).join(','));
-            }
-            this.buffer.add(outport.join(' ') + ';');
-        };
-        _.walk_media = function (ast) {
-            var str = '@media ';
-            str += this.walk(ast.queryList).join(',');
-            this.buffer.add(str);
-            this.walk_block(ast.block);
-        };
-        _.walk_mediaquery = function (ast) {
-            var outport = this.walk(ast.expressions);
-            if (ast.mediaType)
-                outport.unshift(ast.mediaType);
-            return outport.join(' and ');
-        };
-        _.walk_mediaexpression = function (ast) {
-            var str = '';
-            str += this.walk(ast.feature);
-            if (ast.value)
-                str += ': ' + this.walk(ast.value);
-            return '(' + str + ')';
-        };
-        _.walk_keyframes = function (ast) {
-            var prefix = this.get('prefix'), buffer = this.buffer, store;
-            if (prefix && prefix.length && ast.fullname === 'keyframes')
-                buffer.mark();
-            var str = '@' + ast.fullname + ' ' + this.walk(ast.name);
-            buffer.add(str);
-            this.walk(ast.block);
-            if (store = buffer.restore()) {
-                for (var i = 0; i < prefix.length; i++) {
-                    buffer.add('\n' + store.replace('@keyframes', '@-' + prefix[i] + '-keyframes'));
-                }
-            }
-        };
-        var stepmap = {
-                from: '0%',
-                to: '100%'
-            };
-        _.walk_keyframe = function (ast) {
-            var self = this;
-            var steps = ast.steps.map(function (item) {
-                    var step;
-                    if (item.type === 'TEXT') {
-                        step = stepmap[item.value.toLowerCase()];
-                        if (step)
-                            return step;
-                    }
-                    if (item.type === 'DIMENSION') {
-                        if (item.unit == '%')
-                            return tree.toStr(item);
-                    }
-                    self.error('@keyframe step only accept [from | to | <percentage>]', item.lineno);
-                });
-            this.buffer.add(this.newline + this.indents() + steps.join(','));
-            this.walk(ast.block);
-        };
-        _.walk_declaration = function (ast) {
-            var text = this.walk(ast.property);
-            var value = this.walk(ast.value);
-            var str = text + ':' + value + (ast.important ? ' !important' : '');
-            this.buffer.add(str + ';');
-        };
-        _.walk_string = function (ast) {
-            return '"' + ast.value + '"';
-        };
-        _['walk_='] = function (ast) {
-            return '=';
-        };
-        _['walk_/'] = function (ast) {
-            return '/';
-        };
-        _.walk_unknown = function (ast) {
-            return ast.name;
-        };
-        _.walk_url = function (ast) {
-            return 'url("' + ast.value + '")';
-        };
-        _.walk_color = function (ast) {
-            return ast.toCSS();
-        };
-        _.walk_directive = function (ast) {
-            var str = '@' + ast.fullname + ' ';
-            if (ast.value) {
-                str += this.walk(ast.value);
-            }
-            this.buffer.add(str);
-            if (ast.block) {
-                this.walk(ast.block);
-            }
-        };
-        _.walk_call = function (ast) {
-            return ast.name + '(' + this.walk(ast.args).join(',') + ')';
-        };
-        _.walk_default = function (ast) {
-            if (!ast)
-                return '';
-            var str = tree.toStr(ast);
-            if (typeof str !== 'string') {
-                return '';
-            }
-            return str;
-        };
-        _.error = function (msg, ll) {
-            var lineno = ll.lineno || ll;
-            throw new error.McssError(msg, lineno, this.options);
-        };
-        _.indents = function () {
-            if (this.get('format') > 1) {
-                return '';
-            } else {
-                return Array(this.level).join(this.indent);
-            }
-        };
-        _._getSassDebugInfo = function () {
-            return '@media -sass-debug-info';
-        };
-        module.exports = Translator;
-    },
-    'w': function (require, module, exports, global) {
-        var path = null;
-        module.exports = function (options) {
-            var sourceMap = path ? require('x') : null;
-            var options = options || {};
-            var buffers = [];
-            var mapper = {};
-            var generator = path && options.sourceMap ? new sourceMap.SourceMapGenerator({ file: path.basename(options.dest) }) : null;
-            var lines = 1;
-            var column = 0;
-            var outport = '';
-            var marked = null;
-            return {
-                add: function (content) {
-                    if (options.sourceMap) {
-                        var newline = (content.match(/\n/g) || '').length;
-                        lines += newline;
-                        var clen = content.length;
-                        if (newline) {
-                            column = clen - content.lastIndexOf('\n') - 1;
-                        } else {
-                            column += clen;
-                        }
-                    }
-                    if (typeof marked === 'string')
-                        marked += content;
-                    outport += content;
-                },
-                addMap: function (map) {
-                    if (options.sourceMap) {
-                        generator.addMapping({
-                            generated: {
-                                column: column,
-                                line: lines
-                            },
-                            source: path.relative(path.dirname(options.dest), map.source),
-                            original: {
-                                column: 1,
-                                line: map.line
-                            }
-                        });
-                    }
-                },
-                toString: function () {
-                    return outport;
-                },
-                getMap: function () {
-                    if (!generator)
-                        return null;
-                    return generator.toString();
-                },
-                mark: function () {
-                    marked = '';
-                },
-                restore: function () {
-                    var res = marked;
-                    marked = null;
-                    return res;
-                }
-            };
-        };
-    },
-    'x': function (require, module, exports, global) {
-        exports.SourceMapGenerator = require('y').SourceMapGenerator;
-        exports.SourceMapConsumer = require('14').SourceMapConsumer;
-        exports.SourceNode = require('16').SourceNode;
-    },
-    'y': function (require, module, exports, global) {
-        if (typeof define !== 'function') {
-            var define = require('z')(module);
-        }
-        define(function (require, exports, module) {
-            var base64VLQ = require('10');
-            var util = require('12');
-            var ArraySet = require('13').ArraySet;
-            function SourceMapGenerator(aArgs) {
-                this._file = util.getArg(aArgs, 'file');
-                this._sourceRoot = util.getArg(aArgs, 'sourceRoot', null);
-                this._sources = new ArraySet();
-                this._names = new ArraySet();
-                this._mappings = [];
-                this._sourcesContents = null;
-            }
-            SourceMapGenerator.prototype._version = 3;
-            SourceMapGenerator.fromSourceMap = function SourceMapGenerator_fromSourceMap(aSourceMapConsumer) {
-                var sourceRoot = aSourceMapConsumer.sourceRoot;
-                var generator = new SourceMapGenerator({
-                        file: aSourceMapConsumer.file,
-                        sourceRoot: sourceRoot
-                    });
-                aSourceMapConsumer.eachMapping(function (mapping) {
-                    var newMapping = {
-                            generated: {
-                                line: mapping.generatedLine,
-                                column: mapping.generatedColumn
-                            }
-                        };
-                    if (mapping.source) {
-                        newMapping.source = mapping.source;
-                        if (sourceRoot) {
-                            newMapping.source = util.relative(sourceRoot, newMapping.source);
-                        }
-                        newMapping.original = {
-                            line: mapping.originalLine,
-                            column: mapping.originalColumn
-                        };
-                        if (mapping.name) {
-                            newMapping.name = mapping.name;
-                        }
-                    }
-                    generator.addMapping(newMapping);
-                });
-                aSourceMapConsumer.sources.forEach(function (sourceFile) {
-                    var content = aSourceMapConsumer.sourceContentFor(sourceFile);
-                    if (content) {
-                        generator.setSourceContent(sourceFile, content);
-                    }
-                });
-                return generator;
-            };
-            SourceMapGenerator.prototype.addMapping = function SourceMapGenerator_addMapping(aArgs) {
-                var generated = util.getArg(aArgs, 'generated');
-                var original = util.getArg(aArgs, 'original', null);
-                var source = util.getArg(aArgs, 'source', null);
-                var name = util.getArg(aArgs, 'name', null);
-                this._validateMapping(generated, original, source, name);
-                if (source && !this._sources.has(source)) {
-                    this._sources.add(source);
-                }
-                if (name && !this._names.has(name)) {
-                    this._names.add(name);
-                }
-                this._mappings.push({
-                    generated: generated,
-                    original: original,
-                    source: source,
-                    name: name
-                });
-            };
-            SourceMapGenerator.prototype.setSourceContent = function SourceMapGenerator_setSourceContent(aSourceFile, aSourceContent) {
-                var source = aSourceFile;
-                if (this._sourceRoot) {
-                    source = util.relative(this._sourceRoot, source);
-                }
-                if (aSourceContent !== null) {
-                    if (!this._sourcesContents) {
-                        this._sourcesContents = {};
-                    }
-                    this._sourcesContents[util.toSetString(source)] = aSourceContent;
-                } else {
-                    delete this._sourcesContents[util.toSetString(source)];
-                    if (Object.keys(this._sourcesContents).length === 0) {
-                        this._sourcesContents = null;
-                    }
-                }
-            };
-            SourceMapGenerator.prototype.applySourceMap = function SourceMapGenerator_applySourceMap(aSourceMapConsumer, aSourceFile) {
-                if (!aSourceFile) {
-                    aSourceFile = aSourceMapConsumer.file;
-                }
-                var sourceRoot = this._sourceRoot;
-                if (sourceRoot) {
-                    aSourceFile = util.relative(sourceRoot, aSourceFile);
-                }
-                var newSources = new ArraySet();
-                var newNames = new ArraySet();
-                this._mappings.forEach(function (mapping) {
-                    if (mapping.source === aSourceFile && mapping.original) {
-                        var original = aSourceMapConsumer.originalPositionFor({
-                                line: mapping.original.line,
-                                column: mapping.original.column
-                            });
-                        if (original.source !== null) {
-                            if (sourceRoot) {
-                                mapping.source = util.relative(sourceRoot, original.source);
-                            } else {
-                                mapping.source = original.source;
-                            }
-                            mapping.original.line = original.line;
-                            mapping.original.column = original.column;
-                            if (original.name !== null && mapping.name !== null) {
-                                mapping.name = original.name;
-                            }
-                        }
-                    }
-                    var source = mapping.source;
-                    if (source && !newSources.has(source)) {
-                        newSources.add(source);
-                    }
-                    var name = mapping.name;
-                    if (name && !newNames.has(name)) {
-                        newNames.add(name);
-                    }
-                }, this);
-                this._sources = newSources;
-                this._names = newNames;
-                aSourceMapConsumer.sources.forEach(function (sourceFile) {
-                    var content = aSourceMapConsumer.sourceContentFor(sourceFile);
-                    if (content) {
-                        if (sourceRoot) {
-                            sourceFile = util.relative(sourceRoot, sourceFile);
-                        }
-                        this.setSourceContent(sourceFile, content);
-                    }
-                }, this);
-            };
-            SourceMapGenerator.prototype._validateMapping = function SourceMapGenerator_validateMapping(aGenerated, aOriginal, aSource, aName) {
-                if (aGenerated && 'line' in aGenerated && 'column' in aGenerated && aGenerated.line > 0 && aGenerated.column >= 0 && !aOriginal && !aSource && !aName) {
+                var list = tree.list;
+                if (!list[0] || list[0].type !== 'declaration')
                     return;
-                } else if (aGenerated && 'line' in aGenerated && 'column' in aGenerated && aOriginal && 'line' in aOriginal && 'column' in aOriginal && aGenerated.line > 0 && aGenerated.column >= 0 && aOriginal.line > 0 && aOriginal.column >= 0 && aSource) {
-                    return;
-                } else {
-                    throw new Error('Invalid mapping.');
-                }
-            };
-            function cmpLocation(loc1, loc2) {
-                var cmp = (loc1 && loc1.line) - (loc2 && loc2.line);
-                return cmp ? cmp : (loc1 && loc1.column) - (loc2 && loc2.column);
-            }
-            function strcmp(str1, str2) {
-                str1 = str1 || '';
-                str2 = str2 || '';
-                return (str1 > str2) - (str1 < str2);
-            }
-            function cmpMapping(mappingA, mappingB) {
-                return cmpLocation(mappingA.generated, mappingB.generated) || cmpLocation(mappingA.original, mappingB.original) || strcmp(mappingA.source, mappingB.source) || strcmp(mappingA.name, mappingB.name);
-            }
-            SourceMapGenerator.prototype._serializeMappings = function SourceMapGenerator_serializeMappings() {
-                var previousGeneratedColumn = 0;
-                var previousGeneratedLine = 1;
-                var previousOriginalColumn = 0;
-                var previousOriginalLine = 0;
-                var previousName = 0;
-                var previousSource = 0;
-                var result = '';
-                var mapping;
-                this._mappings.sort(cmpMapping);
-                for (var i = 0, len = this._mappings.length; i < len; i++) {
-                    mapping = this._mappings[i];
-                    if (mapping.generated.line !== previousGeneratedLine) {
-                        previousGeneratedColumn = 0;
-                        while (mapping.generated.line !== previousGeneratedLine) {
-                            result += ';';
-                            previousGeneratedLine++;
-                        }
-                    } else {
-                        if (i > 0) {
-                            if (!cmpMapping(mapping, this._mappings[i - 1])) {
-                                continue;
-                            }
-                            result += ',';
-                        }
-                    }
-                    result += base64VLQ.encode(mapping.generated.column - previousGeneratedColumn);
-                    previousGeneratedColumn = mapping.generated.column;
-                    if (mapping.source && mapping.original) {
-                        result += base64VLQ.encode(this._sources.indexOf(mapping.source) - previousSource);
-                        previousSource = this._sources.indexOf(mapping.source);
-                        result += base64VLQ.encode(mapping.original.line - 1 - previousOriginalLine);
-                        previousOriginalLine = mapping.original.line - 1;
-                        result += base64VLQ.encode(mapping.original.column - previousOriginalColumn);
-                        previousOriginalColumn = mapping.original.column;
-                        if (mapping.name) {
-                            result += base64VLQ.encode(this._names.indexOf(mapping.name) - previousName);
-                            previousName = this._names.indexOf(mapping.name);
-                        }
-                    }
-                }
-                return result;
-            };
-            SourceMapGenerator.prototype.toJSON = function SourceMapGenerator_toJSON() {
-                var map = {
-                        version: this._version,
-                        file: this._file,
-                        sources: this._sources.toArray(),
-                        names: this._names.toArray(),
-                        mappings: this._serializeMappings()
-                    };
-                if (this._sourceRoot) {
-                    map.sourceRoot = this._sourceRoot;
-                }
-                if (this._sourcesContents) {
-                    map.sourcesContent = map.sources.map(function (source) {
-                        if (map.sourceRoot) {
-                            source = util.relative(map.sourceRoot, source);
-                        }
-                        return Object.prototype.hasOwnProperty.call(this._sourcesContents, util.toSetString(source)) ? this._sourcesContents[util.toSetString(source)] : null;
-                    }, this);
-                }
-                return map;
-            };
-            SourceMapGenerator.prototype.toString = function SourceMapGenerator_toString() {
-                return JSON.stringify(this);
-            };
-            exports.SourceMapGenerator = SourceMapGenerator;
-        });
-    },
-    'z': function (require, module, exports, global) {
-        'use strict';
-        var path = null;
-        function amdefine(module, require) {
-            var defineCache = {}, loaderCache = {}, alreadyCalled = false, makeRequire, stringRequire;
-            function trimDots(ary) {
-                var i, part;
-                for (i = 0; ary[i]; i += 1) {
-                    part = ary[i];
-                    if (part === '.') {
-                        ary.splice(i, 1);
-                        i -= 1;
-                    } else if (part === '..') {
-                        if (i === 1 && (ary[2] === '..' || ary[0] === '..')) {
-                            break;
-                        } else if (i > 0) {
-                            ary.splice(i - 1, 2);
-                            i -= 2;
-                        }
-                    }
-                }
-            }
-            function normalize(name, baseName) {
-                var baseParts;
-                if (name && name.charAt(0) === '.') {
-                    if (baseName) {
-                        baseParts = baseName.split('/');
-                        baseParts = baseParts.slice(0, baseParts.length - 1);
-                        baseParts = baseParts.concat(name.split('/'));
-                        trimDots(baseParts);
-                        name = baseParts.join('/');
-                    }
-                }
-                return name;
-            }
-            function makeNormalize(relName) {
-                return function (name) {
-                    return normalize(name, relName);
-                };
-            }
-            function makeLoad(id) {
-                function load(value) {
-                    loaderCache[id] = value;
-                }
-                load.fromText = function (id, text) {
-                    throw new Error('amdefine does not implement load.fromText');
-                };
-                return load;
-            }
-            makeRequire = function (systemRequire, exports, module, relId) {
-                function amdRequire(deps, callback) {
-                    if (typeof deps === 'string') {
-                        return stringRequire(systemRequire, exports, module, deps, relId);
-                    } else {
-                        deps = deps.map(function (depName) {
-                            return stringRequire(systemRequire, exports, module, depName, relId);
-                        });
-                        process.nextTick(function () {
-                            callback.apply(null, deps);
-                        });
-                    }
-                }
-                amdRequire.toUrl = function (filePath) {
-                    if (filePath.indexOf('.') === 0) {
-                        return normalize(filePath, path.dirname(module.filename));
-                    } else {
-                        return filePath;
-                    }
-                };
-                return amdRequire;
-            };
-            require = require || function req() {
-                return module.require.apply(module, arguments);
-            };
-            function runFactory(id, deps, factory) {
-                var r, e, m, result;
-                if (id) {
-                    e = loaderCache[id] = {};
-                    m = {
-                        id: id,
-                        uri: __filename,
-                        exports: e
-                    };
-                    r = makeRequire(require, e, m, id);
-                } else {
-                    if (alreadyCalled) {
-                        throw new Error('amdefine with no module ID cannot be called more than once per file.');
-                    }
-                    alreadyCalled = true;
-                    e = module.exports;
-                    m = module;
-                    r = makeRequire(require, e, m, module.id);
-                }
-                if (deps) {
-                    deps = deps.map(function (depName) {
-                        return r(depName);
-                    });
-                }
-                if (typeof factory === 'function') {
-                    result = factory.apply(module.exports, deps);
-                } else {
-                    result = factory;
-                }
-                if (result !== undefined) {
-                    m.exports = result;
-                    if (id) {
-                        loaderCache[id] = m.exports;
-                    }
-                }
-            }
-            stringRequire = function (systemRequire, exports, module, id, relId) {
-                var index = id.indexOf('!'), originalId = id, prefix, plugin;
-                if (index === -1) {
-                    id = normalize(id, relId);
-                    if (id === 'require') {
-                        return makeRequire(systemRequire, exports, module, relId);
-                    } else if (id === 'exports') {
-                        return exports;
-                    } else if (id === 'module') {
-                        return module;
-                    } else if (loaderCache.hasOwnProperty(id)) {
-                        return loaderCache[id];
-                    } else if (defineCache[id]) {
-                        runFactory.apply(null, defineCache[id]);
-                        return loaderCache[id];
-                    } else {
-                        if (systemRequire) {
-                            return systemRequire(originalId);
-                        } else {
-                            throw new Error('No module with ID: ' + id);
-                        }
-                    }
-                } else {
-                    prefix = id.substring(0, index);
-                    id = id.substring(index + 1, id.length);
-                    plugin = stringRequire(systemRequire, exports, module, prefix, relId);
-                    if (plugin.normalize) {
-                        id = plugin.normalize(id, makeNormalize(relId));
-                    } else {
-                        id = normalize(id, relId);
-                    }
-                    if (loaderCache[id]) {
-                        return loaderCache[id];
-                    } else {
-                        plugin.load(id, makeRequire(systemRequire, exports, module, relId), makeLoad(id), {});
-                        return loaderCache[id];
-                    }
-                }
-            };
-            function define(id, deps, factory) {
-                if (Array.isArray(id)) {
-                    factory = deps;
-                    deps = id;
-                    id = undefined;
-                } else if (typeof id !== 'string') {
-                    factory = id;
-                    id = deps = undefined;
-                }
-                if (deps && !Array.isArray(deps)) {
-                    factory = deps;
-                    deps = undefined;
-                }
-                if (!deps) {
-                    deps = [
-                        'require',
-                        'exports',
-                        'module'
-                    ];
-                }
-                if (id) {
-                    defineCache[id] = [
-                        id,
-                        deps,
-                        factory
-                    ];
-                } else {
-                    runFactory(id, deps, factory);
-                }
-            }
-            define.require = function (id) {
-                if (loaderCache[id]) {
-                    return loaderCache[id];
-                }
-                if (defineCache[id]) {
-                    runFactory.apply(null, defineCache[id]);
-                    return loaderCache[id];
-                }
-            };
-            define.amd = {};
-            return define;
-        }
-        module.exports = amdefine;
-    },
-    '10': function (require, module, exports, global) {
-        if (typeof define !== 'function') {
-            var define = require('z')(module);
-        }
-        define(function (require, exports, module) {
-            var base64 = require('11');
-            var VLQ_BASE_SHIFT = 5;
-            var VLQ_BASE = 1 << VLQ_BASE_SHIFT;
-            var VLQ_BASE_MASK = VLQ_BASE - 1;
-            var VLQ_CONTINUATION_BIT = VLQ_BASE;
-            function toVLQSigned(aValue) {
-                return aValue < 0 ? (-aValue << 1) + 1 : (aValue << 1) + 0;
-            }
-            function fromVLQSigned(aValue) {
-                var isNegative = (aValue & 1) === 1;
-                var shifted = aValue >> 1;
-                return isNegative ? -shifted : shifted;
-            }
-            exports.encode = function base64VLQ_encode(aValue) {
-                var encoded = '';
-                var digit;
-                var vlq = toVLQSigned(aValue);
-                do {
-                    digit = vlq & VLQ_BASE_MASK;
-                    vlq >>>= VLQ_BASE_SHIFT;
-                    if (vlq > 0) {
-                        digit |= VLQ_CONTINUATION_BIT;
-                    }
-                    encoded += base64.encode(digit);
-                } while (vlq > 0);
-                return encoded;
-            };
-            exports.decode = function base64VLQ_decode(aStr) {
-                var i = 0;
-                var strLen = aStr.length;
-                var result = 0;
-                var shift = 0;
-                var continuation, digit;
-                do {
-                    if (i >= strLen) {
-                        throw new Error('Expected more digits in base 64 VLQ value.');
-                    }
-                    digit = base64.decode(aStr.charAt(i++));
-                    continuation = !!(digit & VLQ_CONTINUATION_BIT);
-                    digit &= VLQ_BASE_MASK;
-                    result = result + (digit << shift);
-                    shift += VLQ_BASE_SHIFT;
-                } while (continuation);
-                return {
-                    value: fromVLQSigned(result),
-                    rest: aStr.slice(i)
-                };
-            };
-        });
-    },
-    '11': function (require, module, exports, global) {
-        if (typeof define !== 'function') {
-            var define = require('z')(module);
-        }
-        define(function (require, exports, module) {
-            var charToIntMap = {};
-            var intToCharMap = {};
-            'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'.split('').forEach(function (ch, index) {
-                charToIntMap[ch] = index;
-                intToCharMap[index] = ch;
-            });
-            exports.encode = function base64_encode(aNumber) {
-                if (aNumber in intToCharMap) {
-                    return intToCharMap[aNumber];
-                }
-                throw new TypeError('Must be between 0 and 63: ' + aNumber);
-            };
-            exports.decode = function base64_decode(aChar) {
-                if (aChar in charToIntMap) {
-                    return charToIntMap[aChar];
-                }
-                throw new TypeError('Not a valid base 64 digit: ' + aChar);
-            };
-        });
-    },
-    '12': function (require, module, exports, global) {
-        if (typeof define !== 'function') {
-            var define = require('z')(module);
-        }
-        define(function (require, exports, module) {
-            function getArg(aArgs, aName, aDefaultValue) {
-                if (aName in aArgs) {
-                    return aArgs[aName];
-                } else if (arguments.length === 3) {
-                    return aDefaultValue;
-                } else {
-                    throw new Error('"' + aName + '" is a required argument.');
-                }
-            }
-            exports.getArg = getArg;
-            var urlRegexp = /([\w+\-.]+):\/\/((\w+:\w+)@)?([\w.]+)?(:(\d+))?(\S+)?/;
-            function urlParse(aUrl) {
-                var match = aUrl.match(urlRegexp);
-                if (!match) {
-                    return null;
-                }
-                return {
-                    scheme: match[1],
-                    auth: match[3],
-                    host: match[4],
-                    port: match[6],
-                    path: match[7]
-                };
-            }
-            function join(aRoot, aPath) {
-                var url;
-                if (aPath.match(urlRegexp)) {
-                    return aPath;
-                }
-                if (aPath.charAt(0) === '/' && (url = urlParse(aRoot))) {
-                    return aRoot.replace(url.path, '') + aPath;
-                }
-                return aRoot.replace(/\/$/, '') + '/' + aPath;
-            }
-            exports.join = join;
-            function toSetString(aStr) {
-                return '$' + aStr;
-            }
-            exports.toSetString = toSetString;
-            function fromSetString(aStr) {
-                return aStr.substr(1);
-            }
-            exports.fromSetString = fromSetString;
-            function relative(aRoot, aPath) {
-                aRoot = aRoot.replace(/\/$/, '');
-                return aPath.indexOf(aRoot + '/') === 0 ? aPath.substr(aRoot.length + 1) : aPath;
-            }
-            exports.relative = relative;
-        });
-    },
-    '13': function (require, module, exports, global) {
-        if (typeof define !== 'function') {
-            var define = require('z')(module);
-        }
-        define(function (require, exports, module) {
-            var util = require('12');
-            function ArraySet() {
-                this._array = [];
-                this._set = {};
-            }
-            ArraySet.fromArray = function ArraySet_fromArray(aArray) {
-                var set = new ArraySet();
-                for (var i = 0, len = aArray.length; i < len; i++) {
-                    set.add(aArray[i]);
-                }
-                return set;
-            };
-            ArraySet.prototype.add = function ArraySet_add(aStr) {
-                if (this.has(aStr)) {
-                    return;
-                }
-                var idx = this._array.length;
-                this._array.push(aStr);
-                this._set[util.toSetString(aStr)] = idx;
-            };
-            ArraySet.prototype.has = function ArraySet_has(aStr) {
-                return Object.prototype.hasOwnProperty.call(this._set, util.toSetString(aStr));
-            };
-            ArraySet.prototype.indexOf = function ArraySet_indexOf(aStr) {
-                if (this.has(aStr)) {
-                    return this._set[util.toSetString(aStr)];
-                }
-                throw new Error('"' + aStr + '" is not in the set.');
-            };
-            ArraySet.prototype.at = function ArraySet_at(aIdx) {
-                if (aIdx >= 0 && aIdx < this._array.length) {
-                    return this._array[aIdx];
-                }
-                throw new Error('No element indexed by ' + aIdx);
-            };
-            ArraySet.prototype.toArray = function ArraySet_toArray() {
-                return this._array.slice();
-            };
-            exports.ArraySet = ArraySet;
-        });
-    },
-    '14': function (require, module, exports, global) {
-        if (typeof define !== 'function') {
-            var define = require('z')(module);
-        }
-        define(function (require, exports, module) {
-            var util = require('12');
-            var binarySearch = require('15');
-            var ArraySet = require('13').ArraySet;
-            var base64VLQ = require('10');
-            function SourceMapConsumer(aSourceMap) {
-                var sourceMap = aSourceMap;
-                if (typeof aSourceMap === 'string') {
-                    sourceMap = JSON.parse(aSourceMap.replace(/^\)\]\}'/, ''));
-                }
-                var version = util.getArg(sourceMap, 'version');
-                var sources = util.getArg(sourceMap, 'sources');
-                var names = util.getArg(sourceMap, 'names');
-                var sourceRoot = util.getArg(sourceMap, 'sourceRoot', null);
-                var sourcesContent = util.getArg(sourceMap, 'sourcesContent', null);
-                var mappings = util.getArg(sourceMap, 'mappings');
-                var file = util.getArg(sourceMap, 'file');
-                if (version !== this._version) {
-                    throw new Error('Unsupported version: ' + version);
-                }
-                this._names = ArraySet.fromArray(names);
-                this._sources = ArraySet.fromArray(sources);
-                this.sourceRoot = sourceRoot;
-                this.sourcesContent = sourcesContent;
-                this.file = file;
-                this._generatedMappings = [];
-                this._originalMappings = [];
-                this._parseMappings(mappings, sourceRoot);
-            }
-            SourceMapConsumer.prototype._version = 3;
-            Object.defineProperty(SourceMapConsumer.prototype, 'sources', {
-                get: function () {
-                    return this._sources.toArray().map(function (s) {
-                        return this.sourceRoot ? util.join(this.sourceRoot, s) : s;
-                    }, this);
-                }
-            });
-            SourceMapConsumer.prototype._parseMappings = function SourceMapConsumer_parseMappings(aStr, aSourceRoot) {
-                var generatedLine = 1;
-                var previousGeneratedColumn = 0;
-                var previousOriginalLine = 0;
-                var previousOriginalColumn = 0;
-                var previousSource = 0;
-                var previousName = 0;
-                var mappingSeparator = /^[,;]/;
-                var str = aStr;
-                var mapping;
-                var temp;
-                while (str.length > 0) {
-                    if (str.charAt(0) === ';') {
-                        generatedLine++;
-                        str = str.slice(1);
-                        previousGeneratedColumn = 0;
-                    } else if (str.charAt(0) === ',') {
-                        str = str.slice(1);
-                    } else {
-                        mapping = {};
-                        mapping.generatedLine = generatedLine;
-                        temp = base64VLQ.decode(str);
-                        mapping.generatedColumn = previousGeneratedColumn + temp.value;
-                        previousGeneratedColumn = mapping.generatedColumn;
-                        str = temp.rest;
-                        if (str.length > 0 && !mappingSeparator.test(str.charAt(0))) {
-                            temp = base64VLQ.decode(str);
-                            mapping.source = this._sources.at(previousSource + temp.value);
-                            previousSource += temp.value;
-                            str = temp.rest;
-                            if (str.length === 0 || mappingSeparator.test(str.charAt(0))) {
-                                throw new Error('Found a source, but no line and column');
-                            }
-                            temp = base64VLQ.decode(str);
-                            mapping.originalLine = previousOriginalLine + temp.value;
-                            previousOriginalLine = mapping.originalLine;
-                            mapping.originalLine += 1;
-                            str = temp.rest;
-                            if (str.length === 0 || mappingSeparator.test(str.charAt(0))) {
-                                throw new Error('Found a source and line, but no column');
-                            }
-                            temp = base64VLQ.decode(str);
-                            mapping.originalColumn = previousOriginalColumn + temp.value;
-                            previousOriginalColumn = mapping.originalColumn;
-                            str = temp.rest;
-                            if (str.length > 0 && !mappingSeparator.test(str.charAt(0))) {
-                                temp = base64VLQ.decode(str);
-                                mapping.name = this._names.at(previousName + temp.value);
-                                previousName += temp.value;
-                                str = temp.rest;
-                            }
-                        }
-                        this._generatedMappings.push(mapping);
-                        if (typeof mapping.originalLine === 'number') {
-                            this._originalMappings.push(mapping);
-                        }
-                    }
-                }
-                this._originalMappings.sort(this._compareOriginalPositions);
-            };
-            SourceMapConsumer.prototype._compareOriginalPositions = function SourceMapConsumer_compareOriginalPositions(mappingA, mappingB) {
-                if (mappingA.source > mappingB.source) {
-                    return 1;
-                } else if (mappingA.source < mappingB.source) {
-                    return -1;
-                } else {
-                    var cmp = mappingA.originalLine - mappingB.originalLine;
-                    return cmp === 0 ? mappingA.originalColumn - mappingB.originalColumn : cmp;
-                }
-            };
-            SourceMapConsumer.prototype._compareGeneratedPositions = function SourceMapConsumer_compareGeneratedPositions(mappingA, mappingB) {
-                var cmp = mappingA.generatedLine - mappingB.generatedLine;
-                return cmp === 0 ? mappingA.generatedColumn - mappingB.generatedColumn : cmp;
-            };
-            SourceMapConsumer.prototype._findMapping = function SourceMapConsumer_findMapping(aNeedle, aMappings, aLineName, aColumnName, aComparator) {
-                if (aNeedle[aLineName] <= 0) {
-                    throw new TypeError('Line must be greater than or equal to 1, got ' + aNeedle[aLineName]);
-                }
-                if (aNeedle[aColumnName] < 0) {
-                    throw new TypeError('Column must be greater than or equal to 0, got ' + aNeedle[aColumnName]);
-                }
-                return binarySearch.search(aNeedle, aMappings, aComparator);
-            };
-            SourceMapConsumer.prototype.originalPositionFor = function SourceMapConsumer_originalPositionFor(aArgs) {
-                var needle = {
-                        generatedLine: util.getArg(aArgs, 'line'),
-                        generatedColumn: util.getArg(aArgs, 'column')
-                    };
-                var mapping = this._findMapping(needle, this._generatedMappings, 'generatedLine', 'generatedColumn', this._compareGeneratedPositions);
-                if (mapping) {
-                    var source = util.getArg(mapping, 'source', null);
-                    if (source && this.sourceRoot) {
-                        source = util.join(this.sourceRoot, source);
-                    }
-                    return {
-                        source: source,
-                        line: util.getArg(mapping, 'originalLine', null),
-                        column: util.getArg(mapping, 'originalColumn', null),
-                        name: util.getArg(mapping, 'name', null)
-                    };
-                }
-                return {
-                    source: null,
-                    line: null,
-                    column: null,
-                    name: null
-                };
-            };
-            SourceMapConsumer.prototype.sourceContentFor = function SourceMapConsumer_sourceContentFor(aSource) {
-                if (!this.sourcesContent) {
-                    return null;
-                }
-                if (this.sourceRoot) {
-                    var relativeUrl = util.relative(this.sourceRoot, aSource);
-                    if (this._sources.has(relativeUrl)) {
-                        return this.sourcesContent[this._sources.indexOf(relativeUrl)];
-                    }
-                }
-                if (this._sources.has(aSource)) {
-                    return this.sourcesContent[this._sources.indexOf(aSource)];
-                }
-                throw new Error('"' + aSource + '" is not in the SourceMap.');
-            };
-            SourceMapConsumer.prototype.generatedPositionFor = function SourceMapConsumer_generatedPositionFor(aArgs) {
-                var needle = {
-                        source: util.getArg(aArgs, 'source'),
-                        originalLine: util.getArg(aArgs, 'line'),
-                        originalColumn: util.getArg(aArgs, 'column')
-                    };
-                if (this.sourceRoot) {
-                    needle.source = util.relative(this.sourceRoot, needle.source);
-                }
-                var mapping = this._findMapping(needle, this._originalMappings, 'originalLine', 'originalColumn', this._compareOriginalPositions);
-                if (mapping) {
-                    return {
-                        line: util.getArg(mapping, 'generatedLine', null),
-                        column: util.getArg(mapping, 'generatedColumn', null)
-                    };
-                }
-                return {
-                    line: null,
-                    column: null
-                };
-            };
-            SourceMapConsumer.GENERATED_ORDER = 1;
-            SourceMapConsumer.ORIGINAL_ORDER = 2;
-            SourceMapConsumer.prototype.eachMapping = function SourceMapConsumer_eachMapping(aCallback, aContext, aOrder) {
-                var context = aContext || null;
-                var order = aOrder || SourceMapConsumer.GENERATED_ORDER;
-                var mappings;
-                switch (order) {
-                case SourceMapConsumer.GENERATED_ORDER:
-                    mappings = this._generatedMappings;
-                    break;
-                case SourceMapConsumer.ORIGINAL_ORDER:
-                    mappings = this._originalMappings;
-                    break;
-                default:
-                    throw new Error('Unknown order of iteration.');
-                }
-                var sourceRoot = this.sourceRoot;
-                mappings.map(function (mapping) {
-                    var source = mapping.source;
-                    if (source && sourceRoot) {
-                        source = util.join(sourceRoot, source);
-                    }
-                    return {
-                        source: source,
-                        generatedLine: mapping.generatedLine,
-                        generatedColumn: mapping.generatedColumn,
-                        originalLine: mapping.originalLine,
-                        originalColumn: mapping.originalColumn,
-                        name: mapping.name
-                    };
-                }).forEach(aCallback, context);
-            };
-            exports.SourceMapConsumer = SourceMapConsumer;
-        });
-    },
-    '15': function (require, module, exports, global) {
-        if (typeof define !== 'function') {
-            var define = require('z')(module);
-        }
-        define(function (require, exports, module) {
-            function recursiveSearch(aLow, aHigh, aNeedle, aHaystack, aCompare) {
-                var mid = Math.floor((aHigh - aLow) / 2) + aLow;
-                var cmp = aCompare(aNeedle, aHaystack[mid]);
-                if (cmp === 0) {
-                    return aHaystack[mid];
-                } else if (cmp > 0) {
-                    if (aHigh - mid > 1) {
-                        return recursiveSearch(mid, aHigh, aNeedle, aHaystack, aCompare);
-                    }
-                    return aHaystack[mid];
-                } else {
-                    if (mid - aLow > 1) {
-                        return recursiveSearch(aLow, mid, aNeedle, aHaystack, aCompare);
-                    }
-                    return aLow < 0 ? null : aHaystack[aLow];
-                }
-            }
-            exports.search = function search(aNeedle, aHaystack, aCompare) {
-                return aHaystack.length > 0 ? recursiveSearch(-1, aHaystack.length, aNeedle, aHaystack, aCompare) : null;
-            };
-        });
-    },
-    '16': function (require, module, exports, global) {
-        if (typeof define !== 'function') {
-            var define = require('z')(module);
-        }
-        define(function (require, exports, module) {
-            var SourceMapGenerator = require('y').SourceMapGenerator;
-            var util = require('12');
-            function SourceNode(aLine, aColumn, aSource, aChunks, aName) {
-                this.children = [];
-                this.sourceContents = {};
-                this.line = aLine === undefined ? null : aLine;
-                this.column = aColumn === undefined ? null : aColumn;
-                this.source = aSource === undefined ? null : aSource;
-                this.name = aName === undefined ? null : aName;
-                if (aChunks != null)
-                    this.add(aChunks);
-            }
-            SourceNode.fromStringWithSourceMap = function SourceNode_fromStringWithSourceMap(aGeneratedCode, aSourceMapConsumer) {
-                var node = new SourceNode();
-                var remainingLines = aGeneratedCode.split('\n');
-                var lastGeneratedLine = 1, lastGeneratedColumn = 0;
-                var lastMapping = null;
-                aSourceMapConsumer.eachMapping(function (mapping) {
-                    if (lastMapping === null) {
-                        while (lastGeneratedLine < mapping.generatedLine) {
-                            node.add(remainingLines.shift() + '\n');
-                            lastGeneratedLine++;
-                        }
-                        if (lastGeneratedColumn < mapping.generatedColumn) {
-                            var nextLine = remainingLines[0];
-                            node.add(nextLine.substr(0, mapping.generatedColumn));
-                            remainingLines[0] = nextLine.substr(mapping.generatedColumn);
-                            lastGeneratedColumn = mapping.generatedColumn;
-                        }
-                    } else {
-                        if (lastGeneratedLine < mapping.generatedLine) {
-                            var code = '';
-                            do {
-                                code += remainingLines.shift() + '\n';
-                                lastGeneratedLine++;
-                                lastGeneratedColumn = 0;
-                            } while (lastGeneratedLine < mapping.generatedLine);
-                            if (lastGeneratedColumn < mapping.generatedColumn) {
-                                var nextLine = remainingLines[0];
-                                code += nextLine.substr(0, mapping.generatedColumn);
-                                remainingLines[0] = nextLine.substr(mapping.generatedColumn);
-                                lastGeneratedColumn = mapping.generatedColumn;
-                            }
-                            addMappingWithCode(lastMapping, code);
-                        } else {
-                            var nextLine = remainingLines[0];
-                            var code = nextLine.substr(0, mapping.generatedColumn - lastGeneratedColumn);
-                            remainingLines[0] = nextLine.substr(mapping.generatedColumn - lastGeneratedColumn);
-                            lastGeneratedColumn = mapping.generatedColumn;
-                            addMappingWithCode(lastMapping, code);
-                        }
-                    }
-                    lastMapping = mapping;
-                }, this);
-                addMappingWithCode(lastMapping, remainingLines.join('\n'));
-                aSourceMapConsumer.sources.forEach(function (sourceFile) {
-                    var content = aSourceMapConsumer.sourceContentFor(sourceFile);
-                    if (content) {
-                        node.setSourceContent(sourceFile, content);
-                    }
+                list.sort(function (d1, d2) {
+                    return (orders[d1.property.value] || 100) - (orders[d2.property.value] || 100);
                 });
-                return node;
-                function addMappingWithCode(mapping, code) {
-                    if (mapping.source === undefined) {
-                        node.add(code);
-                    } else {
-                        node.add(new SourceNode(mapping.originalLine, mapping.originalColumn, mapping.source, code, mapping.name));
-                    }
-                }
-            };
-            SourceNode.prototype.add = function SourceNode_add(aChunk) {
-                if (Array.isArray(aChunk)) {
-                    aChunk.forEach(function (chunk) {
-                        this.add(chunk);
-                    }, this);
-                } else if (aChunk instanceof SourceNode || typeof aChunk === 'string') {
-                    if (aChunk) {
-                        this.children.push(aChunk);
-                    }
-                } else {
-                    throw new TypeError('Expected a SourceNode, string, or an array of SourceNodes and strings. Got ' + aChunk);
-                }
-                return this;
-            };
-            SourceNode.prototype.prepend = function SourceNode_prepend(aChunk) {
-                if (Array.isArray(aChunk)) {
-                    for (var i = aChunk.length - 1; i >= 0; i--) {
-                        this.prepend(aChunk[i]);
-                    }
-                } else if (aChunk instanceof SourceNode || typeof aChunk === 'string') {
-                    this.children.unshift(aChunk);
-                } else {
-                    throw new TypeError('Expected a SourceNode, string, or an array of SourceNodes and strings. Got ' + aChunk);
-                }
-                return this;
-            };
-            SourceNode.prototype.walk = function SourceNode_walk(aFn) {
-                this.children.forEach(function (chunk) {
-                    if (chunk instanceof SourceNode) {
-                        chunk.walk(aFn);
-                    } else {
-                        if (chunk !== '') {
-                            aFn(chunk, {
-                                source: this.source,
-                                line: this.line,
-                                column: this.column,
-                                name: this.name
-                            });
-                        }
-                    }
-                }, this);
-            };
-            SourceNode.prototype.join = function SourceNode_join(aSep) {
-                var newChildren;
-                var i;
-                var len = this.children.length;
-                if (len > 0) {
-                    newChildren = [];
-                    for (i = 0; i < len - 1; i++) {
-                        newChildren.push(this.children[i]);
-                        newChildren.push(aSep);
-                    }
-                    newChildren.push(this.children[i]);
-                    this.children = newChildren;
-                }
-                return this;
-            };
-            SourceNode.prototype.replaceRight = function SourceNode_replaceRight(aPattern, aReplacement) {
-                var lastChild = this.children[this.children.length - 1];
-                if (lastChild instanceof SourceNode) {
-                    lastChild.replaceRight(aPattern, aReplacement);
-                } else if (typeof lastChild === 'string') {
-                    this.children[this.children.length - 1] = lastChild.replace(aPattern, aReplacement);
-                } else {
-                    this.children.push(''.replace(aPattern, aReplacement));
-                }
-                return this;
-            };
-            SourceNode.prototype.setSourceContent = function SourceNode_setSourceContent(aSourceFile, aSourceContent) {
-                this.sourceContents[util.toSetString(aSourceFile)] = aSourceContent;
-            };
-            SourceNode.prototype.walkSourceContents = function SourceNode_walkSourceContents(aFn) {
-                this.children.forEach(function (chunk) {
-                    if (chunk instanceof SourceNode) {
-                        chunk.walkSourceContents(aFn);
-                    }
-                }, this);
-                Object.keys(this.sourceContents).forEach(function (sourceFileKey) {
-                    aFn(util.fromSetString(sourceFileKey), this.sourceContents[sourceFileKey]);
-                }, this);
-            };
-            SourceNode.prototype.toString = function SourceNode_toString() {
-                var str = '';
-                this.walk(function (chunk) {
-                    str += chunk;
-                });
-                return str;
-            };
-            SourceNode.prototype.toStringWithSourceMap = function SourceNode_toStringWithSourceMap(aArgs) {
-                var generated = {
-                        code: '',
-                        line: 1,
-                        column: 0
-                    };
-                var map = new SourceMapGenerator(aArgs);
-                var sourceMappingActive = false;
-                this.walk(function (chunk, original) {
-                    generated.code += chunk;
-                    if (original.source !== null && original.line !== null && original.column !== null) {
-                        map.addMapping({
-                            source: original.source,
-                            original: {
-                                line: original.line,
-                                column: original.column
-                            },
-                            generated: {
-                                line: generated.line,
-                                column: generated.column
-                            },
-                            name: original.name
-                        });
-                        sourceMappingActive = true;
-                    } else if (sourceMappingActive) {
-                        map.addMapping({
-                            generated: {
-                                line: generated.line,
-                                column: generated.column
-                            }
-                        });
-                        sourceMappingActive = false;
-                    }
-                    chunk.split('').forEach(function (ch) {
-                        if (ch === '\n') {
-                            generated.line++;
-                            generated.column = 0;
-                        } else {
-                            generated.column++;
-                        }
-                    });
-                });
-                this.walkSourceContents(function (sourceFile, sourceContent) {
-                    map.setSourceContent(sourceFile, sourceContent);
-                });
-                return {
-                    code: generated.code,
-                    map: map
-                };
-            };
-            exports.SourceNode = SourceNode;
-        });
+            }
+        };
     }
 }));

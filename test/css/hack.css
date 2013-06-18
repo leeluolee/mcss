@@ -4,5 +4,7 @@ body{
 	_left:30px;
 	*left:20px;
 	left:20px 찑;
-	left:false;
+	filter:progid:DXImageTransform.Microsoft.gradient(startColorstr='rgb(255,255,255)', endColorstr='', GradientType=0);
+	filter:alpha(opacity = 0.2,stop = 2);
+	filter:4096;
 }

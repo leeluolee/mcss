@@ -57,7 +57,6 @@ if(!files.length) throw 'no matched mcss file';
 
 var building;
 function build(fullpath, first){
-  var start = Date.now();
   var imports = [];
   if(building){
     console.log('is busy building')
@@ -65,6 +64,7 @@ function build(fullpath, first){
   }
   // is in building step
   building = true;
+  var start = Date.now();
   var promises = files.map(function(file){
     var fullpath = path.resolve(cwd, file);
     if(inputDir){
@@ -73,12 +73,17 @@ function build(fullpath, first){
     }else{
       dest = outport;
     }
-    var date = +new Date()
     var instance = mcss({
       format: program.format,
       filename: fullpath,
       dest: dest,
       sourceMap: sourceMap,
+      // walkers: {
+      //   'url': function(ast){
+      //       console.log(ast) 
+      //   }
+      // },
+      // hooks: ['csscomb']
     // @TODO remove
     });
     return instance.include(path.join(__dirname, '../test/mcss/include'))
