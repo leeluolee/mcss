@@ -1,0 +1,22 @@
+// 带参数
+$size = ($width, $height){
+    $height ?= $width;
+    height: $height; 
+    width: $width; 
+}
+// 不带参数
+$clearfix = {
+    *zoom: 1;
+    &:before, &:after {
+        display: table;
+        content: "";
+        line-height: 0; 
+    }
+    &:after {
+        clear: both; 
+    }
+}
+body{
+    $clearfix();
+    $size(5px);
+}

@@ -1,0 +1,15 @@
+$abs = ($value){
+    @if $value < 0 {
+        @return -$value; }
+    @return $value;
+}
+$min = (){
+    $res = index($arguments, 1);
+    @for $item of $arguments{
+        @if $item < $res {
+            $res = $item; }}
+    @return $res;
+}
+@debug $min(1, 2, 3, 4, 0); // -> 0
+
+@debug $abs(-100px);   // 100px

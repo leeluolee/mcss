@@ -1,0 +1,21 @@
+// $variable has scope
+$a = 10px;
+$a ?= 20px;
+
+// simple block(function)
+body{
+    left: $a; // exports left: 10px;
+}
+
+// override before
+$a = 30px;
+
+body{
+    left: $a; // exports left: 30px;
+}
+
+// function is also a value can be assigned
+$fn ?= ($name) {
+    left: $name;
+}
+

@@ -3,7 +3,6 @@ fs = require 'fs'
 {spawn, exec} = require 'child_process'
 
 
-chokidar = require 'chokidar'
 
 # npm information
 info = JSON.parse fs.readFileSync __dirname + '/package.json', 'utf8'
@@ -11,7 +10,6 @@ info = JSON.parse fs.readFileSync __dirname + '/package.json', 'utf8'
 
 option '-m', '--mode [Mode]', 'watcher mode'
 
-test = () ->
 
 build = () ->
   wrup = do require "wrapup"
@@ -36,8 +34,9 @@ task 'doc', 'Generate annotated source code with Docco', ->
   docco.stderr.on 'data', (data) -> console.log data.toString()
   docco.on 'exit', (status) -> callback?() if status is 0
 
-task 'build', '', ->
-  build()
+task 'build', 'build less', ->
+  exec 'mcss mcss/index.mcss -o css/index.css', (error) ->  
+    console.log(error)
 
 task 'watch', 'run the test when lib files modified', (options) ->
   console.log "watcher on in #{options.mode} mode"

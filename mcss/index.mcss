@@ -1,0 +1,32 @@
+$clearfix = {
+    *zoom: 1;
+    &:before, &:after {
+        display: table;
+        content: "";
+        line-height: 0; 
+    }
+    &:after {
+        clear: both; 
+    }
+}
+body, html{
+    height: 100%;
+}
+
+.m-editor{
+    height: 100%;
+    $clearfix();
+    .input, .outport{
+        float: left;
+        height: 100%;
+    }
+    .input{
+       width: 50%;
+    }
+    .outport{
+        width: 50%;
+    }
+}
+.CodeMirror{
+    height: 100%;
+}

@@ -1,0 +1,16 @@
+$btn = ($color, $font-size = 14px, $modifier){
+  background: $color;
+  font-size: $font-size;
+  line-height: $font-size * 1.2;
+  &:hover, &:focus {
+    background: l-adjust($color, 10%);
+  }
+  $modifier(); //相当于block引入
+}
+
+.btn{
+    $btn( #ccc, 15px, {
+       box-shadow: 1px 1px #ccc; 
+    });
+}
+

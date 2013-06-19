@@ -1,0 +1,19 @@
+$pos = ($position, $top, $left){
+    @if len($arguments) == 1{
+        @return ($top, $left){
+            $pos($position, $top, $left);
+        }
+    }
+    position: $position;
+    left: $left;
+    top: $top;
+}
+
+$relative = $pos(relative);
+$fixed = $pos(fixed);
+$absolute = $pos(absolute);
+
+body{
+    $absolute(10px, 20px);
+    // ==   $pos(relative, 10px, 20px);
+}

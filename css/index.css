@@ -1,0 +1,29 @@
+
+body,html{
+	height:100%;
+}
+.m-editor{
+	height:100%;
+	*zoom:1;
+}
+.m-editor:before,.m-editor:after{
+	display:table;
+	content:"";
+	line-height:0;
+}
+.m-editor:after{
+	clear:both;
+}
+.m-editor .input,.m-editor .outport{
+	float:left;
+	height:100%;
+}
+.m-editor .input{
+	width:50%;
+}
+.m-editor .outport{
+	width:50%;
+}
+.CodeMirror{
+	height:100%;
+}

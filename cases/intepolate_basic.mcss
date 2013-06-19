@@ -1,0 +1,15 @@
+//basic function
+$border-radius = ($radius, $direction){
+    @if !$direction{
+        $join = '';
+    }@else{
+        $join = '-' + join($direction);
+    }
+    -webkit-border#{$join}-radius: $radius;
+       -moz-border#{$join}-radius: $radius;
+            border#{$join}-radius: $radius;
+}
+
+body{
+    $border-radius(5px, top left);
+}
