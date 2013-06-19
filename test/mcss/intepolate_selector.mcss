@@ -7,15 +7,17 @@
 }
 
 /**
- * bootsrap icon genneroter example
+ * bootstrap icon genneroter example
  */
+
 $ilist = glass,music,search,envelope,heart,star,star,user,film,th,th,th,ok,remove,zoom,zoom,off,signal,cog,trash, home,file,time,road,download,download,upload,inbox,play,repeat,refresh,list,lock,flag,headphones,volume,volume,volume,qrcode,barcode, tag,tags,book,bookmark,print,camera,font,bold,italic,text,text,align,align,align,align,list,indent,indent,facetime,picture, pencil,map,adjust,tint,edit,share,check,move,step,fast,backward,play,pause,stop,forward,fast,step,eject,chevron,chevron, plus,minus,remove,ok,question,info,screenshot,remove,ok,ban,arrow,arrow,arrow,arrow,share,resize,resize,plus,minus,asterisk, exclamation,gift,leaf,fire,eye,eye,warning,plane,calendar,random,comment,magnet,chevron,chevron,retweet,shopping,folder,folder,resize,resize, hdd,bullhorn,bell,certificate,thumbs,thumbs,hand,hand,hand,hand,circle,circle,circle,circle,globe,wrench,tasks,filter,briefcase,fullscreen;
 $path = '/path/to/icon.png';
+$basesize = 24px;
 [class*=icon-]{
-    background-image: url('') -9999px -9999px; 
+    background-image: url('http://www.163.com/#{$path}') -9999px -9999px; 
 }
 .icon-#{$ilist} {
-    background-position: -24px*($i%20)     -24px * floor($i / 20);
+    background-position: -$basesize * ($i % 20)     -$basesize * floor($i / 20);
 }
 
 

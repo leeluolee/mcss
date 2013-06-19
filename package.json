@@ -17,7 +17,7 @@
     "wrapup": "0.11.x"
   },
   "scripts": {
-    "test" : "cake test",
+    "test" : "mocha",
     "prepublish": "cake build"
   }
 }

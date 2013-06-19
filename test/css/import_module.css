@@ -57,7 +57,7 @@ body,textarea,input,button,select,keygen,legend{
 	outline:0;
 }
 body{
-	background:rgb(255,255,255);
+	background:#ffffff;
 }
 a,a:hover{
 	color:rgba(211,102,51,0.8);

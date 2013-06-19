@@ -1,7 +1,17 @@
 // simple nested
 
-.scope-1{
-    p, div{
-        
+.m-home{
+    display: block;
+    div, ul{
+        border: 2px solid #ccc;
+        a{
+            color: #fff;
+            &:hover{
+               text-decoration: none; 
+            }
+            span{
+                display: block;
+            }
+        }
     }
 }
