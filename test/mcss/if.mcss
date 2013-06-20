@@ -1,22 +1,15 @@
 $name = 0px;
-$name2 = false;
-@if $name {
+@if $name != 0px {
     body{
-        name: $name;
+        name: if;
     }
-}@elseif $name2 {
+}@elseif !$name2 {
     body{
-        name: $name2;
+        name: elseif;
     }
 }@else{
     body{
-        name: else 宋体, 微软雅黑;
+        name: else;
     }
 }
 
-.body2{
-    @if !$name {
-        left: $name;
-    }
-    right: 20px;
-}

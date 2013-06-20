@@ -1,4 +1,3 @@
-
 html,body,h1,h2,h3,h4,h5,h6,div,dl,dt,dd,ul,ol,li,p,blockquote,pre,hr,figure,table,caption,th,td,form,fieldset,legend,input,button,textarea,menu{
 	margin:0;
 	padding:0;
@@ -57,7 +56,7 @@ body,textarea,input,button,select,keygen,legend{
 	outline:0;
 }
 body{
-	background:#ffffff;
+	background:#dadada;
 }
 a,a:hover{
 	color:rgba(211,102,51,0.8);

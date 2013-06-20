@@ -2,7 +2,7 @@ $heihei = 10px;
 // import in global
 @import './_import1.mcss';
 
-#markdown {
+.m-markdown {
     // import in block
     left: 20px;
     @import './_import1.mcss';
@@ -11,9 +11,5 @@ $heihei = 10px;
 // import as media type
 @import './_import1.mcss' screen and (max-width: 200px);
 
-
-
-
-// import mcss module that also have sub module
-// if have circle dependency , error will occur
-@import './_import2.mcss';
+// import raw css
+@import './_raw.css';

@@ -1,4 +1,3 @@
-
 body-one-param{
 	left:null;
 	left:10px;
@@ -16,4 +15,11 @@ body-rest-2{
 	left:1;
 	middle:2,3;
 	right:4;
+}
+body-rest-3{
+	left:1,2,3;
+	right:4;
+}
+body-rest-4{
+	left:1,2,3,4;
 }
