@@ -1,0 +1,10 @@
+$foo = {
+  first: args(0);
+  seconed: args(1);
+  arguments: $arguments
+}
+body{
+    $foo: 10px, 20px
+}
+
+

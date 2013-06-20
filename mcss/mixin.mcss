@@ -1,0 +1,60 @@
+// 不带参数
+$clearfix = {
+    *zoom: 1;
+    &:before, &:after {
+        display: table;
+        content: "";
+        line-height: 0; 
+    }
+    &:after {
+        clear: both; 
+    }
+}
+
+// 带参数
+$size = ($width, $height){
+    $height ?= $width;
+    height: $height; 
+    width: $width; 
+}
+
+// 透明度
+$opacity = ($value){
+    opacity: $value;
+    filter: alpha(opacity = $value * 100);
+}
+
+// 圆角
+$border-radius = ($radius, $direction){
+    @if !$radius { 
+        error('$border-radius Requires at least one paramete')}
+    @if !$direction{
+        $join = '';
+    }@else{
+        $join = '-' + join($direction);
+    }
+    -webkit-border#{$join}-radius: $radius;
+       -moz-border#{$join}-radius: $radius;
+            border#{$join}-radius: $radius;
+}
+
+
+
+// 定位
+$pos = ($position, $top, $left){
+    @if len($arguments) == 1{
+        @return ($top, $left){
+            $pos($position, $top, $left);
+        }
+    }
+    position: $position;
+    left: $left;
+    top: $top;
+}
+
+$relative = $pos(relative);
+$fixed = $pos(fixed);
+$absolute = $pos(absolute);
+
+
+

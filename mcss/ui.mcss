@@ -1,0 +1,78 @@
+/**
+<div class="tooltip in">
+  <div class="arrow"></div>
+  <div class="inner">
+    content in tooltip
+  </div>
+</div> 
+*/
+$tooltip = ($background = #333, $font-size = 12px, $asize = 5px, $radius = 3px){
+    position: absolute;
+    z-index: 1000;
+    display: block;
+    visibility: visible;
+    font-size: $font-size;
+    line-height: 1.4;
+    $opacity: 0;
+    .arrow{
+        position: absolute;
+        width: 0;
+        height: 0;
+        border-color: transparent;
+        border-style: solid;
+    }
+    .inner{
+        max-width: 200px;
+        padding: 8px;
+        color: #fff;
+        text-align: center;
+        text-decoration: none;
+        background-color: $background;
+        $border-radius: $radius;
+    }
+    &.in     { $opacity: 0.8 }
+    &.top { 
+        margin-top:  -3px; 
+        padding: $asize 0; 
+        .arrow{
+            bottom: 0;
+            left: 50%;
+            margin-left: -$asize;
+            border-width: $asize $asize 0;
+            border-top-color: $background;
+        }
+    }
+    &.right  {
+        margin-left:  3px; 
+        padding: 0 $asize; 
+        .arrow{
+            top: 50%;
+            left: 0;
+            margin-top: -$asize;            
+            border-width: $asize $asize $asize 0px;
+            border-right-color: $background;
+        }
+    }
+    &.left   {
+        margin-left: -3px; padding: 0 $asize; 
+        .arrow{
+            top: 50%;
+            right: 0;
+            margin-top: -$asize;
+            border-width: $asize 0 $asize $asize;
+            border-left-color: $background;
+        }
+    }
+    
+
+    &.bottom { 
+        margin-top:   3px; padding: $asize 0; 
+        .arrow{
+            top: 0;
+            left: 50%;
+            margin-left: -$asize;
+            border-width: 0 $asize $asize;
+            border-bottom-color: $background;
+        }
+    }
+}

@@ -12,7 +12,6 @@ $pos = ($position, $top, $left){
 $relative = $pos(relative);
 $fixed = $pos(fixed);
 $absolute = $pos(absolute);
-
 body{
     $absolute(10px, 20px);
     // ==   $pos(relative, 10px, 20px);

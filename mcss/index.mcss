@@ -1,14 +1,5 @@
-$clearfix = {
-    *zoom: 1;
-    &:before, &:after {
-        display: table;
-        content: "";
-        line-height: 0; 
-    }
-    &:after {
-        clear: both; 
-    }
-}
+@abstract 'mixin.mcss';
+@abstract 'ui.mcss';
 body, html{
     height: 100%;
 }
@@ -28,5 +19,42 @@ body, html{
     }
 }
 .CodeMirror{
+    $error = rgba(#e74c3c, 0.4);
     height: 100%;
+    .CodeMirror-error{
+
+        .CodeMirror-linenumber::before{
+            content: 'x';
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            background: #e74c3c;
+            position: relative;
+            top: -2px;
+        }
+    }
+    .CodeMirror-error-background{
+        background: $error;
+    }
+    .CodeMirror-linewidget{
+        overflow: visible;
+    }
 }
+
+.cm-s-solarized .cm-tab:before{
+    content:'';
+}
+
+
+.tooltip{
+    $tooltip(#e74c3c);
+    top: -30px;
+    right: 0px;
+    .inner{
+        font-weight: bold;
+    }
+}
+
+
+
+

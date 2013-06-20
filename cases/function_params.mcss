@@ -1,0 +1,20 @@
+$default-param = ($left, $right = 30px ){
+    default-param: $right;
+}
+
+$rest-at-middle = ($left, $middle... , $right){
+    rest-at-middle: $middle;
+}
+$rest-at-left = ($left... , $right){
+    rest-at-left: $left;
+}
+$rest-at-right = ($left,$right...){
+    rest-at-right: $right;
+}
+
+body{
+    $default-param(10px);
+    $rest-at-middle(1, 2, 3, 4);
+    $rest-at-left(1, 2, 3, 4);
+    $rest-at-right(1, 2, 3, 4);
+}
