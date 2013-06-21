@@ -1,0 +1,16 @@
+body{
+    // 绝对调节
+    color: l-adjust(#eeccdd, 30%, true);
+    // 相对调节
+    color: l-adjust(#eeccdd, -10%);
+    // get操作
+    lightness: l-adjust(#eeccdd) + 10%;
+}
+
+body{
+    color: r-adjust(#eeccdd, -10);
+    color: red(#eeccdd, -10);
+
+    color: a-adjust(#eeccdd, -0.1);
+    color: fade(#eeccdd, -0.1);
+}

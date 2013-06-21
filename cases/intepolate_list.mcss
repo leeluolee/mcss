@@ -1,7 +1,7 @@
 /**
  * bootstrap icon genneroter example
  */
-$ilist = glass,music,search,envelope,heart,star,star,user,film,ok,remove,off,signal,cog,trash, home,file,time,road,download,download,upload,inbox,play,repeat,refresh,list,lock,flag,headphones,volume,volume,volume,qrcode,barcode, tag,tags,book,bookmark,print,camera,font,bold,italic,text,text,align,align,align,align,list,indent,indent,facetime,picture, pencil,map,adjust,tint,edit,share,check,move,step,fast,backward,play,pause,stop,forward,fast,step,eject,chevron,chevron, plus,minus,remove,ok,question,info,screenshot,remove,ok,ban,arrow,arrow,arrow,arrow,share,resize,resize,plus,minus,asterisk, exclamation,gift,leaf,fire,eye,eye,warning,plane,calendar,random,comment,magnet,chevron,chevron,retweet,shopping,folder,folder,resize,resize, hdd,bullhorn,bell,certificate,thumbs,thumbs,hand,hand,hand,hand,circle,circle,circle,circle,globe,wrench,tasks,filter,briefcase,fullscreen;
+$ilist = glass,music,search,envelope,heart,star, film,ok,remove,off,signal,cog,trash, home,file,time,road,download,upload,inbox,play,repeat,refresh,list,lock,flag,headphones,volume;
 $path = 'path/to/icon.png';
 $basesize = -24px;
 [class*=icon-]{

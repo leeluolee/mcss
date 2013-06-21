@@ -1,0 +1,15 @@
+simple-format{
+    s-format: 'haha %s heihei' % 'hello';
+    x-format: 'haha #%x heihei' %  16711422;
+    X-format: 'haha #%X heihei' %  16711422;
+    d-format: 'haha %d heihei' % '20dada';
+    f-format: 'haha %f heihei' % 12.36;
+    // 多个值请用(), 保证求值为一个值
+    mult-format: 'haha %f %d heihei' % (12.36 12.36);
+}
+
+// 两种格式化可以同时使用
+$inp = 20;
+format-with-interplation{
+    s-format: 'haha #{$inp} %s heihei' % 'hello';
+}

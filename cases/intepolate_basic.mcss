@@ -10,6 +10,8 @@ $border-radius = ($radius, $direction){
 }
 
 body{
-
     $border-radius: 5px, top left;
+}
+body2{
+    $border-radius: 5px 10px;
 }
