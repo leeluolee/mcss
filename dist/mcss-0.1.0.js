@@ -107,6 +107,18 @@ var mcss;
             var options = this.options;
             var interpreter = new Interpreter(options);
             var pr = promise();
+            var walkers = options.walkers;
+            if (walkers) {
+                if (!Array.isArray(walkers))
+                    walkers = [walkers];
+                walkers.forEach(function (hook) {
+                    if (typeof hook === 'string') {
+                        hook = hooks[hook];
+                    }
+                    hook && interpreter.on(hook);
+                });
+                options.walkers = walkers;
+            }
             this.parse(text).done(function (ast) {
                 try {
                     ast = interpreter.interpret(ast);
@@ -122,15 +134,17 @@ var mcss;
             var translator = new Translator(options);
             var interpreter = new Interpreter(options);
             var pr = promise();
-            if (options.walkers)
-                interpreter.on(options.walkers);
-            if (options.hooks) {
-                options.hooks.forEach(function (hook) {
+            var walkers = options.walkers;
+            if (walkers) {
+                if (!Array.isArray(walkers))
+                    walkers = [walkers];
+                walkers.forEach(function (hook) {
                     if (typeof hook === 'string') {
                         hook = hooks[hook];
                     }
                     hook && interpreter.on(hook);
                 });
+                options.walkers = walkers;
             }
             this.parse(text).done(function (ast) {
                 var date = Date.now();
@@ -458,15 +472,16 @@ var mcss;
                 return node;
             },
             import: function () {
-                var node, url, queryList, ll, self = this;
+                var node, url, queryList, ll, la, self = this;
                 this.match('AT_KEYWORD');
                 this.match('WS');
                 ll = this.ll();
-                if (ll.type === 'URL' || ll.type === 'STRING') {
+                la = this.la();
+                if (la === 'STRING' || la === 'URL') {
                     url = ll;
                     this.next();
                 } else {
-                    this.error('expect URL or STRING' + ' got ' + ll.type, ll.linno);
+                    this.error('expect URL or STRING' + ' got ' + ll.type, ll.lineno);
                 }
                 this.eat('WS');
                 if (!this.eat(';')) {
@@ -675,7 +690,7 @@ var mcss;
                         declareOrStmt = this.mark().declaration() || this.restore().stmt();
                     }
                     node.list.push(declareOrStmt);
-                    this.skip('WS');
+                    this.skipStart();
                 }
                 return node;
             },
@@ -730,7 +745,7 @@ var mcss;
                 this.eat('WS');
                 if (!this.eat(':'))
                     return;
-                if (node.property.value === 'filter') {
+                if (node.property.value && /filter$/.test(node.property.value.toLowerCase())) {
                     this.enter(states.FILTER_DECLARATION);
                 }
                 this.enter(states.TRY_DECLARATION);
@@ -857,7 +872,6 @@ var mcss;
                             left = right;
                         }
                     } else {
-                        console.log(la);
                         left = new tree.Operator(la, left, right);
                     }
                     this.eat('WS');
@@ -1258,7 +1272,7 @@ var mcss;
                 }
             },
             {
-                regexp: $(/(url|url\-prefix|domain|regexp){w}*\({w}*([^\r\n\f\'\"]*?){w}*\)/),
+                regexp: $(/(url|url\-prefix|domain|regexp){w}*\((['"])?{w}*([^\r\n\f]*?)\2{w}*\)/),
                 action: function (yytext, name, quote, url) {
                     this.yyval = url;
                     if (name === 'url')
@@ -2503,6 +2517,8 @@ var mcss;
             };
         var precision = 6;
         exports.toStr = function (ast) {
+            if (!ast)
+                return '';
             switch (ast.type) {
             case 'TEXT':
             case 'BOOLEAN':
@@ -4097,10 +4113,11 @@ var mcss;
         options.mixTo(_);
         Event.mixTo(_);
         _._walk = function (ast) {
-            var name = ast.type.toLowerCase();
-            var walkers = this.get('walkers');
             var res = walk.apply(this, arguments);
-            this.trigger(name, ast);
+            if (!ast || !ast.type)
+                return res;
+            var name = ast.type.toLowerCase();
+            this.trigger(name, res || ast);
             return res;
         };
         var errors = { 'RETURN': u.uid() };
@@ -4264,6 +4281,8 @@ var mcss;
         };
         _.walk_url = function (ast) {
             var self = this, symbol;
+            if (!ast.value)
+                console.log(ast, this.get('filename'));
             ast.value = ast.value.replace(/#\{(\$\w+)}/g, function (all, name) {
                 if (symbol = self.resolve(name)) {
                     return tree.toStr(symbol);
@@ -4517,7 +4536,7 @@ var mcss;
         _.walk_compoundident = function (ast) {
             var text = '', self = this;
             this.walk(ast.list).forEach(function (item) {
-                text += typeof item === 'string' ? item : self.walk(item).value;
+                text += typeof item === 'string' ? item : tree.toStr(self.walk(item));
             });
             return {
                 type: 'TEXT',
@@ -4858,7 +4877,7 @@ var mcss;
                     'TEXT STRING'
                 ]),
                 t: function (node) {
-                    var text = tree.toStr();
+                    var text = tree.toStr(node);
                     if (text == null)
                         text = '';
                     return tree.token('TEXT', text, node.lineno);

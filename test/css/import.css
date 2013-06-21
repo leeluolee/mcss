@@ -1,36 +1,30 @@
 body{
-	line-height:1.4em;
-	max-width:42em;
+	font-family:"Avenir Next",Helvetica,Arial,sans-serif;
+	padding:1em;
+	background:#fefefe;
 }
-body p{
+h1,h2,h3,h4,h5,h6{
+	font-weight:bold;
+}
+.m-markdown{
 	left:20px;
 }
-#markdown{
-	left:20px;
+.m-markdown body{
+	font-family:"Avenir Next",Helvetica,Arial,sans-serif;
+	padding:1em;
+	background:#fefefe;
 }
-#markdown body{
-	line-height:1.4em;
-	max-width:42em;
-}
-#markdown body p{
-	left:20px;
+.m-markdown h1,.m-markdown h2,.m-markdown h3,.m-markdown h4,.m-markdown h5,.m-markdown h6{
+	font-weight:bold;
 }
 @media screen and (max-width: 200px){
 	body{
-		line-height:1.4em;
-		max-width:42em;
+		font-family:"Avenir Next",Helvetica,Arial,sans-serif;
+		padding:1em;
+		background:#fefefe;
 	}
-	body p{
-		left:20px;
+	h1,h2,h3,h4,h5,h6{
+		font-weight:bold;
 	}
 }
-body{
-	name:"_import2.mcss";
-}
-body{
-	line-height:1.4em;
-	max-width:42em;
-}
-body p{
-	left:20px;
-}
+@import  url("./_raw.css");

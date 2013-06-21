@@ -23,419 +23,419 @@
 	background-position:0px;
 }
 .icon-music{
-	background-position:24px;
+	background-position:-24px;
 }
 .icon-search{
 	background-position:-48px;
 }
 .icon-envelope{
-	background-position:72px;
+	background-position:-72px;
 }
 .icon-heart{
 	background-position:-96px;
 }
 .icon-star{
-	background-position:120px;
+	background-position:-120px;
 }
 .icon-star{
 	background-position:-144px;
 }
 .icon-user{
-	background-position:168px;
+	background-position:-168px;
 }
 .icon-film{
 	background-position:-192px;
 }
 .icon-th{
-	background-position:216px;
+	background-position:-216px;
 }
 .icon-th{
 	background-position:-240px;
 }
 .icon-th{
-	background-position:264px;
+	background-position:-264px;
 }
 .icon-ok{
 	background-position:-288px;
 }
 .icon-remove{
-	background-position:312px;
+	background-position:-312px;
 }
 .icon-zoom{
 	background-position:-336px;
 }
 .icon-zoom{
-	background-position:360px;
+	background-position:-360px;
 }
 .icon-off{
 	background-position:-384px;
 }
 .icon-signal{
-	background-position:408px;
+	background-position:-408px;
 }
 .icon-cog{
 	background-position:-432px;
 }
 .icon-trash{
-	background-position:456px;
+	background-position:-456px;
 }
 .icon-home{
-	background-position:24px;
+	background-position:-24px;
 }
 .icon-file{
-	background-position:0px;
+	background-position:-48px;
 }
 .icon-time{
-	background-position:-24px;
+	background-position:-72px;
 }
 .icon-road{
-	background-position:48px;
+	background-position:-96px;
 }
 .icon-download{
-	background-position:-72px;
+	background-position:-120px;
 }
 .icon-download{
-	background-position:96px;
+	background-position:-144px;
 }
 .icon-upload{
-	background-position:-120px;
+	background-position:-168px;
 }
 .icon-inbox{
-	background-position:144px;
+	background-position:-192px;
 }
 .icon-play{
-	background-position:-168px;
+	background-position:-216px;
 }
 .icon-repeat{
-	background-position:192px;
+	background-position:-240px;
 }
 .icon-refresh{
-	background-position:-216px;
+	background-position:-264px;
 }
 .icon-list{
-	background-position:240px;
+	background-position:-288px;
 }
 .icon-lock{
-	background-position:-264px;
+	background-position:-312px;
 }
 .icon-flag{
-	background-position:288px;
+	background-position:-336px;
 }
 .icon-headphones{
-	background-position:-312px;
-}
-.icon-volume{
-	background-position:336px;
-}
-.icon-volume{
 	background-position:-360px;
 }
 .icon-volume{
-	background-position:384px;
-}
-.icon-qrcode{
-	background-position:-408px;
-}
-.icon-barcode{
-	background-position:432px;
-}
-.icon-tag{
-	background-position:48px;
-}
-.icon-tags{
-	background-position:-24px;
-}
-.icon-book{
-	background-position:0px;
-}
-.icon-bookmark{
-	background-position:24px;
-}
-.icon-print{
-	background-position:-48px;
-}
-.icon-camera{
-	background-position:72px;
-}
-.icon-font{
-	background-position:-96px;
-}
-.icon-bold{
-	background-position:120px;
-}
-.icon-italic{
-	background-position:-144px;
-}
-.icon-text{
-	background-position:168px;
-}
-.icon-text{
-	background-position:-192px;
-}
-.icon-align{
-	background-position:216px;
-}
-.icon-align{
-	background-position:-240px;
-}
-.icon-align{
-	background-position:264px;
-}
-.icon-align{
-	background-position:-288px;
-}
-.icon-list{
-	background-position:312px;
-}
-.icon-indent{
-	background-position:-336px;
-}
-.icon-indent{
-	background-position:360px;
-}
-.icon-facetime{
 	background-position:-384px;
 }
-.icon-picture{
-	background-position:408px;
+.icon-volume{
+	background-position:-408px;
 }
-.icon-pencil{
-	background-position:72px;
+.icon-volume{
+	background-position:-432px;
 }
-.icon-map{
+.icon-qrcode{
+	background-position:-456px;
+}
+.icon-barcode{
+	background-position:-480px;
+}
+.icon-tag{
 	background-position:-48px;
 }
-.icon-adjust{
-	background-position:24px;
-}
-.icon-tint{
-	background-position:0px;
-}
-.icon-edit{
-	background-position:-24px;
-}
-.icon-share{
-	background-position:48px;
-}
-.icon-check{
+.icon-tags{
 	background-position:-72px;
 }
-.icon-move{
-	background-position:96px;
-}
-.icon-step{
-	background-position:-120px;
-}
-.icon-fast{
-	background-position:144px;
-}
-.icon-backward{
-	background-position:-168px;
-}
-.icon-play{
-	background-position:192px;
-}
-.icon-pause{
-	background-position:-216px;
-}
-.icon-stop{
-	background-position:240px;
-}
-.icon-forward{
-	background-position:-264px;
-}
-.icon-fast{
-	background-position:288px;
-}
-.icon-step{
-	background-position:-312px;
-}
-.icon-eject{
-	background-position:336px;
-}
-.icon-chevron{
-	background-position:-360px;
-}
-.icon-chevron{
-	background-position:384px;
-}
-.icon-plus{
-	background-position:96px;
-}
-.icon-minus{
-	background-position:-72px;
-}
-.icon-remove{
-	background-position:48px;
-}
-.icon-ok{
-	background-position:-24px;
-}
-.icon-question{
-	background-position:0px;
-}
-.icon-info{
-	background-position:24px;
-}
-.icon-screenshot{
-	background-position:-48px;
-}
-.icon-remove{
-	background-position:72px;
-}
-.icon-ok{
+.icon-book{
 	background-position:-96px;
 }
-.icon-ban{
-	background-position:120px;
+.icon-bookmark{
+	background-position:-120px;
 }
-.icon-arrow{
+.icon-print{
 	background-position:-144px;
 }
-.icon-arrow{
-	background-position:168px;
+.icon-camera{
+	background-position:-168px;
 }
-.icon-arrow{
+.icon-font{
 	background-position:-192px;
 }
-.icon-arrow{
-	background-position:216px;
+.icon-bold{
+	background-position:-216px;
 }
-.icon-share{
+.icon-italic{
 	background-position:-240px;
 }
-.icon-resize{
-	background-position:264px;
+.icon-text{
+	background-position:-264px;
 }
-.icon-resize{
+.icon-text{
 	background-position:-288px;
 }
-.icon-plus{
-	background-position:312px;
+.icon-align{
+	background-position:-312px;
 }
-.icon-minus{
+.icon-align{
 	background-position:-336px;
 }
-.icon-asterisk{
-	background-position:360px;
+.icon-align{
+	background-position:-360px;
 }
-.icon-exclamation{
-	background-position:120px;
+.icon-align{
+	background-position:-384px;
 }
-.icon-gift{
-	background-position:-96px;
+.icon-list{
+	background-position:-408px;
 }
-.icon-leaf{
-	background-position:72px;
+.icon-indent{
+	background-position:-432px;
 }
-.icon-fire{
-	background-position:-48px;
+.icon-indent{
+	background-position:-456px;
 }
-.icon-eye{
-	background-position:24px;
+.icon-facetime{
+	background-position:-480px;
 }
-.icon-eye{
-	background-position:0px;
+.icon-picture{
+	background-position:-504px;
 }
-.icon-warning{
-	background-position:-24px;
-}
-.icon-plane{
-	background-position:48px;
-}
-.icon-calendar{
+.icon-pencil{
 	background-position:-72px;
 }
-.icon-random{
-	background-position:96px;
-}
-.icon-comment{
-	background-position:-120px;
-}
-.icon-magnet{
-	background-position:144px;
-}
-.icon-chevron{
-	background-position:-168px;
-}
-.icon-chevron{
-	background-position:192px;
-}
-.icon-retweet{
-	background-position:-216px;
-}
-.icon-shopping{
-	background-position:240px;
-}
-.icon-folder{
-	background-position:-264px;
-}
-.icon-folder{
-	background-position:288px;
-}
-.icon-resize{
-	background-position:-312px;
-}
-.icon-resize{
-	background-position:336px;
-}
-.icon-hdd{
-	background-position:144px;
-}
-.icon-bullhorn{
-	background-position:-120px;
-}
-.icon-bell{
-	background-position:96px;
-}
-.icon-certificate{
-	background-position:-72px;
-}
-.icon-thumbs{
-	background-position:48px;
-}
-.icon-thumbs{
-	background-position:-24px;
-}
-.icon-hand{
-	background-position:0px;
-}
-.icon-hand{
-	background-position:24px;
-}
-.icon-hand{
-	background-position:-48px;
-}
-.icon-hand{
-	background-position:72px;
-}
-.icon-circle{
+.icon-map{
 	background-position:-96px;
 }
-.icon-circle{
-	background-position:120px;
+.icon-adjust{
+	background-position:-120px;
 }
-.icon-circle{
+.icon-tint{
 	background-position:-144px;
 }
-.icon-circle{
-	background-position:168px;
+.icon-edit{
+	background-position:-168px;
 }
-.icon-globe{
+.icon-share{
 	background-position:-192px;
 }
-.icon-wrench{
-	background-position:216px;
+.icon-check{
+	background-position:-216px;
 }
-.icon-tasks{
+.icon-move{
 	background-position:-240px;
 }
-.icon-filter{
-	background-position:264px;
+.icon-step{
+	background-position:-264px;
 }
-.icon-briefcase{
+.icon-fast{
 	background-position:-288px;
 }
+.icon-backward{
+	background-position:-312px;
+}
+.icon-play{
+	background-position:-336px;
+}
+.icon-pause{
+	background-position:-360px;
+}
+.icon-stop{
+	background-position:-384px;
+}
+.icon-forward{
+	background-position:-408px;
+}
+.icon-fast{
+	background-position:-432px;
+}
+.icon-step{
+	background-position:-456px;
+}
+.icon-eject{
+	background-position:-480px;
+}
+.icon-chevron{
+	background-position:-504px;
+}
+.icon-chevron{
+	background-position:-528px;
+}
+.icon-plus{
+	background-position:-96px;
+}
+.icon-minus{
+	background-position:-120px;
+}
+.icon-remove{
+	background-position:-144px;
+}
+.icon-ok{
+	background-position:-168px;
+}
+.icon-question{
+	background-position:-192px;
+}
+.icon-info{
+	background-position:-216px;
+}
+.icon-screenshot{
+	background-position:-240px;
+}
+.icon-remove{
+	background-position:-264px;
+}
+.icon-ok{
+	background-position:-288px;
+}
+.icon-ban{
+	background-position:-312px;
+}
+.icon-arrow{
+	background-position:-336px;
+}
+.icon-arrow{
+	background-position:-360px;
+}
+.icon-arrow{
+	background-position:-384px;
+}
+.icon-arrow{
+	background-position:-408px;
+}
+.icon-share{
+	background-position:-432px;
+}
+.icon-resize{
+	background-position:-456px;
+}
+.icon-resize{
+	background-position:-480px;
+}
+.icon-plus{
+	background-position:-504px;
+}
+.icon-minus{
+	background-position:-528px;
+}
+.icon-asterisk{
+	background-position:-552px;
+}
+.icon-exclamation{
+	background-position:-120px;
+}
+.icon-gift{
+	background-position:-144px;
+}
+.icon-leaf{
+	background-position:-168px;
+}
+.icon-fire{
+	background-position:-192px;
+}
+.icon-eye{
+	background-position:-216px;
+}
+.icon-eye{
+	background-position:-240px;
+}
+.icon-warning{
+	background-position:-264px;
+}
+.icon-plane{
+	background-position:-288px;
+}
+.icon-calendar{
+	background-position:-312px;
+}
+.icon-random{
+	background-position:-336px;
+}
+.icon-comment{
+	background-position:-360px;
+}
+.icon-magnet{
+	background-position:-384px;
+}
+.icon-chevron{
+	background-position:-408px;
+}
+.icon-chevron{
+	background-position:-432px;
+}
+.icon-retweet{
+	background-position:-456px;
+}
+.icon-shopping{
+	background-position:-480px;
+}
+.icon-folder{
+	background-position:-504px;
+}
+.icon-folder{
+	background-position:-528px;
+}
+.icon-resize{
+	background-position:-552px;
+}
+.icon-resize{
+	background-position:-576px;
+}
+.icon-hdd{
+	background-position:-144px;
+}
+.icon-bullhorn{
+	background-position:-168px;
+}
+.icon-bell{
+	background-position:-192px;
+}
+.icon-certificate{
+	background-position:-216px;
+}
+.icon-thumbs{
+	background-position:-240px;
+}
+.icon-thumbs{
+	background-position:-264px;
+}
+.icon-hand{
+	background-position:-288px;
+}
+.icon-hand{
+	background-position:-312px;
+}
+.icon-hand{
+	background-position:-336px;
+}
+.icon-hand{
+	background-position:-360px;
+}
+.icon-circle{
+	background-position:-384px;
+}
+.icon-circle{
+	background-position:-408px;
+}
+.icon-circle{
+	background-position:-432px;
+}
+.icon-circle{
+	background-position:-456px;
+}
+.icon-globe{
+	background-position:-480px;
+}
+.icon-wrench{
+	background-position:-504px;
+}
+.icon-tasks{
+	background-position:-528px;
+}
+.icon-filter{
+	background-position:-552px;
+}
+.icon-briefcase{
+	background-position:-576px;
+}
 .icon-fullscreen{
-	background-position:312px;
+	background-position:-600px;
 }

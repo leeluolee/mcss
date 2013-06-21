@@ -7,7 +7,7 @@ MCSS是有丰富的语言特性的一个DSL, 它甚至允许扩展[`@atrule`](ht
 
 MCSS完全使用javascript构建, 你可以分别在browser(ES5 support needed)和nodejs中使用它
 
-目前主页正在建设中， 你可以先 __[动手试试](http://leeluolee.github.io/mcss/)__ 
+目前主页正在建设中，这是临时性介绍页, 你可以先 __[动手试试](http://leeluolee.github.io/mcss/)__ 
 
 ## 安装
 
@@ -1549,17 +1549,19 @@ __3. 隔行__ : [NEC](http://nec.netease.com/)的推荐css书写格式
 
 
 
-## 接口风格
+## API
+### 接口风格
 mcss的接口都是promise风格(通过内部的微型mcss.promise封装), 帮助我们在各个部件间传递断言对象, 同时输出一致的API,
 支持类似(done, fail, always, when, then, or, not)等操作。
 
 
 
-## 接口详解
+### 接口详解
 
-以下建造中....
+以下建造中.... 
 
-## 参数详解
+### 参数详解
+
 一般构建完实例后, 我们只需要调用translate方法. 值得注意的是参数
 ``` javascript
 var mcss = require('mcss') // browser 则直接在全局找到mcss;
@@ -1601,9 +1603,42 @@ var tokens = instance.tokenize()
 
 __稍等正在建设中... __
 
+#### 作为CSS Parser 的MCSS
+MCSS天生就是一个CSS parser, 你可以在构建mcss实例时 传入walker来实现改写和读取节点
+
+mcss的walker作用在interpret的上升阶段，此时经过解释后的节点类型已经全部是CSS的节点类型(即不存在 操作符、参数等信息)
+
+例如[test/parser.js](https://github.com/leeluolee/mcss/blob/master/test/parser.js) 中的例子, 你只需传入一个节点名和对应的action;
+```
+var path = require('path');
+//每次生成都修改后缀
+var instance = mcss({
+    filename: path.join(__dirname, 'mcss/_large.mcss'),
+    walkers: [{
+        'url': function(ast){
+            ast.value += '?timestamp=' + Date.now();
+        }
+    }]
+})
+
+// 获取节点
+instance.interpret().done(function(ast){
+    // the ast is changed
+})
+
+// 输出修改后的css
+instance.translate().done(function(ast){
+    // the ast is changed
+})
+
+```
 
 #### 参数
-这里介绍下构建mcss 实例的详细参数
+这里介绍下构建mcss 实例的详细参数, 稍等片刻...
+
+
+#### 指令(directive)重写
+稍等片刻.......
 
 
 <a name='value'></a>
@@ -1643,24 +1678,6 @@ mcss只有一种数值类型DIMENSION 而不是css中的 DIMENSION、PERCENT(可
 
 
 ## 感谢
-MCSS从SCSS、LESS、Stylus获取了很多灵感, 特别是一些既有的最佳实践, 感谢它们！！
-
-
-
-
-
-## 如何参与
-MCSS目前仍在开发阶段, 如果你能提出宝贵意见甚至贡献代码, 万分感谢。不过仍要说明贡献代码时的须知
-
-1. 较大修改请开一个issue, 详细说明情况, 并加入测试案例
-2. 提交前确定`npm test`无误
-
-
-## Contributors
-1. [@leeluolee]( http://weibo.com/luobolee)
-2. __you...__
-
-
 
 
 

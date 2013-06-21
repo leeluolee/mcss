@@ -1,8 +1,8 @@
 
-$fn = ($required){
-  @if !$required { error('$required is needed!!!')}
-}
-$fn();
+// $fn = ($required){
+//   @if !$required { error('$required is needed!!!')}
+// }
+// $fn();
 
 
 
