@@ -3,7 +3,7 @@
 
 // simple base-ruleset
 .class-1 span{
-    name: class-1;
+    name: class-1 in global;
 }
 
 // mult selector base-ruleset

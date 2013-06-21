@@ -298,6 +298,11 @@ var mcss;
                     return ll;
                 }
             },
+            matchSemiColonIfNoBlock: function () {
+                this.eat('WS');
+                if (this.la() !== '}')
+                    this.match(';');
+            },
             ll: function (k) {
                 k = k || 1;
                 if (k < 0)
@@ -373,16 +378,17 @@ var mcss;
                     switch (this.la(2)) {
                     case '(':
                         node = this.fnCall();
-                        this.match(';');
+                        this.matchSemiColonIfNoBlock();
                         break;
                     case ':':
                         node = this.transparentCall();
+                        this.matchSemiColonIfNoBlock();
                         break;
                     case '=':
                     case '?=':
                         node = this.assign();
                         if (node.value.type !== 'func') {
-                            this.match(';');
+                            this.matchSemiColonIfNoBlock();
                         }
                         break;
                     default:
@@ -391,7 +397,7 @@ var mcss;
                 }
                 if (la === 'FUNCTION') {
                     node = this.fnCall();
-                    this.match(';');
+                    this.matchSemiColonIfNoBlock();
                 }
                 if (isSelectorSep(la)) {
                     node = this.ruleset(true);
@@ -424,10 +430,10 @@ var mcss;
                     var value = this.valuesList();
                     this.eat('WS');
                     if (this.eat(';')) {
-                        return new tree.Directive(name, value);
+                        return tree.directive(name, value);
                     } else {
                         var block = this.block();
-                        return new tree.Directive(name, value, block);
+                        return tree.directive(name, value, block);
                     }
                     this.error('invalid customer directive define', ll);
                 }
@@ -435,9 +441,9 @@ var mcss;
             extend: function () {
                 var ll = this.match('AT_KEYWORD');
                 this.match('WS');
-                var node = new tree.Extend(this.selectorList());
+                var node = tree.extend(this.selectorList());
                 node.lineno = ll.lineno;
-                this.match(';');
+                this.matchSemiColonIfNoBlock();
                 return node;
             },
             return: function () {
@@ -447,7 +453,7 @@ var mcss;
                 var node = new tree.ReturnStmt(value);
                 this.skip('WS');
                 if (value.type !== 'func') {
-                    this.match(';');
+                    this.matchSemiColonIfNoBlock();
                 }
                 return node;
             },
@@ -465,7 +471,7 @@ var mcss;
                 this.eat('WS');
                 if (!this.eat(';')) {
                     queryList = this.media_query_list();
-                    this.match(';');
+                    this.matchSemiColonIfNoBlock();
                 }
                 var node = new tree.Import(url, queryList), extname = path.extname(url.value), filename, stat, p;
                 if (extname !== '.css') {
@@ -491,7 +497,7 @@ var mcss;
                                 }
                             });
                         this.promises.push(p);
-                        this.match(';');
+                        this.matchSemiColonIfNoBlock();
                         return node;
                     } else {
                         ruleset = this.ruleset();
@@ -628,14 +634,14 @@ var mcss;
                     this.error('@page only accpet PSEUDO_CLASS', keyword.lineno);
                 this.eat('WS');
                 var block = this.block();
-                return new tree.Directive('page', tk.createToken('TEXT', selector, keyword.lineno), block);
+                return tree.directive('page', tk.createToken('TEXT', selector, keyword.lineno), block);
             },
             debug: function () {
                 this.match('AT_KEYWORD');
                 this.match('WS');
                 var value = this.valuesList();
                 var node = new tree.Debug(value);
-                this.match(';');
+                this.matchSemiColonIfNoBlock();
                 return node;
             },
             vain: function () {
@@ -698,7 +704,7 @@ var mcss;
                     } else if (isSelectorSep(ll.type)) {
                         if (ll.type === 'DIMENSION') {
                             if (ll.unit !== '%')
-                                this.error('invalid selector element: ' + ll.type + ':' + ll.value, ll.lineno);
+                                this.error('UNEXPECT: ' + ll.type, ll.lineno);
                         }
                         value = ll.type === 'DIMENSION' ? ll.value + '%' : ll.value || (ll.type === 'WS' ? ' ' : ll.type);
                         selectorString += value;
@@ -739,11 +745,8 @@ var mcss;
                 if (this.eat('IMPORTANT')) {
                     node.important = true;
                 }
-                this.eat('WS');
                 if (!noEnd) {
-                    if (this.la() !== '}') {
-                        this.match(';');
-                    }
+                    this.matchSemiColonIfNoBlock();
                 }
                 this.leave(states.FILTER_DECLARATION);
                 return node;
@@ -1072,7 +1075,7 @@ var mcss;
                 var ll = this.ll(), name = ll.value, args = [];
                 this.match('FUNCTION', 'VAR');
                 if (ll.args) {
-                    return new tree.Call(name, ll.args);
+                    return tree.call(name, ll.args);
                 }
                 this.eat('WS');
                 this.match('(');
@@ -1087,8 +1090,7 @@ var mcss;
                 }
                 this.leave(states.FUNCTION_CALL);
                 this.match(')');
-                var node = new tree.Call(name, args);
-                node.lineno = ll.lineno;
+                var node = tree.call(name, args, ll.lineno);
                 return node;
             },
             transparentCall: function () {
@@ -1096,15 +1098,12 @@ var mcss;
                 var name = ll.value;
                 this.match('VAR');
                 this.match(':');
-                var args = this.valuesList();
-                if (args.type === 'values') {
-                    args = new tree.ValuesList(args.list);
-                }
-                if (args.type !== 'valueslist')
-                    args = [args];
-                var node = new tree.Call(name, args);
-                this.match(';');
-                node.lineno = ll.lineno;
+                var args = [];
+                do {
+                    args.push(this.assignExpr());
+                    this.eat('WS');
+                } while (this.eat(','));
+                var node = tree.call(name, args, ll.lineno);
                 return node;
             },
             _lookahead: function () {
@@ -1259,8 +1258,8 @@ var mcss;
                 }
             },
             {
-                regexp: $(/(url|url\-prefix|domain|regexp){w}*\({w}*['"]?([^\r\n\f]*?)['"]?{w}*\)/),
-                action: function (yytext, name, url) {
+                regexp: $(/(url|url\-prefix|domain|regexp){w}*\({w}*([^\r\n\f\'\"]*?){w}*\)/),
+                action: function (yytext, name, quote, url) {
                     this.yyval = url;
                     if (name === 'url')
                         return 'URL';
@@ -1986,9 +1985,10 @@ var mcss;
             }
             return this;
         };
-        function SelectorList(list) {
+        function SelectorList(list, lineno) {
             this.type = 'selectorlist';
             this.list = list || [];
+            this.lineno = lineno;
         }
         SelectorList.prototype.clone = function () {
             var clone = new SelectorList(cloneNode(this.list));
@@ -1996,6 +1996,9 @@ var mcss;
         };
         SelectorList.prototype.len = function () {
             return this.list.length;
+        };
+        exports.selectorlist = function (list, lineno) {
+            return new SelectorList(list, lineno);
         };
         function ComplexSelector(string, interpolations) {
             this.type = 'complexselector';
@@ -2113,12 +2116,13 @@ var mcss;
             }
             return this;
         };
-        function ValuesList(list) {
+        function ValuesList(list, lineno) {
             this.type = 'valueslist';
             this.list = list || [];
+            this.lineno = lineno;
         }
         ValuesList.prototype.clone = function () {
-            var clone = new ValuesList(cloneNode(this.list));
+            var clone = new ValuesList(cloneNode(this.list), this.lineno);
             return clone;
         };
         ValuesList.prototype.flatten = function () {
@@ -2136,6 +2140,9 @@ var mcss;
         };
         ValuesList.prototype.first = function () {
             return this.list[0].list[0];
+        };
+        exports.valueslist = function (list, lineno) {
+            return new ValuesList(list, lineno);
         };
         function Unknown(name) {
             this.type = 'unknown';
@@ -2186,6 +2193,9 @@ var mcss;
         Extend.prototype.clone = function () {
             var clone = new Extend(this.selector);
             return clone;
+        };
+        exports.extend = function (selector) {
+            return new Extend(selector);
         };
         function Module(name, block) {
             this.type = 'module';
@@ -2296,14 +2306,18 @@ var mcss;
             var clone = new Unary(cloneNode(this.value), this.op);
             return clone;
         };
-        function Call(name, args) {
+        function Call(name, args, lineno) {
             this.type = 'call';
             this.name = name;
             this.args = args || [];
+            this.lineno = lineno;
         }
         Call.prototype.clone = function () {
             var clone = new Call(this.name, cloneNode(this.args));
             return clone;
+        };
+        exports.call = function (name, args, lineno) {
+            return new Call(name, args, lineno);
         };
         function FontFace(block) {
             this.type = 'fontface';
@@ -2405,6 +2419,9 @@ var mcss;
         Directive.prototype.clone = function () {
             var clone = new Directive(this.name, cloneNode(this.value), cloneNode(this.block));
             return clone;
+        };
+        exports.directive = function (name, value, block) {
+            return new Directive(name, value, block);
         };
         exports.Stylesheet = Stylesheet;
         exports.SelectorList = SelectorList;
@@ -3461,6 +3478,7 @@ var mcss;
             if (!exports.isMcssError(error)) {
                 throw error;
             }
+            console.log(error.filename);
             var source = error.source, lines = source.split(/\r\n|[\r\f\n]/), pos = error.pos, message = error.message, line = error.line || 1, column = error.column || 0, start = Math.max(1, line - 5);
             end = Math.min(lines.length, line + 4), res = [
                 color(error.name + ':' + message, 'red', null, 'bold'),
@@ -4131,7 +4149,7 @@ var mcss;
         };
         _.walk_ruleset = function (ast) {
             this.rulesets.push(ast);
-            var rawSelector = this.walk(ast.selector), values = ast.values, iscope, res = [];
+            var rawSelector = this.walk(ast.selector), values = ast.values, res = [];
             this.rulesets.pop();
             var self = this;
             rawSelector.list.forEach(function (complex) {
@@ -4146,18 +4164,15 @@ var mcss;
             ast.filename = this.get('filename');
             if (values) {
                 for (var i = 0, len = values.length; i < len; i++) {
-                    iscope = new symtab.Scope();
-                    this.push(iscope);
                     this.define('$i', {
                         type: 'DIMENSION',
                         value: i
                     });
                     this.define('$item', values[i]);
                     var block = ast.block.clone();
-                    var selector = new tree.SelectorList([rawSelector.list[i]]);
+                    var selector = tree.selectorlist([rawSelector.list[i]], ast.lineno);
                     var ruleset = new tree.RuleSet(selector, block);
                     res.push(this.walk(ruleset));
-                    this.pop();
                 }
             } else {
                 this.down(ast);
@@ -4243,8 +4258,9 @@ var mcss;
             var symbol = this.resolve(ast.value);
             if (symbol)
                 return symbol;
-            else
+            else {
                 this.error('Undefined variable: ' + ast.value, ast);
+            }
         };
         _.walk_url = function (ast) {
             var self = this, symbol;
@@ -4265,8 +4281,10 @@ var mcss;
                 if (value.type !== 'DIMENSION') {
                     this.error(op + ' Unary operator only accept DIMENSION bug got ' + value.type, ast.lineno);
                 }
-                value.value = op === '-' && -value.value;
-                return value;
+                var rvalue = op === '-' && -value.value;
+                var node = tree.token('DIMENSION', rvalue, ast.lineno);
+                node.unit = value.unit;
+                return node;
             case '!':
                 var test = tree.toBoolean(value);
                 if (test === undefined) {
@@ -4346,17 +4364,16 @@ var mcss;
                         return ast;
                 }
             }
-            iscope = new symtab.Scope();
+            var iscope = new symtab.Scope();
             params = func.params;
             this.push(iscope);
             for (var i = 0, offset = 0, len = params.length; i < len; i++) {
                 var param = params[i];
                 if (param.rest) {
-                    var remained = len - 1 - i;
-                    var restArgsLen = args.length - 1 - remained;
+                    var remained = len - 1 - i, restArgsLen = args.length - i - remained;
                     restArgsLen = restArgsLen > 0 ? restArgsLen : 1;
                     var restArgs = args.slice(i, i + restArgsLen);
-                    var passArg = new tree.ValuesList(restArgs);
+                    var passArg = tree.valueslist(restArgs, ast.lineno);
                     this.define(param.name, passArg);
                     if (restArgsLen > 1) {
                         offset += restArgsLen - 1;
@@ -4372,9 +4389,12 @@ var mcss;
             this.define('$arguments', new tree.ValuesList(args));
             try {
                 var prev = this.scope;
+                var pref = this.get('filename');
+                this.set('filename', func.filename);
                 this.scope = func.scope;
                 var block = this.walk(func.block.clone());
             } catch (err) {
+                this.set('filename', pref);
                 this.scope = prev;
                 this.pop(iscope);
                 if (err.code === errors.RETURN) {
@@ -4390,6 +4410,7 @@ var mcss;
             }
             this.scope = prev;
             this.pop(iscope);
+            this.set('filename', pref);
             return block;
         };
         _.walk_return = function (ast) {
@@ -4400,6 +4421,7 @@ var mcss;
         _.walk_func = function (ast) {
             ast.params = this.walk(ast.params);
             ast.scope = this.scope;
+            ast.filename = this.get('filename');
             return ast;
         };
         _.walk_param = function (ast) {

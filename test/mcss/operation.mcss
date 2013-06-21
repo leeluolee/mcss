@@ -20,16 +20,6 @@ body{
     add10: hello+'px'; // hellopx
     add11: hello+px; // hellopx
     add12: 'hello'+px; // hellopx
-    // beacuse css support neg number 
-    // so - operator should have WS after it
-    sub1: 10 - 20;     // -10
-    sub2: 10px - 20px; // -10px
-    sub3: 10pt - 20;   // -10pt
-    sub4: 10 - 20em; // 10em
-    sub5: 10 -20;     // 10 -20
-    sub6: 10px -20px; // 10px -20px
-    sub7: 10pt -20;   // 10pt -10pt
-    sub8: 10 -20em; // 10 -20em
 }
 
 // simple * / % 
@@ -38,25 +28,6 @@ body{
     mult2: 10px*10;     //100px
     mult3: 10*10pt;     //100pt
     mult4: 10pt*10px;   //100pt
-    // the '/' operation at least has one WS around it
-    // beacuse font: 14px/2   is valid in css;  
-    div1: 10/10;       //10/10
-    div2: 10px/10;     //10px/10
-    div3: 10/10pt;     //10/10pt
-    div4: 10pt/10px;   //10pt/10px
-
-    div1: 10 / 10;       //1
-    div2: 10px/ 10;     //1px
-    div3: 10 / 10pt;     //1pt
-    div4: 10pt /10px;   //1pt
-    // if a number literal, remenber to insert a WS before % to 
-    // avoid be tokenized as a percent
-    remain: 21 %6;       //  3
-    remain: 21%6;       //  21%6
-    remain: 21px%6;     // 3px
-    remain: 21 %6px;     // 3px
-    remain: 21%6px;     // 21% 6px
-    remain: 21px%6pt;   // 3px
 }
 
 // simpe ||  &&   logic
@@ -107,5 +78,35 @@ body{
     complex2: ($name + 10px + 20px) && 1px;
 }
 
+
+body{
+    // beacuse css support neg number 
+    // so - operator should have WS after it
+    sub1: 10 - 20;     // -10
+    sub2: 10px - 20px; // -10px
+    sub3: 10pt - 20;   // -10pt
+    sub4: 10 - 20em; // 10em
+    sub5: 10 -20;     // 10 -20
+    sub6: 10px -20px; // 10px -20px
+    sub7: 10pt -20;   // 10pt -10pt
+    sub8: 10 -20em; // 10 -20em
+    // the '/' operation at least has one WS around it
+    // beacuse font: 14px/2   is valid in css;  
+    div1: 10/10;       //10/10
+    div2: 10px/10;     //10px/10
+    div3: 10/10pt;     //10/10pt
+    div4: 10pt/10px;   //10pt/10px
+    div1: 10 / 10;       //1
+    div2: 10px/ 10;     //1px
+    div3: 10 / 10pt;     //1pt
+    div4: 10pt /10px;   //1pt
+    // if a number literal, remenber to insert a WS before % to avoid be tokenized as a percent
+    remain: 21 %6;       //  3
+    remain: 21%6;       //  21%6
+    remain: 21px%6;     // 3px
+    remain: 21 %6px;     // 3px
+    remain: 21%6px;     // 21% 6px
+    remain: 21px%6pt;   // 3px
+}
 
 
