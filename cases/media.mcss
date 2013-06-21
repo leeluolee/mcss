@@ -1,0 +1,18 @@
+// 较复杂的ruleset media 相互嵌套
+body2{
+    left: 20px;
+    @media screen and (max-width: 10px), print{
+        left: 10px;
+        body{
+            right: 20px;
+            $minw = 100px;
+            $prop = min-width; 
+            // expression 的属性键与值 都可以是表达式
+            @media($prop: $minw + 100px){
+                div{
+                    right: 20px;
+                }
+            }
+        }
+    }
+}

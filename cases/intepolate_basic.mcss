@@ -1,4 +1,3 @@
-//basic function
 $border-radius = ($radius, $direction){
     @if !$direction{
         $join = '';
@@ -11,5 +10,6 @@ $border-radius = ($radius, $direction){
 }
 
 body{
-    $border-radius(5px, top left);
+
+    $border-radius: 5px, top left;
 }
