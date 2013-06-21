@@ -1,12 +1,17 @@
 body{
-    $white = white;
-    // rgba
-    color: rgba(1,1,1, 0.8);
-    // rgb
-    color: rgba(#fff, 10%);
     // hex3
     color: #ccc;
-    // color key
-    color: rgba(white, 10%);
-
+    // hex6
+    color: #cccfff;
+    // color keyword
+    color: white;
+    // rgb
+    color: rgb(1,1,1);
+    // rgba
+    color: rgba(#fff, 10%);
+    color: rgba(1,1, 1, 0.1);
+    //hsl
+    color: hsl(100, 20%, 20%);
+    //hsla
+    color: hsla(100, 20%, 20%, 0.1);
 }

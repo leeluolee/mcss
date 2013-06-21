@@ -1,0 +1,9 @@
+.class-1 span,body{
+	name:class-1;
+}
+.class-2,p .class-1,body,body{
+	name:class-2;
+}
+body .class-1,body{
+	name:class-1 in body;
+}

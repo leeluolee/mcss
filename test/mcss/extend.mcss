@@ -35,3 +35,20 @@ div.body-4, .other-body{
     @extend .class-1;
 }
 
+
+// nested @extend
+.class-3{
+  name: class-3 in global;
+}
+
+.class-2{
+  name: class-2 in global;
+  @extend .class-3;
+}
+.class-1{
+  name: class-1 in global;
+  @extend .class-2;
+}
+body{
+  @extend .class-1;
+}

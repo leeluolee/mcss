@@ -3,7 +3,7 @@ $name = 0px;
     body{
         name: if;
     }
-}@elseif !$name2 {
+}@elseif !$name {
     body{
         name: elseif;
     }
