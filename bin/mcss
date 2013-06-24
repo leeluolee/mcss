@@ -71,7 +71,12 @@ function build(fullpath, first){
       var rpath = path.relative(inputDir, file);
       var dest = path.join(outport, rpath).replace(/\.mcss/,'.css');
     }else{
-      dest = outport;
+      if(outport && !/\.css$/.test(outport)){
+        dest = path.join(outport, path.basename(file))
+      }else{
+        dest = outport;
+      }
+      
     }
     var instance = mcss({
       format: program.format,

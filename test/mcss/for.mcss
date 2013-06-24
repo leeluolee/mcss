@@ -3,3 +3,14 @@
         width: 10px * $i;
     }
 }
+
+
+$map = 
+    name hello,
+    name2 hello2,
+    name3 hello3;
+body{
+    @for $item, $i in $map{
+        left: $i ':' $item
+    }
+}

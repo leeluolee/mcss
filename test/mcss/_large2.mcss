@@ -4647,6 +4647,7 @@ ul.pagehead-actions {
     -moz-transform:rotate(-90deg);
     -o-transform:rotate(-90deg);
     -ms-transform:rotate(-90deg);
+    :
     top:30px;
     left:-46px
 }
@@ -7972,6 +7973,7 @@ dl.form dd textarea.jobs-profile {
     border:none
 }
 .add-emails-form input {
+    border:1p
 }
 dl.new-email-form {
     width:100%;
