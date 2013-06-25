@@ -53,7 +53,7 @@ var mcss;
     '1': function (require, module, exports, global) {
         var Parser = require('2');
         var Interpreter = require('i');
-        var Translator = require('o');
+        var Translator = require('n');
         var tk = require('3');
         var promise = require('e');
         var path = require('6');
@@ -61,7 +61,7 @@ var mcss;
         var io = require('h');
         var options = require('f');
         var error = require('a');
-        var hooks = require('r');
+        var hooks = require('q');
         function Mcss(options) {
             if (typeof options.prefix === 'string') {
                 options.prefix = options.prefix.split(/\s+/);
@@ -307,7 +307,7 @@ var mcss;
                 var ll;
                 if (!(ll = this.eat.apply(this, arguments))) {
                     var ll = this.ll();
-                    this.error('expect:"' + tokenType + '" -> got: "' + ll.type + '"', ll.lineno);
+                    this.error('expect:"' + tokenType + '" -> got: "' + ll.type + '"', ll.lineno, tokenType);
                 } else {
                     return ll;
                 }
@@ -372,13 +372,16 @@ var mcss;
             skipWSorNewlne: function () {
                 return this.skip(isWSOrNewLine);
             },
-            error: function (msg, ll) {
+            error: function (msg, ll, expect) {
                 if (typeof msg === 'number') {
                     perror.code = msg;
                     throw perror;
                 }
                 var lineno = ll.lineno || ll;
-                throw new error.SyntaxError(msg, lineno, this.options);
+                var err = new error.SyntaxError(msg, lineno, this.options);
+                if (expect)
+                    err.expect = expect;
+                throw err;
             },
             stylesheet: function () {
                 return this.block(true);
@@ -556,14 +559,16 @@ var mcss;
                 }
                 this.match('WS');
                 of = this.ll();
-                if (of.value !== 'of') {
-                    this.error('for statement need "of" but got:' + of.value, of.lineno);
+                if (of.value !== 'of' && of.value !== 'in') {
+                    this.error('for statement need of or in KEYWORD but got:' + of.value, of.lineno);
                 }
                 this.match('TEXT');
                 list = this.valuesList();
                 this.eat('WS');
                 block = this.block();
-                return new tree.ForStmt(element, index, list, block);
+                var node = new tree.ForStmt(element, index, list, block);
+                node.isIn = of.value == 'in';
+                return node;
             },
             media: function () {
                 this.match('AT_KEYWORD');
@@ -596,7 +601,7 @@ var mcss;
                     type += (type ? ' ' : '') + ll.value;
                 }
                 this.eat('WS');
-                while ((ll = this.ll()).type === 'TEXT' || ll.type === 'FUNCTION' && ll.value === 'and') {
+                while ((ll = this.ll()).type === 'TEXT' && ll.value === 'and') {
                     this.next();
                     this.match('WS');
                     expressions.push(this.media_expression());
@@ -620,7 +625,7 @@ var mcss;
                 var lineno = this.ll().lineno;
                 this.match('AT_KEYWORD');
                 this.eat('WS');
-                var name = this.match('FUNCTION', 'TEXT');
+                var name = this.expression();
                 if (!name)
                     this.error('@keyframes\'s name should specify', lineno);
                 if (name.type === 'FUNCTION') {
@@ -810,9 +815,21 @@ var mcss;
                 return new tree.Assign(name, value, op === '?=' ? false : true);
             },
             assignExpr: function (hasComma) {
-                var la = this.la();
-                if (la === '{' || la === '(') {
+                var la = this.la(), node, fn = hasComma ? 'valuesList' : 'values';
+                if (la === '{')
                     return this.func();
+                if (la === '(') {
+                    this.mark();
+                    try {
+                        return this.func();
+                    } catch (e) {
+                        if (e.expect && e.expect == '{' || e.expect == 'VAR') {
+                            this.restore();
+                            return this[fn]();
+                        } else {
+                            throw e;
+                        }
+                    }
                 } else {
                     return this[hasComma ? 'valuesList' : 'values']();
                 }
@@ -831,7 +848,7 @@ var mcss;
                 var rest = 0, params = [];
                 if (this.la() !== ')') {
                     do {
-                        param = this.param();
+                        var param = this.param();
                         if (param.rest)
                             rest++;
                         params.push(param);
@@ -1288,7 +1305,7 @@ var mcss;
                 }
             },
             {
-                regexp: $(/(?:[\$-]?[_A-Za-z][-_\w]*)(?={w}*\()/),
+                regexp: $(/(?:[\$-]?[_A-Za-z][-_\w]*)(?=\()/),
                 action: function (yytext) {
                     this.yyval = yytext;
                     return 'FUNCTION';
@@ -1551,7 +1568,7 @@ var mcss;
                     if (test && !test(type)) {
                         var message = 'invalid param or operand : ' + type;
                         if (this.error) {
-                            this.error(message, args[i].lineno);
+                            this.error(message, args[0].lineno);
                         } else {
                             throw Error(message);
                         }
@@ -2235,7 +2252,7 @@ var mcss;
             this.stylesheet = stylesheet;
         }
         Import.prototype.clone = function () {
-            var clone = new Import(this.url, this.queryList, this.promise);
+            var clone = new Import(this.url, this.queryList, this.stylesheet);
             return clone;
         };
         function IfStmt(test, block, alt) {
@@ -2248,15 +2265,17 @@ var mcss;
             var clone = new IfStmt(cloneNode(this.test), cloneNode(this.block), cloneNode(this.alt));
             return clone;
         };
-        function ForStmt(element, index, list, block) {
+        function ForStmt(element, index, list, block, isIn) {
             this.type = 'for';
             this.element = element;
             this.index = index;
             this.list = list;
             this.block = block;
+            this.isIn = isIn || false;
         }
         ForStmt.prototype.clone = function () {
             var clone = new ForStmt(this.element, this.index, cloneNode(this.list), cloneNode(this.block));
+            clone.isIn = this.isIn;
             return clone;
         };
         function ReturnStmt(value) {
@@ -2356,7 +2375,7 @@ var mcss;
             this.expressions = expressions || [];
         }
         MediaQuery.prototype.clone = function () {
-            var clone = new MediaQuery(this.mediaType, cloneNode(this.list));
+            var clone = new MediaQuery(this.mediaType, cloneNode(this.expressions));
             return clone;
         };
         MediaQuery.prototype.equals = function (media) {
@@ -2532,7 +2551,7 @@ var mcss;
             case 'color':
                 return ast.toCSS();
             case 'func':
-                return '[Node Func]';
+                return '';
             case 'values':
                 return ast.list.map(function (item) {
                     return exports.toStr(item);
@@ -4099,7 +4118,7 @@ var mcss;
         var io = require('h');
         var options = require('f');
         var binop = require('d');
-        var functions = require('n');
+        var functions = null;
         var color = require('9');
         var colorify = require('b');
         var error = require('a');
@@ -4125,8 +4144,9 @@ var mcss;
         _.ierror = new Error();
         _.interpret = function (ast) {
             this.ast = ast;
-            this.scope = new symtab.Scope();
+            this.scope = this.globalScope = new symtab.Scope();
             this.istack = [];
+            this._globalImports = [];
             this.rulesets = [];
             this.medias = [];
             this.indent = 0;
@@ -4273,9 +4293,11 @@ var mcss;
         };
         _.walk_var = function (ast) {
             var symbol = this.resolve(ast.value);
-            if (symbol)
+            if (symbol) {
+                symbol = tree.cloneNode(symbol);
+                symbol.lineno = ast.lineno;
                 return symbol;
-            else {
+            } else {
                 this.error('Undefined variable: ' + ast.value, ast);
             }
         };
@@ -4350,18 +4372,28 @@ var mcss;
             }
         };
         _.walk_for = function (ast) {
-            var list = this.walk(ast.list), index = ast.index, element = ast.element, block, iscope, len, res = [];
+            var list = this.walk(ast.list), index = ast.index, isIn = ast.isIn, element = ast.element, block, iscope, len, res = [], item, key, value;
             if (!list.list) {
-                this.error('@for atrule need values or valueslist to loop but got: ' + list.type, ast.list.lineno);
+                list = [list];
+            } else {
+                list = list.list;
             }
-            list = list.flatten().list;
             for (var i = 0, len = list.length; i < len; i++) {
-                this.define(element, list[i]);
+                item = list[i];
+                if (isIn) {
+                    if (item.type !== 'values') {
+                        this.error('list in @for in statement must confirm the all elem is values type', ast.list.lineno);
+                    }
+                    value = item.list[1];
+                    key = item.list[0];
+                } else {
+                    value = item;
+                    if (index)
+                        key = tree.token('DIMENSION', i, ast.list.lineno);
+                }
+                this.define(element, value);
                 if (index)
-                    this.define(index, {
-                        type: 'DIMENSION',
-                        value: i
-                    });
+                    this.define(index, key);
                 block = this.walk(ast.block.clone());
                 res.push(block);
             }
@@ -4475,6 +4507,12 @@ var mcss;
                     var media = new tree.Media(queryList, stylesheet);
                     return this.walk(media);
                 } else {
+                    if (~this._globalImports.indexOf(ast.filename) && this.scope === this.globalScope) {
+                        u.log(colorify('WARNING:', 'yellow') + '(' + ast.filename + ') is import twice, mcss forbid default');
+                        return;
+                    } else {
+                        this._globalImports.push(ast.filename);
+                    }
                     var pre = this.get('filename');
                     this.set('filename', ast.filename);
                     var list = this.walk(stylesheet).list;
@@ -4800,261 +4838,17 @@ var mcss;
         module.exports = Event;
     },
     'n': function (require, module, exports, global) {
-        var fs = null;
-        var path = null;
-        var tree = require('8');
-        var u = require('4');
-        var tk = require('3');
-        var Color = tree.Color;
-        var _ = module.exports = {
-                rgba: function (r, g, b, a) {
-                    if (r.type === 'color') {
-                        return new Color(r, g && g.value);
-                    } else {
-                        return new Color([
-                            r.value,
-                            g.value,
-                            b.value
-                        ], a && a.value);
-                    }
-                }.__accept([
-                    'DIMENSION color',
-                    'DIMENSION',
-                    'DIMENSION',
-                    'DIMENSION'
-                ]),
-                rgb: function () {
-                    return _.rgba.apply(this, arguments);
-                },
-                hsla: function (h, s, l, a) {
-                    if (arguments.length < 3)
-                        this.error('hsla need at least 3 arguments got:' + arguments.length);
-                    if (s.unit !== '%' || l.unit !== '%')
-                        this.error('hsl param saturation and light all only accpet percent');
-                    if (a && a.unit === '%')
-                        a.value /= 100;
-                    return Color.hsl([
-                        h.value,
-                        s.value,
-                        l.value
-                    ], a && a.value);
-                }.__accept([
-                    'DIMENSION',
-                    'DIMENSION',
-                    'DIMENSION',
-                    'DIMENSION'
-                ]),
-                hsl: function () {
-                    return _.hsla.apply(this, arguments);
-                },
-                mix: function () {
-                }.__accept([
-                    'color',
-                    'color'
-                ]),
-                typeof: function (node) {
-                    return node.type.toLowerCase();
-                },
-                js: function (string) {
-                    try {
-                        return eval('(' + string.value + ')');
-                    } catch (e) {
-                        this.error(e.message);
-                    }
-                }.__accept(['STRING']),
-                u: function (str) {
-                    return {
-                        type: 'TEXT',
-                        value: str.value,
-                        lineno: str.lineno
-                    };
-                }.__accept(['STRING']),
-                join: function (list, separator) {
-                    separator = separator ? separator.value : '-';
-                    return tree.token('TEXT', list.list.map(tree.toStr).join(separator), list.lineno);
-                }.__accept([
-                    'valueslist values',
-                    'TEXT STRING'
-                ]),
-                t: function (node) {
-                    var text = tree.toStr(node);
-                    if (text == null)
-                        text = '';
-                    return tree.token('TEXT', text, node.lineno);
-                },
-                error: function (message) {
-                    this.error(message.value);
-                }.__accept(['STRING']),
-                index: function (list, index) {
-                    var elem;
-                    if (!index || index.type !== 'DIMENSION') {
-                        this.error('invalid param:index passed to args()');
-                    }
-                    if (elem = list.list[index.value]) {
-                        return elem;
-                    } else {
-                        return tree.null();
-                    }
-                }.__accept([
-                    'valueslist values',
-                    'DIMENSION'
-                ]),
-                args: function (index) {
-                    var args = this.resolve('$arguments');
-                    if (!args) {
-                        this.error('the args() must be called in function block');
-                    }
-                    return _.index.call(this, args, index);
-                },
-                len: function (list) {
-                    return tree.token('DIMENSION', list.list.length, list.lineno);
-                }.__accept(['values valueslist']),
-                'data-uri': function (string) {
-                    var value = string.value, url = {
-                            type: 'URL',
-                            value: value
-                        };
-                    if (!fs)
-                        return url;
-                    else {
-                        var fullname = path.resolve(path.dirname(this.get('filename')), value);
-                        var base64 = converToBase64(fullname);
-                        if (!base64)
-                            return url;
-                        url.value = base64;
-                        return url;
-                    }
-                }.__accept(['STRING'])
-            };
-        _['-adjust'] = function (color, prop, weight, absolute) {
-            var p = prop.value, key = channelsMap[p];
-            var isAbsolute = tree.toBoolean(absolute);
-            if (isRGBA(p)) {
-                if (!weight)
-                    return color[key];
-                if (p === 'a' && weight.unit === '%') {
-                    weight.unit = null;
-                    weight.value /= 100;
-                }
-                if (weight.unit)
-                    this.error('rgba adjust only accpet NUMBER');
-                var clone = color.clone();
-                if (isAbsolute) {
-                    clone[key] = weight.value;
-                } else {
-                    clone[key] += weight.value;
-                }
-                Color.limit(clone);
-                return clone;
-            }
-            if (isHSL(p)) {
-                var hsl = color.toHSL();
-                if (!weight) {
-                    switch (p) {
-                    case 'saturation':
-                    case 'lightness':
-                        return {
-                            type: 'DIMENSION',
-                            value: hsl[key],
-                            unit: '%'
-                        };
-                    }
-                    return hsl[key];
-                }
-                if (isAbsolute) {
-                    hsl[key] = weight.value;
-                } else {
-                    hsl[key] += weight.value;
-                }
-                return Color.hsl(hsl, color.alpha);
-            }
-            this.error('invalid adjust property ' + p + ' ' + color.lineno);
-        }.__accept([
-            'color',
-            'STRING',
-            'DIMENSION'
-        ]);
-        var RGBA_STR = 'red green blue alpha';
-        var HSL_STR = 'hue saturation lightness';
-        var isRGBA = u.makePredicate(RGBA_STR);
-        var isHSL = u.makePredicate(HSL_STR);
-        var channelsMap = {
-                'hue': 0,
-                'saturation': 1,
-                'lightness': 2,
-                'red': 0,
-                'green': 1,
-                'blue': 2,
-                'alpha': 'alpha'
-            };
-        ;
-        (RGBA_STR + ' ' + HSL_STR).split(' ').forEach(function (name) {
-            var text = tk.createToken('STRING', name);
-            _[name.charAt(0) + '-adjust'] = _[name] = function (color, amount, absolute) {
-                return _['-adjust'].call(this, color, text, amount, absolute);
-            };
-        });
-        _.fade = _.alpha;
-        delete _.alpha;
-        [
-            'floor',
-            'ceil',
-            'round',
-            'abs',
-            'max',
-            'min'
-        ].forEach(function (name) {
-            _[name] = function (d) {
-                if (arguments.length < 1)
-                    this.error('at least pass one argument');
-                var clone = tree.cloneNode(d);
-                var args = u.slice(arguments).map(function (item) {
-                        return item.value;
-                    });
-                clone.value = Math[name].apply(Math, args);
-                return clone;
-            }.__accept(['DIMENSION']);
-        });
-        var mediatypes = {
-                '.eot': 'application/vnd.ms-fontobject',
-                '.gif': 'image/gif',
-                '.ico': 'image/vnd.microsoft.icon',
-                '.jpg': 'image/jpeg',
-                '.jpeg': 'image/jpeg',
-                '.otf': 'application/x-font-opentype',
-                '.png': 'image/png',
-                '.svg': 'image/svg+xml',
-                '.ttf': 'application/x-font-ttf',
-                '.webp': 'image/webp',
-                '.woff': 'application/x-font-woff'
-            };
-        function converToBase64(imagePath) {
-            imagePath = imagePath.replace(/[?#].*/g, '');
-            var extname = path.extname(imagePath), stat, img;
-            try {
-                stat = fs.statSync(imagePath);
-                if (stat.size > 1024 * 6) {
-                    return false;
-                }
-                img = fs.readFileSync(imagePath, 'base64');
-                return 'data:' + mediatypes[extname] + ';base64,' + img;
-            } catch (e) {
-                return false;
-            }
-        }
-    },
-    'o': function (require, module, exports, global) {
-        var Translator = require('p');
+        var Translator = require('o');
         module.exports = Translator;
     },
-    'p': function (require, module, exports, global) {
+    'o': function (require, module, exports, global) {
         var Walker = require('k');
         var tree = require('8');
         var error = require('a');
         var u = require('4');
         var options = require('f');
         var path = null;
-        var buffer = require('q');
+        var buffer = require('p');
         function Translator(options) {
             this.options = options || {};
         }
@@ -5123,7 +4917,7 @@ var mcss;
                     if (list[i].type !== 'declaration' && this.has('format', 3)) {
                         buffer.add('\n');
                     }
-                    if (i !== len - 1) {
+                    if (i !== len - 1 && item !== '') {
                         buffer.add(this.newline + indent);
                     }
                 }
@@ -5173,16 +4967,9 @@ var mcss;
         };
         _.walk_keyframes = function (ast) {
             var prefix = this.get('prefix'), buffer = this.buffer, store;
-            if (prefix && prefix.length && ast.fullname === 'keyframes')
-                buffer.mark();
             var str = '@' + ast.fullname + ' ' + this.walk(ast.name);
             buffer.add(str);
             this.walk(ast.block);
-            if (store = buffer.restore()) {
-                for (var i = 0; i < prefix.length; i++) {
-                    buffer.add('\n' + store.replace('@keyframes', '@-' + prefix[i] + '-keyframes'));
-                }
-            }
         };
         var stepmap = {
                 from: '0%',
@@ -5268,7 +5055,7 @@ var mcss;
         };
         module.exports = Translator;
     },
-    'q': function (require, module, exports, global) {
+    'p': function (require, module, exports, global) {
         var path = null;
         module.exports = function (options) {
             var sourceMap = require('1').sourcemap;
@@ -5330,14 +5117,14 @@ var mcss;
             };
         };
     },
-    'r': function (require, module, exports, global) {
+    'q': function (require, module, exports, global) {
         module.exports = {
-            prefixr: require('s'),
-            csscomb: require('u')
+            prefixr: require('r'),
+            csscomb: require('t')
         };
     },
-    's': function (require, module, exports, global) {
-        var prefixs = require('t').prefixs;
+    'r': function (require, module, exports, global) {
+        var prefixs = require('s').prefixs;
         var _ = require('4');
         var tree = require('8');
         var isTestProperties = _.makePredicate('border-radius transition');
@@ -5353,7 +5140,7 @@ var mcss;
             }
         };
     },
-    't': function (require, module, exports, global) {
+    's': function (require, module, exports, global) {
         exports.orders = {
             'position': 1,
             'z-index': 1,
@@ -5635,8 +5422,8 @@ var mcss;
             'line-height': 7
         };
     },
-    'u': function (require, module, exports, global) {
-        var orders = require('t').orders;
+    't': function (require, module, exports, global) {
+        var orders = require('s').orders;
         var times = 0;
         module.exports = {
             'block': function (tree) {
