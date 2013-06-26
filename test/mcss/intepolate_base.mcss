@@ -12,7 +12,7 @@
     $vendors = o, mz, moz, webkit;
     // the list in @for will be flatten
     // $vendors, vendor EQUALS  o, mz, moz, webkit, verndor 
-    @for $vendor of $vendors, vendor{
+    @for $vendor of $vendors{
         #{'-'+$vendor+'-'}foo: foo;
     }
     // avoid to use the intepolation for text-concat in values, just use '+'

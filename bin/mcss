@@ -90,8 +90,7 @@ function build(fullpath, first){
       // }]
     // @TODO remove
     });
-    return instance.include(path.join(__dirname, '../test/mcss/include'))
-     .translate().done(function(content){
+    return instance.translate().done(function(content){
       if(!outport) return console.log(file + '\n' +content);
       _.writeFile(dest, content, function(err){
         if(err) return console.log(err)
