@@ -8,7 +8,7 @@ var instance = mcss({
             ast.value += '?timestamp=' + Date.now();
         }
     }]
-})
+}).define('font-')
 
 // 获取节点
 instance.interpret().done(function(ast){

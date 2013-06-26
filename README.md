@@ -793,10 +793,14 @@ body{
 
 #### 循环语句 @for of ,  @for in
 
-mcss支持两种Loop语句，分别是遍历列表，和hashmap(利用valuesList 模拟, mcss并不存在这种数据结构);
+mcss中只有一种Loop语句----`@for`语句，除了实现SCSS中的所有Loop语句的功能(@each @for @while)也可以组合出比SCSS更强大遍历语句
+
+
+语法 `@for item:VAR[, index:VAR]? ['by' step:expression]? [('of'|'in') valueslist] block`
+
+mcss支持两种Loop语句，分别是遍历列表，和hashmap(利用valuesList 模拟, mcss并不存在这种数据结构), 并且可以通过by关键字 控制步近
 
 ##### 1. @for of 
-语法:  @for VAR[,VAR] 'of' valueslist 
 
 ```css
 @for $item, $i of test, hello, hoho{
@@ -819,6 +823,16 @@ __输出__:
   width:20px;
 }
 ```
+
+利用'by'关键字控制step,  step 可以是一个负值 实现后序遍历.
+
+```css
+
+```
+__结合range__ (valueslist的简写方式, mcss本身并没有range这种数据结构)__:
+
+
+
 
 ##### 2. @for in 
 ,mcss中可以利用一定格式的valueslist模拟hashmap(但仍然是valueslist，你仍然可以用for of来遍历它), 使得其可以用@for in 来遍历
@@ -1691,6 +1705,10 @@ mcss只有一种数值类型DIMENSION 而不是css中的 DIMENSION、PERCENT(可
 
 ### 7. valuesList
 对应css 中的comma separate values 如 10px, 10px solid ,#fff;
+可以使用range 快速创建一个valuesList 比如:
+```
+$s = 1...5;  // ==   1,2,3,4,5
+```
 
 __注意__, mcss中的直接量只包含类型1,2,3,4,5, 如果要values与 valueslist成为一个直接量，请用()包裹，会强制成为一个直接量
 比如你想要传入一个valueslist参数时,
@@ -1717,6 +1735,9 @@ __两种mcss的扩展类型__
 
 
 
+
+
+
 ## 感谢
 
 
@@ -1732,7 +1753,9 @@ MCSS目前仍在开发阶段, 如果你能提出宝贵意见甚至贡献代码, 
 1. [@leeluolee | http://weibo.com/luobolee]
 2. __you...__
 
-## 如何贡献代码
+
+## Changelog
+
 
 
 ## License

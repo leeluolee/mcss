@@ -56,7 +56,7 @@ var mcss;
         var Translator = require('o');
         var tk = require('3');
         var promise = require('e');
-        var functions = null;
+        var functions = require('n');
         var path = require('6');
         var _ = require('4');
         var io = require('h');
