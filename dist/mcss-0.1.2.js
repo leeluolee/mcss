@@ -1147,7 +1147,6 @@ var mcss;
                 var options = _.extend({ filename: filename }, this.options);
                 var self = this;
                 var _requires = this.get('_requires');
-                console.log(_requires);
                 if (_requires && ~_requires.indexOf(filename)) {
                     this.error('it is seems file:"' + filename + '" and file: "' + this.get('filename') + '" has Circular dependencies', url.lineno);
                 }

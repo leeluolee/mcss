@@ -4,18 +4,18 @@ var path = require('path');
 var instance = mcss({
     filename: path.join(__dirname, 'mcss/_large.mcss'),
     walkers: [{
-        'url': function(ast){
+        'ruleset': function(ast){
             ast.value += '?timestamp=' + Date.now();
         }
     }]
-}).define('font-')
+})
 
 // 获取节点
 instance.interpret().done(function(ast){
     // the ast is changed
 })
 
-// 或输出修改后的css
-instance.translate().done(function(cssContent){
-    // the cssContent is changed
-})
+// // 或输出修改后的css
+// instance.translate().done(function(cssContent){
+//     // the cssContent is changed
+// })

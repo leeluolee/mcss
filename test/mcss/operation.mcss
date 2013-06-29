@@ -61,6 +61,7 @@ body {
     eq2: 9==19;
     nq1: 9!=9;
     nq2: 9!='da';
+    nq3: ccc == ccc;
 }
 
 // paren
