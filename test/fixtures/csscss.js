@@ -55,7 +55,9 @@ function findDupls(a, b){
 // mcss 实例创建
 var instance = mcss({
     // 这个css 来自 github.com 官网 的css  ... 重复率惊人
-    filename: path.join(__dirname, '../css/_large.css'),
+    filename: path.join(__dirname, '../data/csscss_1.css'),
+    // 默认是不引入 css file的
+    importCSS: true,
     // 传入我们的自定义walker
     walkers: [walkers]
 })
