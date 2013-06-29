@@ -72,7 +72,7 @@ function build(fullpath, first){
       var dest = path.join(outport, rpath).replace(/\.mcss/,'.css');
     }else{
       if(outport && !/\.css$/.test(outport)){
-        dest = path.join(outport, path.basename(file))
+        dest = path.join(outport, path.basename(file,'.mcss') +'.css')
       }else{
         dest = outport;
       }
