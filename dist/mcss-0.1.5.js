@@ -2048,15 +2048,35 @@ var mcss;
             this.ref.push(ruleset);
         };
         RuleSet.prototype.getSelectors = function () {
-            if (this._selectors)
-                return this._selectors;
             var selectors = this.selector.list;
             if (this.ref.length) {
                 this.ref.forEach(function (ruleset) {
                     selectors = selectors.concat(ruleset.getSelectors());
                 });
+                this.ref = [];
             }
-            return this._selectors = selectors;
+            var plist;
+            this.selector.list = selectors;
+            return selectors;
+        };
+        RuleSet.prototype._concatSelector = function (slist, plist) {
+            if (!plist.length || !slist.length)
+                return null;
+            var slen = slist.length, plen = plist.length, sstring, pstring, rstring, s, p, res;
+            var res = new exports.SelectorList();
+            for (p = 0; p < plen; p++) {
+                pstring = plist[p].string;
+                for (s = 0; s < slen; s++) {
+                    sstring = slist[s].string;
+                    if (~sstring.indexOf('&')) {
+                        rstring = sstring.replace(/&/g, pstring);
+                    } else {
+                        rstring = pstring + ' ' + sstring;
+                    }
+                    res.list.push(new exports.ComplexSelector(rstring));
+                }
+            }
+            return res;
         };
         RuleSet.prototype.clone = function () {
             var clone = new RuleSet(cloneNode(this.selector), cloneNode(this.block), this.abstract);
@@ -2081,9 +2101,8 @@ var mcss;
                         res.unshift(list.splice(len, 1)[0]);
                     if (item.type === 'declaration')
                         declarations.unshift(list.splice(len, 1)[0]);
-                } else {
-                    if (item.type !== 'declaration')
-                        res.unshift(list.splice(len, 1)[0]);
+                } else if (item.type !== 'declaration') {
+                    res.unshift(list.splice(len, 1)[0]);
                 }
             }
             if (declarations && declarations.length)
@@ -4227,8 +4246,10 @@ var mcss;
             if (ast.abstract) {
                 rawSelector.list = [];
             }
-            if (!values)
-                ast.selector = this.concatSelector(rawSelector);
+            if (!values) {
+                ast.selector = rawSelector;
+                ast.parent = this.rulesets[this.rulesets.length - 1];
+            }
             ast.lineno = rawSelector.lineno;
             ast.filename = this.get('filename');
             if (values) {
@@ -4575,6 +4596,7 @@ var mcss;
                     if (declarations.length && rulesets.length) {
                         ruleset = rulesets[rulesets.length - 1];
                         newRuleset = new tree.RuleSet(ruleset.selector, new tree.Block(declarations));
+                        newRuleset.parent = ruleset.parent;
                         newRuleset.lineno = declarations[0].value.lineno || declarations[0].property.lineno;
                         ast.block.list.unshift(newRuleset);
                     }
@@ -5229,18 +5251,32 @@ var mcss;
         };
         _.walk_ruleset = function (ast) {
             var buffer = this.buffer;
+            var slist = ast.getSelectors(), plist, parent = ast.parent;
+            if (!slist || !slist.length)
+                return false;
+            while (parent) {
+                if (parent.getSelectors().length == 0)
+                    return false;
+                parent = parent.parent;
+            }
+            if (ast.parent)
+                if (typeof ast.lineno === 'number' && ast.filename) {
+                    buffer.addMap({
+                        line: ast.lineno - 1,
+                        source: ast.filename
+                    });
+                }
+            if (ast.parent) {
+                var plist = ast.parent.getSelectors();
+                if (plist) {
+                    var selector = this._concatSelector(slist, plist);
+                    if (selector)
+                        ast.selector = selector;
+                }
+            }
             if (!ast.block.list.length)
                 return false;
-            var slist = ast.getSelectors();
-            if (!slist.length)
-                return false;
-            if (typeof ast.lineno === 'number' && ast.filename) {
-                buffer.addMap({
-                    line: ast.lineno - 1,
-                    source: ast.filename
-                });
-            }
-            buffer.add(this.walk(slist).join(','));
+            buffer.add(this.walk(ast.selector.list).join(','));
             this.walk(ast.block);
         };
         _.walk_selectorlist = function (ast) {
@@ -5262,7 +5298,7 @@ var mcss;
             for (var i = 0, len = list.length; i < len; i++) {
                 var item = this.walk(list[i]);
                 if (item !== false) {
-                    if (list[i].type !== 'declaration' && this.has('format', 3)) {
+                    if (list[i].type !== 'declaration' && this.has('format', 3) && item !== '') {
                         buffer.add('\n');
                     }
                     if (i !== len - 1 && item !== '') {
@@ -5400,6 +5436,25 @@ var mcss;
         };
         _._getSassDebugInfo = function () {
             return '@media -sass-debug-info';
+        };
+        _._concatSelector = function (slist, plist) {
+            if (!plist.length || !slist.length)
+                return null;
+            var slen = slist.length, plen = plist.length, sstring, pstring, rstring, s, p, res;
+            var res = new tree.SelectorList();
+            for (p = 0; p < plen; p++) {
+                pstring = plist[p].string;
+                for (s = 0; s < slen; s++) {
+                    sstring = slist[s].string;
+                    if (~sstring.indexOf('&')) {
+                        rstring = sstring.replace(/&/g, pstring);
+                    } else {
+                        rstring = pstring + ' ' + sstring;
+                    }
+                    res.list.push(new tree.ComplexSelector(rstring));
+                }
+            }
+            return res;
         };
         module.exports = Translator;
     },
