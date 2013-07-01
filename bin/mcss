@@ -21,6 +21,7 @@ var program = require('commander')
   .option('-o, --outport <filename>', 'the outport filename or dirname')
   .option('-i, --indent <indent>', 'the indent string default "\\t"')
   .option('-t, --test', 'just for test , forbit underscore file')
+  .option('--include <folder>', 'include path')
   .parse(process.argv);
 
 if(!program.args.length) throw 'the <file> arguments to build is required'
@@ -30,6 +31,7 @@ if(!program.args.length) throw 'the <file> arguments to build is required'
 var watch = program.watch;
 var sourceMap = program.sourcemap;
 if(program.outport)  var outport = path.resolve(cwd, program.outport);
+if(program.include)  var include = path.resolve(cwd, program.include);
 
 var file = path.resolve(cwd, program.args[0]);
 
@@ -90,6 +92,7 @@ function build(fullpath, first){
       // }]
     // @TODO remove
     });
+    if(include) instance.include(include);
     return instance.translate().done(function(content){
       if(!outport) return console.log(file + '\n' +content);
       _.writeFile(dest, content, function(err){

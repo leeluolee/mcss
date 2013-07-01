@@ -48,8 +48,5 @@ p{
     // then .abs3 exports; $right is from the './_abstract_import.mcss'
     left: $right 10px ;
 }
-body{
-    background-color: #ccc !important;
-}
 
 

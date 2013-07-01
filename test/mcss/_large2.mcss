@@ -7973,7 +7973,7 @@ dl.form dd textarea.jobs-profile {
     border:none
 }
 .add-emails-form input {
-    border:1p
+    border:1px
 }
 dl.new-email-form {
     width:100%;
