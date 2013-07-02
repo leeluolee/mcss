@@ -15,3 +15,31 @@
         }
     }
 }
+
+
+.btn{
+    color: 10px;
+}
+.m-hoem{
+    left:10px;
+    p{
+        a{
+            @extend .btn;
+        }
+    }
+}
+
+.m-news{
+    li{
+        border-bottom: 1px dotted #ddd;
+        @media (min-width: 1442px){
+            width: 49%;
+            float: left;
+            &:nth-child(2n){
+                border-left: 1px dashed #ddd;
+            }
+            
+        }
+    }
+}
+
