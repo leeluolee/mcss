@@ -24,6 +24,9 @@ build = () ->
       fs.writeFile path.join(__dirname, "dist/#{info.name}-#{info.version}.js"), source, (err) ->
         if err 
           console.error(err)
+      fs.writeFile path.join(__dirname, "dist/#{info.name}-latest.js"), source, (err) ->
+        if err 
+          console.error(err)
         else 
           console.log 'build complele'
   

@@ -1,15 +1,33 @@
 .m-home{
 	display:block;
 }
-.m-home div,.m-home ul{
+.m-home >div,.m-home ul{
 	border:2px solid #cccccc;
 }
-.m-home div a,.m-home ul a{
+.m-home >div a,.m-home ul a{
 	color:#ffffff;
 }
-.m-home div a:hover,.m-home ul a:hover{
+.m-home >div a:hover,.m-home ul a:hover{
 	text-decoration:none;
 }
-.m-home div a span,.m-home ul a span{
-	display:block;
+.m-home-name  >div a,.m-home-name  ul a{
+	content:".m-home-name in %";
+}
+.btn,.m-hoem p a{
+	color:10px;
+}
+.m-hoem{
+	left:10px;
+}
+.m-news li{
+	border-bottom:1px dotted #dddddd;
+}
+@media (min-width: 1442px){
+	.m-news li{
+		width:49%;
+		float:left;
+	}
+	.m-news li:nth-child(2n){
+		border-left:1px dashed #dddddd;
+	}
 }

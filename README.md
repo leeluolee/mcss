@@ -129,6 +129,46 @@ __输出__
 
 ```
 
+mcss支持另外一种预置符`%`, 代表除最外层选择器之外的选择器序列 如:
+
+```css
+.ms-form{
+    // 真不想重复写这么多啊
+    input[type="text"],
+    input[type="password"],
+    input[type="email"],
+    input[type="url"],
+    input[type="date"],
+    input[type="month"],
+    input[type="time"],
+    input[type="range"],
+    select{
+      display: inline-block;
+      .ms-form-stack{
+        display: block;
+      }
+    }
+    // other ruleset
+}
+
+```
+
+__输出__
+
+```css
+.ms-form input[type="text"],.ms-form input[type="password"],.ms-form input[type="email"],.ms-form input[type="url"],.ms-form input[type="date"],.ms-form input[type="month"],.ms-form input[type="time"],.ms-form input[type="range"],.ms-form select{
+  display:inline-block;
+}
+.ms-form-stack  input[type="text"],.ms-form-stack  input[type="password"],.ms-form-stack  input[type="email"],.ms-form-stack  input[type="url"],.ms-form-stack  input[type="date"],.ms-form-stack  input[type="month"],.ms-form-stack  input[type="time"],.ms-form-stack  input[type="range"],.ms-form-stack  select{
+  display:block;
+}
+```
+和类似[NEC](http://nec.netease.com/)的解决方案相契合，当微调
+通常我们
+
+
+
+
 ### 赋值操作
 
 mcss中的variable与以 `$` 开头(与SCSS一致如$length), 这也是mcss引入的唯一一个非css规范的词法类型, 目的是 __防止潜在冲突__ 和 __视觉上更易识别__

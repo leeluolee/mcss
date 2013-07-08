@@ -58,7 +58,7 @@ if(!files.length) throw 'no matched mcss file';
 
 
 var building;
-function build(fullpath, first){
+var build = _.restrict(function(fullpath, first){
   var imports = [];
   if(building){
     console.log('is busy building')
@@ -119,11 +119,12 @@ function build(fullpath, first){
         }
       })
       watchers.forEach(function(fullpath){
-        _.watch(fullpath, _.throttle(build, 300))
+        _.watch(fullpath, build)
       })
     }
   })
-}
+},200)
+
 
 
 build(null,true);
