@@ -836,9 +836,10 @@ var mcss;
                 if (la === '(') {
                     this.mark();
                     try {
-                        return this.func();
+                        var res = this.func();
+                        return res;
                     } catch (e) {
-                        if (e.expect && e.expect == '{' || e.expect == 'VAR') {
+                        if (e.expect && e.expect == '{' || e.expect == 'VAR' || e.expect == ')') {
                             this.restore();
                             return this[fn]();
                         } else {

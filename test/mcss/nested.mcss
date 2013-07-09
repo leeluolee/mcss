@@ -44,21 +44,4 @@
     }
 }
 
-.ms-form{
-    // 真不想重复写这么多啊
-    input[type="text"],
-    input[type="password"],
-    input[type="email"],
-    input[type="url"],
-    input[type="date"],
-    input[type="month"],
-    input[type="time"],
-    input[type="range"],
-    select{
-      display: inline-block;
-      .ms-form-stack %{
-        display: block;
-      }
-    }
-}
 
