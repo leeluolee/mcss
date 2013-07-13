@@ -647,7 +647,7 @@ h1,h2,h3,h4,h5,h6{
 
 此外, 如果产生循环引用，mcss会给出错误提示
 
-
+<a name='abstract'></a>
 ### @abstract
 
 作用如其名, 被修饰的ruleset成为抽象ruleset, 不会输出, 但是仍然可以被@extend; 
@@ -1795,6 +1795,24 @@ MCSS目前仍在开发阶段, 如果你能提出宝贵意见甚至贡献代码, 
 
 
 ## Changelog
+
+### >= 0.1.8
+
+1. `%`标识符添加 (类似`&` );
+2. 深层ruleset对外层ruleset的@extend支持
+3. sourcemap
+4. advanced @for stmt;
+
+### 0.1.0(对外初版)
+
+1. <del>@module</del> 移除
+2. 命令行工具初版发布 `npm install -g mcss`
+3. function valueType
+4. js-like operation
+5. [`@abstract`](#abstract)、[`@media`](#media)、[@import](#import), 适量的buildin function
+6. 多种格式输出
+7. 浏览器版本
+7. other common feature...
 
 
 

@@ -33,12 +33,12 @@ body{
 	gt:true;
 	lt:false;
 	ge1:true;
-	ge2:true;
+	ge2:false;
 	le1:true;
-	le1:true;
-	eq1:false;
-	eq2:true;
-	nq1:true;
+	le1:false;
+	eq1:true;
+	eq2:false;
+	nq1:false;
 	nq2:true;
 	nq3:true;
 }

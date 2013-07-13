@@ -2094,7 +2094,9 @@ var mcss;
                         rstring = sstring.replace(/&/g, pstring);
                     } else if (~sstring.indexOf('%')) {
                         var index = pstring.search(comboSplit);
-                        rstring = sstring.replace(/%/g, ~index ? pstring.slice(index) : '');
+                        rstring = sstring.replace(/([^0-9]|^)%/g, function (all, a) {
+                            return (a || '') + (~index ? pstring.slice(index) : '');
+                        });
                     } else {
                         rstring = pstring + ' ' + sstring;
                     }

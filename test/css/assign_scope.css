@@ -13,6 +13,8 @@
 .for-extend,with-extend-outer{
 	name:for-extend-outer;
 }
-.scope5 .for-extend,.scope5 with-extend-inner{
+.scope5 .for-extend,.scope5 .scope5 with-extend-inner{
 	name:for-extend-inner;
 }
+
+hahah
