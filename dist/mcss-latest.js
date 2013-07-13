@@ -72,23 +72,34 @@ var mcss;
                 imports: {},
                 importCSS: false,
                 pathes: [],
-                walkers: {},
-                prefix: [
-                    'webkit',
-                    'moz',
-                    'ms',
-                    'o'
-                ],
-                format: 1
+                walkers: [],
+                format: 1,
+                sourcemap: false
             });
+            var walkers = this.get('walkers');
+            if (!Array.isArray(walkers))
+                walkers = [walkers];
+            this.set('walkers', walkers.map(function (hook) {
+                if (typeof hook === 'string') {
+                    hook = hooks[hook];
+                }
+                return hook;
+            }));
         }
         var m = options.mixTo(Mcss);
         m.include = function (path) {
             this.get('pathes').push(path);
             return this;
         };
-        m.tokenize = function (text) {
-            return tk.tokenize(text, this.options);
+        m.walk = function (type) {
+            if (typeof type === 'string') {
+                walker = {};
+                walker[type] = arguments[1];
+            } else {
+                walker = type;
+            }
+            this.get('walkers').push(walker);
+            return this;
         };
         m.define = function (key, value) {
             if (typeof value === 'function') {
@@ -96,6 +107,9 @@ var mcss;
             }
             return this;
         }.__msetter();
+        m.tokenize = function (text) {
+            return tk.tokenize(text, this.options);
+        };
         m.parse = function (text) {
             var options = this.options, parser = new Parser(this.options), fp, pr = promise();
             if (text === undefined) {
@@ -115,16 +129,10 @@ var mcss;
             var interpreter = new Interpreter(options);
             var pr = promise();
             var walkers = options.walkers;
-            if (walkers) {
-                if (!Array.isArray(walkers))
-                    walkers = [walkers];
+            if (walkers.length) {
                 walkers.forEach(function (hook) {
-                    if (typeof hook === 'string') {
-                        hook = hooks[hook];
-                    }
                     hook && interpreter.on(hook);
                 });
-                options.walkers = walkers;
             }
             this.parse(text).done(function (ast) {
                 try {
@@ -142,16 +150,10 @@ var mcss;
             var interpreter = new Interpreter(options);
             var pr = promise();
             var walkers = options.walkers;
-            if (walkers) {
-                if (!Array.isArray(walkers))
-                    walkers = [walkers];
+            if (walkers.length) {
                 walkers.forEach(function (hook) {
-                    if (typeof hook === 'string') {
-                        hook = hooks[hook];
-                    }
                     hook && interpreter.on(hook);
                 });
-                options.walkers = walkers;
             }
             this.parse(text).done(function (ast) {
                 var date = Date.now();
@@ -1379,7 +1381,7 @@ var mcss;
                 }
             },
             {
-                regexp: $('\\[\\s*(?:{nmchar}+)(?:([*^$|~!]?=)[\'"]?(?:[^\'"\\[]+)[\'"]?)?\\s*\\]'),
+                regexp: $('\\[\\s*(?:{nmchar}+)\\s*(?:([*^$|~!]?=)\\s*[\'"]?(?:[^\'"\\[]+)[\'"]?)?\\s*\\]'),
                 action: function (yytext) {
                     this.yyval = yytext;
                     return 'ATTRIBUTE';
@@ -4532,7 +4534,6 @@ var mcss;
                 var block = this.walk(func.block.clone());
             } catch (err) {
                 this.set('filename', pref);
-                this.scope = prev;
                 this.pop(iscope);
                 if (err.code === errors.RETURN) {
                     var value = tree.convert(err.value);
@@ -4540,6 +4541,7 @@ var mcss;
                         value.scope = iscope;
                         iscope.parentScope = this.scope;
                     }
+                    this.scope = prev;
                     return value;
                 } else {
                     throw err;

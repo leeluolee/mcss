@@ -144,7 +144,7 @@ mcss支持另外一种预置符`%`, 代表除最外层选择器之外的选择�
     input[type="range"],
     select{
       display: inline-block;
-      .ms-form-stack{
+      .ms-form-stack %{
         display: block;
       }
     }
@@ -1553,7 +1553,7 @@ DEBUG 'texttext'  (STRING)
 ![错误输出](http://leeluolee.github.io/mcss/img/error.png)
 
 ### sourcemap支持
-MCSS的sourcemap 不是类似stylus、less是基于@sass-debug-info的伪装形势, 而是标准的[sourcemap v3](https://docs.google.com/document/d/1U1RGAehQwRypUTovF1KRlpiOFze0b-_2gc6fAH0KY0k/edit?pli=1) 格式, 可提供更小的格式和更精确的对应(同时也是未来趋势) 这个在chrome 的开发者工具中刚刚被启用为支持css，所以暂时只支持chrome 最新版本
+MCSS的sourcemap 不是类似stylus、less是基于@sass-debug-info的伪装形势, 而是标准的[sourcemap v3](https://docs.google.com/document/d/1U1RGAehQwRypUTovF1KRlpiOFze0b-_2gc6fAH0KY0k/edit?pli=1) 格式, 可提供更小的格式和更精确的对应(同时也是未来趋势) 这个在chrome 的开发者工具中刚刚被启用为支持css，所以暂时只支持chrome 最新版本, __并且需要在控制台选项中开启sourcemap支持__ (注意不是 support for SASS选项)
 
 ![sourcemap支持](http://leeluolee.github.io/mcss/img/sm.png)
 
@@ -1641,7 +1641,6 @@ var instance = mcss({
   filename: '/absolute/path/to/xx.file'
   options.....
 })// get a mcss instance
-Options参数详解会在下一小节阐述
 
 .set('filename', '/path/to/foo.mcss')// 后续修改options
 .include('/build/in/path')// 使用include引入对应, 后续import会先从这些目录开始寻找
@@ -1691,6 +1690,17 @@ var instance = mcss({
     }]
 })
 
+instance.walk('url', function(){
+  ast.value += '?timestamp=' + Date.now();
+})
+// or passed a object to walk multi nodes
+instance.walk({
+  'url':function(){//
+    ast.value += '?timestamp=' + Date.now();
+  },
+  'block': function(){
+  }
+})
 // 获取节点
 instance.interpret().done(function(ast){
     // the ast is changed
@@ -1705,6 +1715,23 @@ instance.translate().done(function(css){
 
 #### 参数
 这里介绍下构建mcss 实例的详细参数, 稍等片刻...
+
+```css
+//所有的参数都在构建mcss实例时候传入, 以下是参数类型以及默认参数
+var instance = mcss({
+  importCSS: false,// 默认不会引入.css file 而是输出 @import 'xx.css';
+  pathes: [],      // @import时，mcss会优先查找pathes下的目录
+  walkers: [],     //节点游历的监听
+  format: 1,       // 输出格式,如上面所示 1. common  2. compress, 3. lines mode
+  sourcemap:false, //是否输出sourcemap(css同一目录)
+  indent: '\t'     //缩进符号, 默认是制表符
+})
+
+//所有的参数都可以后续通过instance.set来进行赋值
+instance.set('sourcemap', true)
+//对于数组型参数，可以使用instance.add来进行增加
+instance.add('pathes', folderpath)
+```
 
 
 #### 指令(directive)重写
@@ -1786,7 +1813,7 @@ __两种mcss的扩展类型__
 MCSS目前仍在开发阶段, 如果你能提出宝贵意见甚至贡献代码, 万分感谢。不过仍要说明贡献代码时的须知
 
 1. 较大修改请开一个issue, 详细说明情况, 并加入测试案例
-2. 提交前确定`npm test`无误
+2. 提交前确定`mocha`无误
 
 
 ## Contributors
