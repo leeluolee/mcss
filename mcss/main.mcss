@@ -1,0 +1,5 @@
+@abstract 'index';
+
+.u-toolptip{
+  @extend .u-tooltip;
+}
