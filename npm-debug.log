@@ -1,36 +1,35 @@
 0 info it worked if it ends with ok
 1 verbose cli [ 'c:\\Program Files (x86)\\nodejs\\node.exe',
 1 verbose cli   'c:\\Program Files (x86)\\nodejs\\node_modules\\npm\\bin\\npm-cli.js',
-1 verbose cli   'publish',
-1 verbose cli   './' ]
+1 verbose cli   'publish' ]
 2 info using npm@1.1.48
 3 info using node@v0.8.6
 4 verbose config file C:\Users\萝卜\.npmrc
 5 verbose config file c:\Program Files (x86)\nodejs\etc\npmrc
 6 verbose config file c:\Program Files (x86)\nodejs\node_modules\npm\npmrc
-7 verbose publish [ './' ]
+7 verbose publish [ '.' ]
 8 verbose read json f:\code\mcss\package.json
-9 verbose cache add [ './', null ]
-10 silly cache add name=undefined spec="./" args=["./",null]
-11 verbose parsed url { pathname: './', path: './', href: './' }
-12 silly lockFile 0ee6c175- ./
-13 verbose lock ./ C:\Users\萝卜\AppData\Roaming\npm-cache\0ee6c175-.lock
+9 verbose cache add [ '.', null ]
+10 silly cache add name=undefined spec="." args=[".",null]
+11 verbose parsed url { pathname: '.', path: '.', href: '.' }
+12 silly lockFile 3a52ce78- .
+13 verbose lock . C:\Users\萝卜\AppData\Roaming\npm-cache\3a52ce78-.lock
 14 verbose read json package.json
-15 verbose tar pack [ 'C:\\Users\\萝卜\\AppData\\Local\\Temp\\npm-4548\\1373465730719-0.35405451664701104\\tmp.tgz',
-15 verbose tar pack   './' ]
-16 verbose tarball C:\Users\萝卜\AppData\Local\Temp\npm-4548\1373465730719-0.35405451664701104\tmp.tgz
-17 verbose folder ./
-18 info prepublish mcss@0.1.9
+15 verbose tar pack [ 'C:\\Users\\萝卜\\AppData\\Local\\Temp\\npm-7360\\1373797030344-0.9057908307295293\\tmp.tgz',
+15 verbose tar pack   '.' ]
+16 verbose tarball C:\Users\萝卜\AppData\Local\Temp\npm-7360\1373797030344-0.9057908307295293\tmp.tgz
+17 verbose folder .
+18 info prepublish mcss@0.2.0
 19 verbose unsafe-perm in lifecycle true
 20 silly exec cmd "/c" "cake -t build"
-21 silly cmd,/c,cake -t build,./ spawning
-22 info mcss@0.1.9 Failed to exec prepublish script
-23 error addLocalDirectory Could not pack "./" to "C:\\Users\\萝卜\\AppData\\Local\\Temp\\npm-4548\\1373465730719-0.35405451664701104\\tmp.tgz"
-24 silly lockFile 0ee6c175- ./
-25 error addLocal Could not install ./
-26 error mcss@0.1.9 prepublish: `cake -t build`
+21 silly cmd,/c,cake -t build,. spawning
+22 info mcss@0.2.0 Failed to exec prepublish script
+23 error addLocalDirectory Could not pack "." to "C:\\Users\\萝卜\\AppData\\Local\\Temp\\npm-7360\\1373797030344-0.9057908307295293\\tmp.tgz"
+24 silly lockFile 3a52ce78- .
+25 error addLocal Could not install .
+26 error mcss@0.2.0 prepublish: `cake -t build`
 26 error `cmd "/c" "cake -t build"` failed with 1
-27 error Failed at the mcss@0.1.9 prepublish script.
+27 error Failed at the mcss@0.2.0 prepublish script.
 27 error This is most likely a problem with the mcss package,
 27 error not with npm itself.
 27 error Tell the author that this fails on your system:
@@ -39,7 +38,7 @@
 27 error     npm owner ls mcss
 27 error There is likely additional logging output above.
 28 error System Windows_NT 6.1.7600
-29 error command "c:\\Program Files (x86)\\nodejs\\node.exe" "c:\\Program Files (x86)\\nodejs\\node_modules\\npm\\bin\\npm-cli.js" "publish" "./"
+29 error command "c:\\Program Files (x86)\\nodejs\\node.exe" "c:\\Program Files (x86)\\nodejs\\node_modules\\npm\\bin\\npm-cli.js" "publish"
 30 error cwd f:\code\mcss
 31 error node -v v0.8.6
 32 error npm -v 1.1.48

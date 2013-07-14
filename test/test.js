@@ -30,8 +30,9 @@ describe('Array', function(){
             .translate(content)
             .done(function(content){
                 if(csscontent&&!not_compare){
-                    it(fullpath + 'compile result should equal css outport', function(){
+                    it(fullpath + 'compile result should equal css outport', function(done){
                         assert.equal(content, csscontent);
+                        done();
                     })
                 }
             }).fail(function(error){

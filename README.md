@@ -19,7 +19,7 @@ npm install -g mcss
 ### Browser
 
 ```html
-<script src="https://github.com/leeluolee/mcss/blob/master/dist/mcss.js"></script>
+<script src="https://github.com/leeluolee/mcss/blob/master/dist/mcss-latest.js"></script>
 ```
 需要支持ES5的浏览器，绝对只建议在线上环境使用compile后的css文件，而不是即时compile;
 
@@ -323,13 +323,18 @@ body{
 
 #### 4. 参数
 
-mcss支持 __rest param__ 以及 __default param__
+mcss支持丰富的参数类型: __rest param__ 以及 __default param__ 、__named param__;
 
 <!-- {{function_param.md}} -->
 ```
+
 // 缺省值
 $default-param = ($left, $right = 30px ){
     default-param: $right;
+}
+// named param 一般用在大量default 只需要传入部分参数的情况下
+$named-param = ($color = 30px, $named){
+    named: $named;
 }
 
 $rest-at-middle = ($left, $middle... , $right){
@@ -343,6 +348,7 @@ $rest-at-right = ($left,$right...){
 }
 
 body{
+    $named-param($named = 30px);
     $default-param(10px);
     $rest-at-middle(1, 2, 3, 4);
     $rest-at-left(1, 2, 3, 4);
@@ -354,6 +360,7 @@ body{
 __输出__ :
 ```css
 body{
+  named: 30px;
   default-param:30px;
   rest-at-middle:2,3;
   rest-at-left:1,2,3;
@@ -362,7 +369,7 @@ body{
 
 ```
 
-注意rest param 不能有默认值
+注意rest param 不能有默认值, 在参数有named param时 这个参数会被从参数列表中剔除，剩余的参数再进行赋值
 
 
 
@@ -1822,6 +1829,11 @@ MCSS目前仍在开发阶段, 如果你能提出宝贵意见甚至贡献代码, 
 
 
 ## Changelog
+
+### 0.2.x
+
+1. 增加对 Named param的支持  `2013/7/14 18:09:55`
+
 
 ### >= 0.1.8
 
