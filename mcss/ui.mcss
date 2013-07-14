@@ -76,3 +76,12 @@ $tooltip = ($background = #333, $font-size = 12px, $asize = 5px, $radius = 3px){
         }
     }
 }
+
+.u-tooltip{
+    $tooltip: #e74c3c;
+    top: -30px;
+    right: 0px;
+    .inner{
+        font-weight: bold;
+    }
+}
