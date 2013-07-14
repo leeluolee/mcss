@@ -2090,7 +2090,7 @@ var mcss;
                 this.ref = [];
             }
             var plist;
-            if (this.parent && (plist = this.parent.getSelectors())) {
+            if (this.parent && (plist = this.parent.getSelectors()) && plist.length) {
                 selectors = this._concatSelector(selectors, plist);
             }
             this.selector.list = selectors;
