@@ -25,7 +25,7 @@
     })
     var compile = function(value){
         mcss({
-            filename: '/index.html'
+            filename: '/mcss/index.html'
         }).translate(value)
         .done(function(css){
             outport.setValue(css)
