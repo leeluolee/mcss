@@ -17,6 +17,12 @@
     .abs3{
         name: abs3;        
         left: $left;
+        .in-abs3-1{
+            left:10px;
+            .in-abs3-2{
+                left:20px;
+            }
+        }
     }
     .abs4{
         name: abs4;
@@ -25,7 +31,7 @@
 }
 
 // abstract all the rulset in other module
-@abstract './_abstract_import.mcss';
+@abstract '_abstract_import.mcss';
 // ----------------------------------------
 // compare:
 // @import './_abstract_import.mcss';
