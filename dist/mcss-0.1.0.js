@@ -56,6 +56,7 @@ var mcss;
         var Translator = require('o');
         var tk = require('3');
         var promise = require('e');
+        var functions = null;
         var path = require('6');
         var _ = require('4');
         var io = require('h');
@@ -87,10 +88,14 @@ var mcss;
         m.tokenize = function (text) {
             return tk.tokenize(text, this.options);
         };
+        m.define = function (key, value) {
+            if (typeof value === 'function') {
+                functions[key] === value;
+            }
+            return this;
+        }.__msetter();
         m.parse = function (text) {
-            var options = this.options;
-            var parser = new Parser(this.options);
-            var fp, pr = promise();
+            var options = this.options, parser = new Parser(this.options), fp, pr = promise();
             if (text === undefined) {
                 if (this.get('filename')) {
                     fp = io.parse(this.options.filename, this.options);
@@ -107,6 +112,18 @@ var mcss;
             var options = this.options;
             var interpreter = new Interpreter(options);
             var pr = promise();
+            var walkers = options.walkers;
+            if (walkers) {
+                if (!Array.isArray(walkers))
+                    walkers = [walkers];
+                walkers.forEach(function (hook) {
+                    if (typeof hook === 'string') {
+                        hook = hooks[hook];
+                    }
+                    hook && interpreter.on(hook);
+                });
+                options.walkers = walkers;
+            }
             this.parse(text).done(function (ast) {
                 try {
                     ast = interpreter.interpret(ast);
@@ -122,15 +139,17 @@ var mcss;
             var translator = new Translator(options);
             var interpreter = new Interpreter(options);
             var pr = promise();
-            if (options.walkers)
-                interpreter.on(options.walkers);
-            if (options.hooks) {
-                options.hooks.forEach(function (hook) {
+            var walkers = options.walkers;
+            if (walkers) {
+                if (!Array.isArray(walkers))
+                    walkers = [walkers];
+                walkers.forEach(function (hook) {
                     if (typeof hook === 'string') {
                         hook = hooks[hook];
                     }
                     hook && interpreter.on(hook);
                 });
+                options.walkers = walkers;
             }
             this.parse(text).done(function (ast) {
                 var date = Date.now();
@@ -293,10 +312,15 @@ var mcss;
                 var ll;
                 if (!(ll = this.eat.apply(this, arguments))) {
                     var ll = this.ll();
-                    this.error('expect:"' + tokenType + '" -> got: "' + ll.type + '"', ll.lineno);
+                    this.error('expect:"' + tokenType + '" -> got: "' + ll.type + '"', ll.lineno, tokenType);
                 } else {
                     return ll;
                 }
+            },
+            matchSemiColonIfNoBlock: function () {
+                this.eat('WS');
+                if (this.la() !== '}')
+                    this.match(';');
             },
             ll: function (k) {
                 k = k || 1;
@@ -353,13 +377,16 @@ var mcss;
             skipWSorNewlne: function () {
                 return this.skip(isWSOrNewLine);
             },
-            error: function (msg, ll) {
+            error: function (msg, ll, expect) {
                 if (typeof msg === 'number') {
                     perror.code = msg;
                     throw perror;
                 }
                 var lineno = ll.lineno || ll;
-                throw new error.SyntaxError(msg, lineno, this.options);
+                var err = new error.SyntaxError(msg, lineno, this.options);
+                if (expect)
+                    err.expect = expect;
+                throw err;
             },
             stylesheet: function () {
                 return this.block(true);
@@ -373,16 +400,17 @@ var mcss;
                     switch (this.la(2)) {
                     case '(':
                         node = this.fnCall();
-                        this.match(';');
+                        this.matchSemiColonIfNoBlock();
                         break;
                     case ':':
                         node = this.transparentCall();
+                        this.matchSemiColonIfNoBlock();
                         break;
                     case '=':
                     case '?=':
                         node = this.assign();
                         if (node.value.type !== 'func') {
-                            this.match(';');
+                            this.matchSemiColonIfNoBlock();
                         }
                         break;
                     default:
@@ -391,7 +419,7 @@ var mcss;
                 }
                 if (la === 'FUNCTION') {
                     node = this.fnCall();
-                    this.match(';');
+                    this.matchSemiColonIfNoBlock();
                 }
                 if (isSelectorSep(la)) {
                     node = this.ruleset(true);
@@ -424,10 +452,10 @@ var mcss;
                     var value = this.valuesList();
                     this.eat('WS');
                     if (this.eat(';')) {
-                        return new tree.Directive(name, value);
+                        return tree.directive(name, value);
                     } else {
                         var block = this.block();
-                        return new tree.Directive(name, value, block);
+                        return tree.directive(name, value, block);
                     }
                     this.error('invalid customer directive define', ll);
                 }
@@ -435,9 +463,9 @@ var mcss;
             extend: function () {
                 var ll = this.match('AT_KEYWORD');
                 this.match('WS');
-                var node = new tree.Extend(this.selectorList());
+                var node = tree.extend(this.selectorList());
                 node.lineno = ll.lineno;
-                this.match(';');
+                this.matchSemiColonIfNoBlock();
                 return node;
             },
             return: function () {
@@ -447,25 +475,26 @@ var mcss;
                 var node = new tree.ReturnStmt(value);
                 this.skip('WS');
                 if (value.type !== 'func') {
-                    this.match(';');
+                    this.matchSemiColonIfNoBlock();
                 }
                 return node;
             },
             import: function () {
-                var node, url, queryList, ll, self = this;
+                var node, url, queryList, ll, la, self = this;
                 this.match('AT_KEYWORD');
                 this.match('WS');
                 ll = this.ll();
-                if (ll.type === 'URL' || ll.type === 'STRING') {
+                la = this.la();
+                if (la === 'STRING' || la === 'URL') {
                     url = ll;
                     this.next();
                 } else {
-                    this.error('expect URL or STRING' + ' got ' + ll.type, ll.linno);
+                    this.error('expect URL or STRING' + ' got ' + ll.type, ll.lineno);
                 }
                 this.eat('WS');
                 if (!this.eat(';')) {
                     queryList = this.media_query_list();
-                    this.match(';');
+                    this.matchSemiColonIfNoBlock();
                 }
                 var node = new tree.Import(url, queryList), extname = path.extname(url.value), filename, stat, p;
                 if (extname !== '.css') {
@@ -491,7 +520,7 @@ var mcss;
                                 }
                             });
                         this.promises.push(p);
-                        this.match(';');
+                        this.matchSemiColonIfNoBlock();
                         return node;
                     } else {
                         ruleset = this.ruleset();
@@ -524,7 +553,7 @@ var mcss;
                 return new tree.IfStmt(test, block, alt);
             },
             for: function () {
-                var element, index, list, of, block;
+                var element, index, list, of, block, by;
                 this.match('AT_KEYWORD');
                 this.match('WS');
                 element = this.ll().value;
@@ -533,16 +562,21 @@ var mcss;
                     index = this.ll().value;
                     this.match('VAR');
                 }
-                this.match('WS');
-                of = this.ll();
-                if (of.value !== 'of') {
-                    this.error('for statement need "of" but got:' + of.value, of.lineno);
+                this.eat('WS');
+                if (this.ll().value === 'by') {
+                    this.next();
+                    this.eat('WS');
+                    by = this.expression();
+                    this.eat('WS');
                 }
-                this.match('TEXT');
+                of = this.match('TEXT');
+                if (of.value !== 'of' && of.value !== 'in') {
+                    this.error('for statement need of or in KEYWORD but got:' + of.value, of.lineno);
+                }
                 list = this.valuesList();
                 this.eat('WS');
                 block = this.block();
-                return new tree.ForStmt(element, index, list, block);
+                return new tree.ForStmt(element, index, list, block, of.value == 'in', by);
             },
             media: function () {
                 this.match('AT_KEYWORD');
@@ -575,7 +609,7 @@ var mcss;
                     type += (type ? ' ' : '') + ll.value;
                 }
                 this.eat('WS');
-                while ((ll = this.ll()).type === 'TEXT' || ll.type === 'FUNCTION' && ll.value === 'and') {
+                while ((ll = this.ll()).type === 'TEXT' && ll.value === 'and') {
                     this.next();
                     this.match('WS');
                     expressions.push(this.media_expression());
@@ -599,7 +633,7 @@ var mcss;
                 var lineno = this.ll().lineno;
                 this.match('AT_KEYWORD');
                 this.eat('WS');
-                var name = this.match('FUNCTION', 'TEXT');
+                var name = this.expression();
                 if (!name)
                     this.error('@keyframes\'s name should specify', lineno);
                 if (name.type === 'FUNCTION') {
@@ -628,14 +662,14 @@ var mcss;
                     this.error('@page only accpet PSEUDO_CLASS', keyword.lineno);
                 this.eat('WS');
                 var block = this.block();
-                return new tree.Directive('page', tk.createToken('TEXT', selector, keyword.lineno), block);
+                return tree.directive('page', tk.createToken('TEXT', selector, keyword.lineno), block);
             },
             debug: function () {
                 this.match('AT_KEYWORD');
                 this.match('WS');
                 var value = this.valuesList();
                 var node = new tree.Debug(value);
-                this.match(';');
+                this.matchSemiColonIfNoBlock();
                 return node;
             },
             vain: function () {
@@ -669,7 +703,7 @@ var mcss;
                         declareOrStmt = this.mark().declaration() || this.restore().stmt();
                     }
                     node.list.push(declareOrStmt);
-                    this.skip('WS');
+                    this.skipStart();
                 }
                 return node;
             },
@@ -698,7 +732,7 @@ var mcss;
                     } else if (isSelectorSep(ll.type)) {
                         if (ll.type === 'DIMENSION') {
                             if (ll.unit !== '%')
-                                this.error('invalid selector element: ' + ll.type + ':' + ll.value, ll.lineno);
+                                this.error('UNEXPECT: ' + ll.type, ll.lineno);
                         }
                         value = ll.type === 'DIMENSION' ? ll.value + '%' : ll.value || (ll.type === 'WS' ? ' ' : ll.type);
                         selectorString += value;
@@ -724,7 +758,7 @@ var mcss;
                 this.eat('WS');
                 if (!this.eat(':'))
                     return;
-                if (node.property.value === 'filter') {
+                if (node.property.value && /filter$/.test(node.property.value.toLowerCase())) {
                     this.enter(states.FILTER_DECLARATION);
                 }
                 this.enter(states.TRY_DECLARATION);
@@ -739,11 +773,8 @@ var mcss;
                 if (this.eat('IMPORTANT')) {
                     node.important = true;
                 }
-                this.eat('WS');
                 if (!noEnd) {
-                    if (this.la() !== '}') {
-                        this.match(';');
-                    }
+                    this.matchSemiColonIfNoBlock();
                 }
                 this.leave(states.FILTER_DECLARATION);
                 return node;
@@ -765,24 +796,16 @@ var mcss;
             values: function () {
                 var list = [], value;
                 while (true) {
-                    value = this.value();
+                    value = this.expression();
                     if (!value)
                         break;
-                    if (value.type === 'values') {
-                        list = list.concat(value.list);
-                    } else {
-                        list.push(value);
-                    }
+                    list.push(value);
                 }
                 if (list.length === 1)
                     return list[0];
                 if (list.length === 0)
                     return null;
                 return new tree.Values(list);
-            },
-            value: function () {
-                this.eat('WS');
-                return this.expression();
             },
             assign: function () {
                 var ll = this.ll(), la, name = ll.value, value;
@@ -792,9 +815,21 @@ var mcss;
                 return new tree.Assign(name, value, op === '?=' ? false : true);
             },
             assignExpr: function (hasComma) {
-                var la = this.la();
-                if (la === '{' || la === '(') {
+                var la = this.la(), node, fn = hasComma ? 'valuesList' : 'values';
+                if (la === '{')
                     return this.func();
+                if (la === '(') {
+                    this.mark();
+                    try {
+                        return this.func();
+                    } catch (e) {
+                        if (e.expect && e.expect == '{' || e.expect == 'VAR') {
+                            this.restore();
+                            return this[fn]();
+                        } else {
+                            throw e;
+                        }
+                    }
                 } else {
                     return this[hasComma ? 'valuesList' : 'values']();
                 }
@@ -813,7 +848,7 @@ var mcss;
                 var rest = 0, params = [];
                 if (this.la() !== ')') {
                     do {
-                        param = this.param();
+                        var param = this.param();
                         if (param.rest)
                             rest++;
                         params.push(param);
@@ -839,8 +874,6 @@ var mcss;
             },
             expression: function () {
                 this.eat('WS');
-                if (this.la(2) === '...')
-                    return this.range();
                 return this.logicOrExpr();
             },
             logicOrExpr: function () {
@@ -854,7 +887,6 @@ var mcss;
                             left = right;
                         }
                     } else {
-                        console.log(la);
                         left = new tree.Operator(la, left, right);
                     }
                     this.eat('WS');
@@ -893,31 +925,6 @@ var mcss;
                 }
                 return left;
             },
-            range: function () {
-                var left = this.ll(), node = new tree.ValuesList(), right, lc, rc, reverse;
-                this.match('DIMENSION');
-                this.eat('...');
-                right = this.ll();
-                this.match(left.type);
-                lc = left.value;
-                rc = right.value;
-                reverse = lc > rc;
-                for (; lc != rc;) {
-                    node.list.push({
-                        type: left.type,
-                        value: lc
-                    });
-                    if (reverse)
-                        lc -= 1;
-                    else
-                        lc += 1;
-                }
-                node.list.push({
-                    type: left.type,
-                    value: lc
-                });
-                return node;
-            },
             binop1: function () {
                 var left = this.binop2(), right, la, ll;
                 this.eat('WS');
@@ -935,11 +942,17 @@ var mcss;
                 return left;
             },
             binop2: function () {
-                var left = this.unary(), right, la;
-                var ws;
+                var left = this.unary(), right, la, ws;
                 if (this.eat('WS'))
                     ws = true;
-                while ((la = this.la()) === '*' || la === '/' || la === '%') {
+                la = this.la();
+                if (la === '...') {
+                    this.next();
+                    this.eat('WS');
+                    right = this.unary();
+                    return tree.range(left, right, left.lineno);
+                }
+                while (la === '*' || la === '/' || la === '%') {
                     if (la == '/' && !ws && this.la(2) !== 'WS') {
                         return left;
                     }
@@ -952,6 +965,7 @@ var mcss;
                         left = new tree.Operator(la, left, right);
                     }
                     this.eat('WS');
+                    la = this.la();
                 }
                 return left;
             },
@@ -1072,7 +1086,7 @@ var mcss;
                 var ll = this.ll(), name = ll.value, args = [];
                 this.match('FUNCTION', 'VAR');
                 if (ll.args) {
-                    return new tree.Call(name, ll.args);
+                    return tree.call(name, ll.args);
                 }
                 this.eat('WS');
                 this.match('(');
@@ -1087,8 +1101,7 @@ var mcss;
                 }
                 this.leave(states.FUNCTION_CALL);
                 this.match(')');
-                var node = new tree.Call(name, args);
-                node.lineno = ll.lineno;
+                var node = tree.call(name, args, ll.lineno);
                 return node;
             },
             transparentCall: function () {
@@ -1096,15 +1109,12 @@ var mcss;
                 var name = ll.value;
                 this.match('VAR');
                 this.match(':');
-                var args = this.valuesList();
-                if (args.type === 'values') {
-                    args = new tree.ValuesList(args.list);
-                }
-                if (args.type !== 'valueslist')
-                    args = [args];
-                var node = new tree.Call(name, args);
-                this.match(';');
-                node.lineno = ll.lineno;
+                var args = [];
+                do {
+                    args.push(this.assignExpr());
+                    this.eat('WS');
+                } while (this.eat(','));
+                var node = tree.call(name, args, ll.lineno);
                 return node;
             },
             _lookahead: function () {
@@ -1259,8 +1269,8 @@ var mcss;
                 }
             },
             {
-                regexp: $(/(url|url\-prefix|domain|regexp){w}*\({w}*['"]?([^\r\n\f]*?)['"]?{w}*\)/),
-                action: function (yytext, name, url) {
+                regexp: $(/(url|url\-prefix|domain|regexp){w}*\((['"])?{w}*([^\r\n\f]*?)\2{w}*\)/),
+                action: function (yytext, name, quote, url) {
                     this.yyval = url;
                     if (name === 'url')
                         return 'URL';
@@ -1275,7 +1285,7 @@ var mcss;
                 }
             },
             {
-                regexp: $(/(?:[\$-]?[_A-Za-z][-_\w]*)(?={w}*\()/),
+                regexp: $(/(?:[\$-]?[_A-Za-z][-_\w]*)(?=\()/),
                 action: function (yytext) {
                     this.yyval = yytext;
                     return 'FUNCTION';
@@ -1538,7 +1548,7 @@ var mcss;
                     if (test && !test(type)) {
                         var message = 'invalid param or operand : ' + type;
                         if (this.error) {
-                            this.error(message, args[i].lineno);
+                            this.error(message, args[0].lineno);
                         } else {
                             throw Error(message);
                         }
@@ -1986,9 +1996,10 @@ var mcss;
             }
             return this;
         };
-        function SelectorList(list) {
+        function SelectorList(list, lineno) {
             this.type = 'selectorlist';
             this.list = list || [];
+            this.lineno = lineno;
         }
         SelectorList.prototype.clone = function () {
             var clone = new SelectorList(cloneNode(this.list));
@@ -1996,6 +2007,9 @@ var mcss;
         };
         SelectorList.prototype.len = function () {
             return this.list.length;
+        };
+        exports.selectorlist = function (list, lineno) {
+            return new SelectorList(list, lineno);
         };
         function ComplexSelector(string, interpolations) {
             this.type = 'complexselector';
@@ -2113,12 +2127,13 @@ var mcss;
             }
             return this;
         };
-        function ValuesList(list) {
+        function ValuesList(list, lineno) {
             this.type = 'valueslist';
             this.list = list || [];
+            this.lineno = lineno;
         }
         ValuesList.prototype.clone = function () {
-            var clone = new ValuesList(cloneNode(this.list));
+            var clone = new ValuesList(cloneNode(this.list), this.lineno);
             return clone;
         };
         ValuesList.prototype.flatten = function () {
@@ -2136,6 +2151,9 @@ var mcss;
         };
         ValuesList.prototype.first = function () {
             return this.list[0].list[0];
+        };
+        exports.valueslist = function (list, lineno) {
+            return new ValuesList(list, lineno);
         };
         function Unknown(name) {
             this.type = 'unknown';
@@ -2187,6 +2205,9 @@ var mcss;
             var clone = new Extend(this.selector);
             return clone;
         };
+        exports.extend = function (selector) {
+            return new Extend(selector);
+        };
         function Module(name, block) {
             this.type = 'module';
             this.block = block;
@@ -2211,7 +2232,7 @@ var mcss;
             this.stylesheet = stylesheet;
         }
         Import.prototype.clone = function () {
-            var clone = new Import(this.url, this.queryList, this.promise);
+            var clone = new Import(this.url, this.queryList, this.stylesheet);
             return clone;
         };
         function IfStmt(test, block, alt) {
@@ -2224,15 +2245,18 @@ var mcss;
             var clone = new IfStmt(cloneNode(this.test), cloneNode(this.block), cloneNode(this.alt));
             return clone;
         };
-        function ForStmt(element, index, list, block) {
+        function ForStmt(element, index, list, block, isIn, by) {
             this.type = 'for';
             this.element = element;
             this.index = index;
             this.list = list;
             this.block = block;
+            this.isIn = isIn || false;
+            this.by = by;
         }
         ForStmt.prototype.clone = function () {
-            var clone = new ForStmt(this.element, this.index, cloneNode(this.list), cloneNode(this.block));
+            var clone = new ForStmt(this.element, this.index, cloneNode(this.list), cloneNode(this.block), this.isIn, cloneNode(this.by));
+            clone.isIn = this.isIn;
             return clone;
         };
         function ReturnStmt(value) {
@@ -2296,14 +2320,18 @@ var mcss;
             var clone = new Unary(cloneNode(this.value), this.op);
             return clone;
         };
-        function Call(name, args) {
+        function Call(name, args, lineno) {
             this.type = 'call';
             this.name = name;
             this.args = args || [];
+            this.lineno = lineno;
         }
         Call.prototype.clone = function () {
             var clone = new Call(this.name, cloneNode(this.args));
             return clone;
+        };
+        exports.call = function (name, args, lineno) {
+            return new Call(name, args, lineno);
         };
         function FontFace(block) {
             this.type = 'fontface';
@@ -2328,7 +2356,7 @@ var mcss;
             this.expressions = expressions || [];
         }
         MediaQuery.prototype.clone = function () {
-            var clone = new MediaQuery(this.mediaType, cloneNode(this.list));
+            var clone = new MediaQuery(this.mediaType, cloneNode(this.expressions));
             return clone;
         };
         MediaQuery.prototype.equals = function (media) {
@@ -2402,9 +2430,27 @@ var mcss;
             this.value = value;
             this.block = block;
         }
+        function Range(start, end) {
+            this.type = 'range';
+            this.start = start;
+            this.end = end;
+        }
+        Range.prototype.clone = function () {
+            var clone = new Range(cloneNode(this.start), cloneNode(this.end));
+            clone.lineno = this.lineno;
+            return clone;
+        };
+        exports.range = function (start, end, lineno) {
+            var node = new Range(start, end);
+            node.lineno = lineno;
+            return node;
+        };
         Directive.prototype.clone = function () {
             var clone = new Directive(this.name, cloneNode(this.value), cloneNode(this.block));
             return clone;
+        };
+        exports.directive = function (name, value, block) {
+            return new Directive(name, value, block);
         };
         exports.Stylesheet = Stylesheet;
         exports.SelectorList = SelectorList;
@@ -2486,6 +2532,8 @@ var mcss;
             };
         var precision = 6;
         exports.toStr = function (ast) {
+            if (!ast)
+                return '';
             switch (ast.type) {
             case 'TEXT':
             case 'BOOLEAN':
@@ -2499,7 +2547,7 @@ var mcss;
             case 'color':
                 return ast.toCSS();
             case 'func':
-                return '[Node Func]';
+                return '';
             case 'values':
                 return ast.list.map(function (item) {
                     return exports.toStr(item);
@@ -3461,6 +3509,7 @@ var mcss;
             if (!exports.isMcssError(error)) {
                 throw error;
             }
+            console.log(error.filename);
             var source = error.source, lines = source.split(/\r\n|[\r\f\n]/), pos = error.pos, message = error.message, line = error.line || 1, column = error.column || 0, start = Math.max(1, line - 5);
             end = Math.min(lines.length, line + 4), res = [
                 color(error.name + ':' + message, 'red', null, 'bold'),
@@ -4079,10 +4128,11 @@ var mcss;
         options.mixTo(_);
         Event.mixTo(_);
         _._walk = function (ast) {
-            var name = ast.type.toLowerCase();
-            var walkers = this.get('walkers');
             var res = walk.apply(this, arguments);
-            this.trigger(name, ast);
+            if (!ast || !ast.type)
+                return res;
+            var name = ast.type.toLowerCase();
+            this.trigger(name, res || ast);
             return res;
         };
         var errors = { 'RETURN': u.uid() };
@@ -4090,8 +4140,9 @@ var mcss;
         _.ierror = new Error();
         _.interpret = function (ast) {
             this.ast = ast;
-            this.scope = new symtab.Scope();
+            this.scope = this.globalScope = new symtab.Scope();
             this.istack = [];
+            this._globalImports = [];
             this.rulesets = [];
             this.medias = [];
             this.indent = 0;
@@ -4131,7 +4182,7 @@ var mcss;
         };
         _.walk_ruleset = function (ast) {
             this.rulesets.push(ast);
-            var rawSelector = this.walk(ast.selector), values = ast.values, iscope, res = [];
+            var rawSelector = this.walk(ast.selector), values = ast.values, res = [];
             this.rulesets.pop();
             var self = this;
             rawSelector.list.forEach(function (complex) {
@@ -4146,18 +4197,15 @@ var mcss;
             ast.filename = this.get('filename');
             if (values) {
                 for (var i = 0, len = values.length; i < len; i++) {
-                    iscope = new symtab.Scope();
-                    this.push(iscope);
                     this.define('$i', {
                         type: 'DIMENSION',
                         value: i
                     });
                     this.define('$item', values[i]);
                     var block = ast.block.clone();
-                    var selector = new tree.SelectorList([rawSelector.list[i]]);
+                    var selector = tree.selectorlist([rawSelector.list[i]], ast.lineno);
                     var ruleset = new tree.RuleSet(selector, block);
                     res.push(this.walk(ruleset));
-                    this.pop();
                 }
             } else {
                 this.down(ast);
@@ -4241,13 +4289,18 @@ var mcss;
         };
         _.walk_var = function (ast) {
             var symbol = this.resolve(ast.value);
-            if (symbol)
+            if (symbol) {
+                symbol = tree.cloneNode(symbol);
+                symbol.lineno = ast.lineno;
                 return symbol;
-            else
+            } else {
                 this.error('Undefined variable: ' + ast.value, ast);
+            }
         };
         _.walk_url = function (ast) {
             var self = this, symbol;
+            if (!ast.value)
+                console.log(ast, this.get('filename'));
             ast.value = ast.value.replace(/#\{(\$\w+)}/g, function (all, name) {
                 if (symbol = self.resolve(name)) {
                     return tree.toStr(symbol);
@@ -4265,8 +4318,10 @@ var mcss;
                 if (value.type !== 'DIMENSION') {
                     this.error(op + ' Unary operator only accept DIMENSION bug got ' + value.type, ast.lineno);
                 }
-                value.value = op === '-' && -value.value;
-                return value;
+                var rvalue = op === '-' && -value.value;
+                var node = tree.token('DIMENSION', rvalue, ast.lineno);
+                node.unit = value.unit;
+                return node;
             case '!':
                 var test = tree.toBoolean(value);
                 if (test === undefined) {
@@ -4313,18 +4368,30 @@ var mcss;
             }
         };
         _.walk_for = function (ast) {
-            var list = this.walk(ast.list), index = ast.index, element = ast.element, block, iscope, len, res = [];
+            var list = this.walk(ast.list), index = ast.index, isIn = ast.isIn, by = this.walk(ast.by), element = ast.element, block, iscope, len, res = [], item, key, value;
+            by = by && by.value ? Math.round(by.value) : 1;
             if (!list.list) {
-                this.error('@for atrule need values or valueslist to loop but got: ' + list.type, ast.list.lineno);
+                list = [list];
+            } else {
+                list = list.list;
             }
-            list = list.flatten().list;
-            for (var i = 0, len = list.length; i < len; i++) {
-                this.define(element, list[i]);
+            var len = list.length, i = by < 0 ? len - 1 : 0;
+            for (; i < len && i >= 0; i += by) {
+                item = list[i];
+                if (isIn) {
+                    if (item.type !== 'values') {
+                        this.error('list in @for in statement must confirm the all elem is values type', ast.list.lineno);
+                    }
+                    value = item.list[1];
+                    key = item.list[0];
+                } else {
+                    value = item;
+                    if (index)
+                        key = tree.token('DIMENSION', i, ast.list.lineno);
+                }
+                this.define(element, value);
                 if (index)
-                    this.define(index, {
-                        type: 'DIMENSION',
-                        value: i
-                    });
+                    this.define(index, key);
                 block = this.walk(ast.block.clone());
                 res.push(block);
             }
@@ -4346,17 +4413,16 @@ var mcss;
                         return ast;
                 }
             }
-            iscope = new symtab.Scope();
+            var iscope = new symtab.Scope();
             params = func.params;
             this.push(iscope);
             for (var i = 0, offset = 0, len = params.length; i < len; i++) {
                 var param = params[i];
                 if (param.rest) {
-                    var remained = len - 1 - i;
-                    var restArgsLen = args.length - 1 - remained;
+                    var remained = len - 1 - i, restArgsLen = args.length - i - remained;
                     restArgsLen = restArgsLen > 0 ? restArgsLen : 1;
                     var restArgs = args.slice(i, i + restArgsLen);
-                    var passArg = new tree.ValuesList(restArgs);
+                    var passArg = tree.valueslist(restArgs, ast.lineno);
                     this.define(param.name, passArg);
                     if (restArgsLen > 1) {
                         offset += restArgsLen - 1;
@@ -4372,9 +4438,12 @@ var mcss;
             this.define('$arguments', new tree.ValuesList(args));
             try {
                 var prev = this.scope;
+                var pref = this.get('filename');
+                this.set('filename', func.filename);
                 this.scope = func.scope;
                 var block = this.walk(func.block.clone());
             } catch (err) {
+                this.set('filename', pref);
                 this.scope = prev;
                 this.pop(iscope);
                 if (err.code === errors.RETURN) {
@@ -4390,6 +4459,7 @@ var mcss;
             }
             this.scope = prev;
             this.pop(iscope);
+            this.set('filename', pref);
             return block;
         };
         _.walk_return = function (ast) {
@@ -4400,6 +4470,7 @@ var mcss;
         _.walk_func = function (ast) {
             ast.params = this.walk(ast.params);
             ast.scope = this.scope;
+            ast.filename = this.get('filename');
             return ast;
         };
         _.walk_param = function (ast) {
@@ -4434,6 +4505,12 @@ var mcss;
                     var media = new tree.Media(queryList, stylesheet);
                     return this.walk(media);
                 } else {
+                    if (~this._globalImports.indexOf(ast.filename) && this.scope === this.globalScope) {
+                        u.log(colorify('WARNING:', 'yellow') + '(' + ast.filename + ') is import twice, mcss forbid default');
+                        return;
+                    } else {
+                        this._globalImports.push(ast.filename);
+                    }
                     var pre = this.get('filename');
                     this.set('filename', ast.filename);
                     var list = this.walk(stylesheet).list;
@@ -4495,7 +4572,7 @@ var mcss;
         _.walk_compoundident = function (ast) {
             var text = '', self = this;
             this.walk(ast.list).forEach(function (item) {
-                text += typeof item === 'string' ? item : self.walk(item).value;
+                text += typeof item === 'string' ? item : tree.toStr(self.walk(item));
             });
             return {
                 type: 'TEXT',
@@ -4510,6 +4587,17 @@ var mcss;
         _.walk_values = function (ast) {
             ast.list = this.walk(ast.list);
             return ast;
+        };
+        _.walk_range = function (ast) {
+            var start = this.walk(ast.start), end = this.walk(ast.end), lineno = ast.lineno;
+            if (start.type !== 'DIMENSION' || end.type !== 'DIMENSION') {
+                this.error('range"s start and end must be all DIMENSION type');
+            }
+            var svalue = Math.round(start.value), evalue = Math.round(end.value), list = [];
+            for (; svalue <= evalue; svalue++) {
+                list.push(tree.token('DIMENSION', svalue, ast.lineno));
+            }
+            return tree.valueslist(list, ast.lineno);
         };
         _.down = function (ruleset, media) {
             if (ruleset)
@@ -4806,11 +4894,27 @@ var mcss;
                 hsl: function () {
                     return _.hsla.apply(this, arguments);
                 },
-                mix: function () {
+                mix: function (c1, c2, weight) {
+                    if (weight && weight.unit !== '%')
+                        this.error('weight param must be a percent');
+                    var a = c1.alpha - c2.alpha, p = (weight && weight.value || 50) / 100, w = p * 2 - 1, w1 = ((w * a == -1 ? w : (w + a) / (1 + w * a)) + 1) / 2, w2 = 1 - w1, alpha = c1.alpha * p + c2.alpha * (1 - p), channels = [
+                            c1[0] * w1 + c2[0] * w2,
+                            c1[1] * w1 + c2[1] * w2,
+                            c1[2] * w1 + c2[2] * w2
+                        ];
+                    return new Color(channels, alpha);
                 }.__accept([
                     'color',
-                    'color'
+                    'color',
+                    'DIMENSION'
                 ]),
+                define: function (name, value) {
+                    name = name.value;
+                    if (!name || !value)
+                        this.error('invalid passed param in define');
+                    this.define(name, value);
+                    return value;
+                }.__accept(['TEXT STRING']),
                 typeof: function (node) {
                     return node.type.toLowerCase();
                 },
@@ -4821,13 +4925,6 @@ var mcss;
                         this.error(e.message);
                     }
                 }.__accept(['STRING']),
-                u: function (str) {
-                    return {
-                        type: 'TEXT',
-                        value: str.value,
-                        lineno: str.lineno
-                    };
-                }.__accept(['STRING']),
                 join: function (list, separator) {
                     separator = separator ? separator.value : '-';
                     return tree.token('TEXT', list.list.map(tree.toStr).join(separator), list.lineno);
@@ -4836,7 +4933,7 @@ var mcss;
                     'TEXT STRING'
                 ]),
                 t: function (node) {
-                    var text = tree.toStr();
+                    var text = tree.toStr(node);
                     if (text == null)
                         text = '';
                     return tree.token('TEXT', text, node.lineno);
@@ -4885,6 +4982,24 @@ var mcss;
                     }
                 }.__accept(['STRING'])
             };
+        _.list = function (list, index, value) {
+        }.__accept(['values valueslist']);
+        [
+            'push',
+            'unshift',
+            'pop',
+            'shift',
+            'indexOf'
+        ].forEach(function (name) {
+            _[name] = function (list, item) {
+                var type = list.type;
+                if (type !== 'valueslist' || type !== 'values') {
+                    this.error(name + ' first param only accpet values or valueslist');
+                }
+                list.list[name](item);
+                return list;
+            };
+        });
         _['-adjust'] = function (color, prop, weight, absolute) {
             var p = prop.value, key = channelsMap[p];
             var isAbsolute = tree.toBoolean(absolute);
@@ -5082,7 +5197,7 @@ var mcss;
                     if (list[i].type !== 'declaration' && this.has('format', 3)) {
                         buffer.add('\n');
                     }
-                    if (i !== len - 1) {
+                    if (i !== len - 1 && item !== '') {
                         buffer.add(this.newline + indent);
                     }
                 }
@@ -5132,16 +5247,9 @@ var mcss;
         };
         _.walk_keyframes = function (ast) {
             var prefix = this.get('prefix'), buffer = this.buffer, store;
-            if (prefix && prefix.length && ast.fullname === 'keyframes')
-                buffer.mark();
             var str = '@' + ast.fullname + ' ' + this.walk(ast.name);
             buffer.add(str);
             this.walk(ast.block);
-            if (store = buffer.restore()) {
-                for (var i = 0; i < prefix.length; i++) {
-                    buffer.add('\n' + store.replace('@keyframes', '@-' + prefix[i] + '-keyframes'));
-                }
-            }
         };
         var stepmap = {
                 from: '0%',

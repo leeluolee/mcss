@@ -11,3 +11,4 @@
 @debug hsla(10, 10%, 10%, 0.2);
 @debug hsla(10, 10%, 10%, 0.2);
 @debug 'text' + text;
+@debug rgba(1,1,1,0) == rgba(1,1,1,0);

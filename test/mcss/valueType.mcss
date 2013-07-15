@@ -12,6 +12,8 @@ valueType{
     tq-string: "hello-mcss";
     values: 10px #fff hello;
     valueslist: 10px #fff, hello, 20px;
+    range: -1...10;
+    range: -1.1...2.1;
 }
 
 $func = (){}

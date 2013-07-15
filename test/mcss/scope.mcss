@@ -14,29 +14,44 @@ $name= global;
     }
     name: $name;
 }
-@debug $name;
+body{
+    name: $name;
+}
 
 // some atrule have own block scope ,like @media
 // some not like @if、@for 、@import and other@atrule
-
 @media print{
     $left = 10px;
     @media (min-width: 30px){
         $left = 20px;
+        body{
+            left: $left;
+        }
+        
+    }
+    body{
+        left: $left;
     }
 }
 
+$local = global;
 @if 1 {
-    $local = 20px;
+    $local = ifstmt;
 }
-@debug $local; // 20px;
-
-@for $item of 1,2,3{}
-@debug $item;  // 3
-
-@for $item of 4,5,6{}
-@debug $item;  // 6
+body{
+    local: $local;
+}
 
 
 // 2. function scope created when function be called
 // ==============================================
+
+$name = 10px;
+$fn = (){
+
+}
+
+body{
+
+}
+

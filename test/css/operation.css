@@ -1,4 +1,3 @@
-
 body{
 	add1:30;
 	add2:30px;
@@ -12,34 +11,12 @@ body{
 	add10:hellopx;
 	add11:hellopx;
 	add12:"hellopx";
-	sub1:-10;
-	sub2:-10px;
-	sub3:-10pt;
-	sub4:-10em;
-	sub5:10 -20;
-	sub6:10px -20px;
-	sub7:10pt -20;
-	sub8:10 -20em;
 }
 body{
 	mult1:100;
 	mult2:100px;
 	mult3:100pt;
 	mult4:100pt;
-	div1:10/10;
-	div2:10px/10;
-	div3:10/10pt;
-	div4:10pt/10px;
-	div1:1;
-	div2:1px;
-	div3:1pt;
-	div4:1pt;
-	remain:3;
-	remain:21% 6;
-	remain:3px;
-	remain:3px;
-	remain:21% 6px;
-	remain:3px;
 }
 body{
 	or1:1;
@@ -63,6 +40,7 @@ body{
 	eq2:false;
 	nq1:false;
 	nq2:true;
+	nq3:true;
 }
 body{
 	paren1:190;
@@ -72,4 +50,28 @@ body{
 body{
 	complex1:"name10px20px";
 	complex2:1px;
+}
+body{
+	sub1:-10;
+	sub2:-10px;
+	sub3:-10pt;
+	sub4:-10em;
+	sub5:10 -20;
+	sub6:10px -20px;
+	sub7:10pt -20;
+	sub8:10 -20em;
+	div1:10/10;
+	div2:10px/10;
+	div3:10/10pt;
+	div4:10pt/10px;
+	div1:1;
+	div2:1px;
+	div3:1pt;
+	div4:1pt;
+	remain:3;
+	remain:21% 6;
+	remain:3px;
+	remain:3px;
+	remain:21% 6px;
+	remain:3px;
 }

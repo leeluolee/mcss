@@ -33,3 +33,20 @@ body{
    $btn-with-color(6px, $border-radius);
 }
 
+
+$k = k;
+$b = (){
+  $a = a;
+  @return ($b){
+    @return ($c){
+      @return $b $c $k $a;
+    }
+  }
+}
+
+$c = $b();
+$d = $c(b);
+body{
+  left: $d(c);
+}
+

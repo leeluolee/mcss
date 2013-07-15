@@ -4,11 +4,14 @@ $right = 20px;
 // extended class
 .abs4{
     name: abs3;
-    left: $left;
+    // left: $left;
 }
 .abs5{
-    name: abs4;
-    left: $left;
+    name: abs5;
+    // left: $left;
+    bg: rgba( #FEEEB3, 0.1) ;
+    primay: rgba( #FE5C47, 0.1) ;
+    invert: rgba(#35ABA3, 0.1);
+    highlight: rgba(#663B5B, 0.2);
 }
-
 

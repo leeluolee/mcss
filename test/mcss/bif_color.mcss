@@ -159,4 +159,7 @@ body{
     /**
      * other Color functions
      */
+
+    // mix
+    color: mix(rgba(100,0,0, 1), rgba(0,100,0, 0.5));
 }

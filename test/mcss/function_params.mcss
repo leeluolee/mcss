@@ -27,6 +27,9 @@ $rest-param-3 = ($left... , $right){
     left: $left;
     right: $right;
 }
+$rest-param-4 = ($left...){
+    left: $left;
+}
 
 
 
@@ -52,6 +55,14 @@ body-rest-1{
 body-rest-2{
     $rest-param-2(1, 2, 3, 4);
 }
+
+body-rest-3{
+    $rest-param-3(1, 2, 3, 4);
+}
+body-rest-4{
+    $rest-param-4(1, 2, 3, 4);
+}
+
 
 
 

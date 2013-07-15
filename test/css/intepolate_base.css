@@ -1,4 +1,3 @@
-
 .string-intepolate{
 	name:"30px haha";
 }
@@ -7,7 +6,6 @@
 	-mz-foo:foo;
 	-moz-foo:foo;
 	-webkit-foo:foo;
-	-vendor-foo:foo;
 	test:textheiheihaha;
 	test:textheiheihaha;
 }

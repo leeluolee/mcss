@@ -1,4 +1,3 @@
-
 @charset "UTF-8"
 html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td,article,aside,canvas,details,embed,figure,figcaption,footer,header,hgroup,menu,nav,output,ruby,section,summary,time,mark,audio,video{
 	margin:0;
@@ -4036,9 +4035,9 @@ input[type=text]+.minibutton{
 }
 .about .employee_container .info{
 	background-color:rgba(0,0,0,0.9);
-	background-image:-moz-linear-gradient(rgba(0,0,0,0),rgba(0,0,0,0.9));
-	background-image:-webkit-linear-gradient(rgba(0,0,0,0),rgba(0,0,0,0.9));
-	background-image:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,0.9));
+	background-image:-moz-linear-gradient(#000000,rgba(0,0,0,0.9));
+	background-image:-webkit-linear-gradient(#000000,rgba(0,0,0,0.9));
+	background-image:linear-gradient(#000000,rgba(0,0,0,0.9));
 	background-repeat:repeat-x;
 	position:absolute;
 	z-index:10;
@@ -9662,7 +9661,7 @@ p.tip strong.protip{
 	-ms-transform:rotate(90deg);
 	-o-transform:rotate(90deg);
 	transform:rotate(90deg);
-	filter:progid:DXImageTransform.Microsoft.Matrix(M11=6.123031769111886e-17,M12=-1,M21=1,M22=6.123031769111886e-17,sizingMethod='auto expand');
+	filter:u("progid:DXImageTransform.Microsoft.Matrix(M11=6.123031769111886e-17,M12=-1,M21=1,M22=6.123031769111886e-17,sizingMethod='auto expand')");
 	zoom:1;
 }
 .zen .pagehead,.zen .tabnav,.zen .topsearch,.zen .notification-indicator,.zen .upper_footer,.zen #user-links{
@@ -13740,50 +13739,6 @@ table.tag-list p a{
 	text-indent:0;
 }
 @keyframes pulse{
-	0%{
-		color:rgba(170,170,170,0.1);
-	}
-	10%{
-		color:#aaaaaa;
-	}
-	100%{
-		color:rgba(170,170,170,0.1);
-	}
-}
-@-webkit-keyframes pulse{
-	0%{
-		color:rgba(170,170,170,0.1);
-	}
-	10%{
-		color:#aaaaaa;
-	}
-	100%{
-		color:rgba(170,170,170,0.1);
-	}
-}
-@-moz-keyframes pulse{
-	0%{
-		color:rgba(170,170,170,0.1);
-	}
-	10%{
-		color:#aaaaaa;
-	}
-	100%{
-		color:rgba(170,170,170,0.1);
-	}
-}
-@-ms-keyframes pulse{
-	0%{
-		color:rgba(170,170,170,0.1);
-	}
-	10%{
-		color:#aaaaaa;
-	}
-	100%{
-		color:rgba(170,170,170,0.1);
-	}
-}
-@-o-keyframes pulse{
 	0%{
 		color:rgba(170,170,170,0.1);
 	}

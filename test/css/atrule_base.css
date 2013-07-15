@@ -1,10 +1,9 @@
-
 @page :first{
 	body:hover{
 		left:10px;
 	}
 }
-@charset "utf8"
+@charset "utf8";
 @-moz-document url("http://www.w3.org/"),url-prefix("http://www.w3.org/Style/"),domain("mozilla.org"),regexp("https:.*"){
 	body{
 		color:#800080;

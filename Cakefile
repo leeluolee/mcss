@@ -2,17 +2,23 @@ path = require 'path'
 fs = require 'fs'
 {spawn, exec} = require 'child_process'
 
-
+globule = require 'globule'
 chokidar = require 'chokidar'
+color = require './lib/helper/color'
 
 # npm information
 info = JSON.parse fs.readFileSync __dirname + '/package.json', 'utf8'
 
 
 option '-m', '--mode [Mode]', 'watcher mode'
+option '-t', '--test', 'build with test'
 
-test = () ->
-
+test = (callback) ->
+  exec 'mocha' ,(err)->
+    return callback err if callback
+    throw err if err
+  
+  
 build = () ->
   wrup = do require "wrapup"
   wrup.require("mcss", __dirname + "/lib/browser.js")
@@ -24,9 +30,27 @@ build = () ->
       fs.writeFile path.join(__dirname, "dist/#{info.name}-#{info.version}.js"), source, (err) ->
         if err 
           console.error(err)
+      fs.writeFile path.join(__dirname, "dist/#{info.name}-latest.js"), source, (err) ->
+        if err 
+          console.error(err)
         else 
           console.log 'build complele'
+
+todo = () ->
+  res = []
+  (globule.find __dirname + '/lib/**/*.js').forEach (file) ->
+    extract = extractTodo(fs.readFileSync file, 'utf8')
+    extract.unshift color(file, 'red') + '\n=================' if extract.length
+    res = res.concat extract
+  console.log(res.join('\n'))
   
+extractTodo = (content) -> 
+  res = []
+  content.replace /@(TODO)[\s:]*([^@\n]*)\n/, (all, title, txt)->
+    res.push title + ':' + txt
+  res
+
+
 
 
 task 'doc', 'Generate annotated source code with Docco', ->
@@ -36,8 +60,11 @@ task 'doc', 'Generate annotated source code with Docco', ->
   docco.stderr.on 'data', (data) -> console.log data.toString()
   docco.on 'exit', (status) -> callback?() if status is 0
 
-task 'build', '', ->
+task 'build', '', (options)->
   build()
+  do test if options.test;
+    
+
 
 task 'watch', 'run the test when lib files modified', (options) ->
   console.log "watcher on in #{options.mode} mode"
@@ -49,5 +76,6 @@ task 'watch', 'run the test when lib files modified', (options) ->
 task 'test', 'Run the test suite', ->
   do test
 
-buildTestMcss = () ->
+task 'todo', 'extract todo', ->
+  do todo
 

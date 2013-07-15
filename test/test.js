@@ -9,6 +9,7 @@ var mcss = require('../'),
     assert = require('assert'),
     path = require('path');
 
+var not_compare = process.argv[2];
 describe('Array', function(){
     var cases = fs.readdirSync(__dirname + '/mcss').filter(function(file){
         return /^[^_][-\w]*\.mcss$/.test(file);
@@ -28,9 +29,10 @@ describe('Array', function(){
         }).include(__dirname+'/mcss/include')
             .translate(content)
             .done(function(content){
-                if(csscontent){
-                    it(fullpath + 'compile result should equal css outport', function(){
+                if(csscontent&&!not_compare){
+                    it(fullpath + 'compile result should equal css outport', function(done){
                         assert.equal(content, csscontent);
+                        done();
                     })
                 }
             }).fail(function(error){
