@@ -29,6 +29,7 @@ describe('Array', function(){
         }).include(__dirname+'/mcss/include')
             .translate(content)
             .done(function(content){
+                console.log(fullpath)
                 if(csscontent&&!not_compare){
                     it(fullpath + 'compile result should equal css outport', function(done){
                         assert.equal(content, csscontent);

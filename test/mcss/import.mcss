@@ -9,7 +9,7 @@ $heihei = 10px;
 }
 
 // import as media type
-@import './_import1' screen and (max-width: 200px);
+@import './_large' screen and (max-width: 200px);
 
 // import raw css
 @import './_raw.css';

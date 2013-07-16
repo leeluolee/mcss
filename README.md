@@ -723,18 +723,6 @@ body{
 
 @abstract block只影响内部的ruleset的输出 ,而不影响块内的其它部分 可以正常进行对block内的变量读取，函数调用, @extend等
 
-你也可以与@import 结合使用
-
-```css
-@abstract {
-  @import 'ui.mcss';
-  .u-btn-large{
-    font-size: 20px;
-  }
-}
-```
-这样内部包括import的模块都被抽象化
-
 
 鉴于有抽象整个import 的 mcss file的需求, 也提供了一个简单写法, 抽象化引入的mcss file;
 

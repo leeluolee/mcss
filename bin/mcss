@@ -7,7 +7,7 @@ var fs = require('fs'),
   color = require('../lib/helper/color'),
   promise = require('../lib/helper/promise'),
   cwd = process.cwd(),
-  version = fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8').version;
+  version = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8')).version;
 
 var isWin = process.platform === 'win32';
 

@@ -31,7 +31,10 @@
 }
 
 // abstract all the rulset in other module
-@abstract '_abstract_import.mcss';
+
+@abstract{
+    @import '_abstract_import.mcss';
+}
 // ----------------------------------------
 // compare:
 // @import './_abstract_import.mcss';

@@ -71,7 +71,7 @@ task 'watch', 'run the test when lib files modified', (options) ->
   watcher = chokidar.watch __dirname + '/lib', persistent: true
   watcher.add __dirname + '/test/mcss' if options.mode is 'test'
   watcher.on 'change', build if options.mode isnt 'test'
-  watcher.on 'change', buildTestMcss 
+  # watcher.on 'change', buildTestMcss 
 
 task 'test', 'Run the test suite', ->
   do test

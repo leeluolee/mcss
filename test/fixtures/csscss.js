@@ -26,12 +26,10 @@ function findDupls(a, b){
 
 
 // mcss 实例创建
-var instance = mcss({
-    filename: path.join(__dirname, '../css/_large.css'),
-    // 默认是不引入 css file的
-    importCSS: true
+mcss( {
+    filename: path.join(__dirname, '../css/_large.css')
 
-}).walk('ruleset', function(ast){  // walker 片断
+}).set('importCSS', true).walk('ruleset', function(ast){  // walker 片断
     // 获取ruleset的块中的declaration列表
     var list = ast.block.list,
         selector = node.toStr(ast.selector),
@@ -78,3 +76,4 @@ var instance = mcss({
 }).fail(function(err){
     throw err;
 })
+
