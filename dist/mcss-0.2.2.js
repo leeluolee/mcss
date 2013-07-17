@@ -1180,7 +1180,7 @@ var mcss;
                         var filename = url.value;
                     } else {
                         var base = path.dirname(this.options.filename), filename;
-                        if (/^(https|http):\/\//.test(base)) {
+                        if (/^\w+:/.test(base)) {
                             filename = sysUrl.resolve(this.options.filename, url.value);
                         } else {
                             filename = path.join(base, url.value);

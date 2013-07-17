@@ -114,7 +114,7 @@ var build = _.restrict(function(fullpath, first){
     if(first && watch){
       var watchers = _.slice(files);
       imports.forEach(function(file){
-        if(!~watchers.indexOf(file)){
+        if(!~watchers.indexOf(file) && !/^(https|http)/.test(file)){
           watchers.push(file); 
         }
       })

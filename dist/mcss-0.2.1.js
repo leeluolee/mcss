@@ -1045,7 +1045,6 @@ var mcss;
                     this.next();
                     return ll;
                 case '>':
-                case '~':
                 case '+':
                 case '.':
                 case '#':
@@ -1054,7 +1053,6 @@ var mcss;
                 case ':':
                 case '*':
                 case 'PSEUDO_CLASS':
-                case 'CLASS':
                 case 'ATTRIBUTE':
                     if (this.state(states.TRY_DECLARATION)) {
                         this.error(errors.DECLARION_FAIL);
@@ -1180,7 +1178,7 @@ var mcss;
                         var filename = url.value;
                     } else {
                         var base = path.dirname(this.options.filename), filename;
-                        if (/^(https|http):\/\//.test(base)) {
+                        if (/^\w+:/.test(base)) {
                             filename = sysUrl.resolve(this.options.filename, url.value);
                         } else {
                             filename = path.join(base, url.value);
