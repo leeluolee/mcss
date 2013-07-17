@@ -52,18 +52,19 @@ var mcss;
     },
     '1': function (require, module, exports, global) {
         var Parser = require('2');
-        var Interpreter = require('23');
-        var Translator = require('29');
+        var Interpreter = require('24');
+        var Translator = require('2a');
         var tk = require('3');
         var promise = require('e');
-        var functions = require('28');
+        var functions = require('29');
         var path = require('6');
         var _ = require('4');
-        var io = require('h');
+        var io = require('i');
         var options = require('f');
         var error = require('a');
-        var hooks = require('2c');
-        var helper = require('2g');
+        var hooks = require('2d');
+        var helper = require('2h');
+        var state = require('h');
         function Mcss(options) {
             if (typeof options.prefix === 'string') {
                 options.prefix = options.prefix.split(/\s+/);
@@ -180,6 +181,7 @@ var mcss;
         mcss.error = error;
         mcss.path = path;
         mcss.helper = helper;
+        mcss.state = state;
         mcss.connect = function (options) {
             return function () {
             };
@@ -198,8 +200,10 @@ var mcss;
         var fs = null;
         var sysUrl = null;
         var symtab = require('g');
+        var state = require('h');
         var error = require('a');
-        var io = require('h');
+        var io = require('i');
+        var remoteFileCache = state.remoteFileCache;
         var perror = new Error();
         var slice = [].slice;
         var errors = {
@@ -442,7 +446,7 @@ var mcss;
                 var fullname = this.ll().value.toLowerCase();
                 var name = this._removePrefix(fullname);
                 if (typeof this[name] === 'function') {
-                    node = this[name]();
+                    var node = this[name]();
                 } else {
                     node = this.directive();
                 }
@@ -1068,7 +1072,7 @@ var mcss;
                 this.match('(');
                 this.eat('WS');
                 var lineno = this.ll().lineno;
-                node = this.valuesList();
+                var node = this.valuesList();
                 node.lineno = lineno;
                 this.eat('WS');
                 this.match(')');
@@ -1178,10 +1182,14 @@ var mcss;
                 if (!inModule) {
                     if (/^\/|:\//.test(url.value)) {
                         var filename = url.value;
+                        if (/^(https|http):\/\//.test(filename)) {
+                            var isRemote = true;
+                        }
                     } else {
                         var base = path.dirname(this.options.filename), filename;
-                        if (/^(https|http):\/\//.test(base)) {
+                        if (/^(https|http):\/\//.test(base) && sysUrl) {
                             filename = sysUrl.resolve(this.options.filename, url.value);
+                            isRemote = true;
                         } else {
                             filename = path.join(base, url.value);
                         }
@@ -1197,11 +1205,15 @@ var mcss;
                 options._requires = _requires ? _requires.concat([this.get('filename')]) : [this.get('filename')];
                 var pr = promise();
                 var imports = this.get('imports'), text = imports[filename];
-                if (typeof text === 'string') {
+                if (typeof text === 'string' || isRemote && (text = remoteFileCache.get(filename))) {
                     new Parser(options).parse(text).always(pr);
                 } else {
                     io.get(filename).done(function (text) {
-                        imports[filename] = text;
+                        if (isRemote) {
+                            remoteFileCache.set(filename, text);
+                        } else {
+                            imports[filename] = text;
+                        }
                         new Parser(options).parse(text).always(pr).fail(pr);
                     }).fail(function () {
                         var err = new error.SyntaxError(filename + ' FILE NOT FOUND', url.lineno, self.options);
@@ -1539,7 +1551,7 @@ var mcss;
                 this.state = this.states[this.states.length - 1];
             },
             error: function (message) {
-                line = this.lineno;
+                var line = this.lineno;
                 var err = new error.SyntaxError(message, line, this.options);
                 err.column = this._getColumn();
                 throw err;
@@ -1816,6 +1828,28 @@ var mcss;
                 percision = Math.pow(10, 6);
             return Math.round(num * percision) / percision;
         };
+        _.cache = function (max) {
+            var keys = [], cache = {};
+            return {
+                set: function (key, value) {
+                    if (keys.length > this.length) {
+                        delete cache[keys.shift()];
+                    }
+                    cache[key] = value;
+                    keys.push(key);
+                    return value;
+                },
+                get: function (key) {
+                    if (key === undefined)
+                        return cache;
+                    return cache[key];
+                },
+                length: max,
+                len: function () {
+                    return keys.length;
+                }
+            };
+        };
         module.exports = _;
     },
     '5': function (require, module, exports, global) {
@@ -2040,7 +2074,7 @@ var mcss;
         Stylesheet.prototype.abstract = function () {
             var list = this.list, i = list.length;
             for (; i--;) {
-                ruleset = list[i];
+                var ruleset = list[i];
                 if (ruleset && ruleset.type == 'ruleset') {
                     ruleset.abstract = true;
                 }
@@ -2162,7 +2196,7 @@ var mcss;
         Block.prototype.abstract = function () {
             var list = this.list, i = list.length;
             for (; i--;) {
-                ruleset = list[i];
+                var ruleset = list[i];
                 if (ruleset && ruleset.type == 'ruleset') {
                     ruleset.abstract = true;
                 }
@@ -2751,7 +2785,8 @@ var mcss;
             hv = hv || [];
             var r = rv[0] / 255, g = rv[1] / 255, b = rv[2] / 255, max = Math.max(r, g, b), min = Math.min(r, g, b), h, s, l = (max + min) / 2, d;
             if (max == min) {
-                h = s = 0;
+                h = 0;
+                s = 0;
             } else {
                 var d = max - min;
                 s = l >= 0.5 ? d / (2 - max - min) : d / (max + min);
@@ -2775,8 +2810,7 @@ var mcss;
         };
         Color.hsl2rgb = function (hv, rv) {
             rv = rv || [];
-            var r, g, b;
-            h = hv[0] / 360, s = hv[1] / 100, l = hv[2] / 100;
+            var r, g, b, h = hv[0] / 360, s = hv[1] / 100, l = hv[2] / 100;
             function hue2rgb(p, q, t) {
                 if (t < 0)
                     t += 1;
@@ -3595,11 +3629,10 @@ var mcss;
             if (!exports.isMcssError(error)) {
                 throw error;
             }
-            var source = error.source, lines = source.split(/\r\n|[\r\f\n]/), pos = error.pos, message = error.message, line = error.line || 1, column = error.column || 0, start = Math.max(1, line - 5);
-            end = Math.min(lines.length, line + 4), res = [
-                color(error.name + ':' + message, 'red', null, 'bold'),
-                '\tat (' + color(error.filename, 'yellow') + ' : ' + line + ')'
-            ];
+            var source = error.source, lines = source.split(/\r\n|[\r\f\n]/), pos = error.pos, message = error.message, line = error.line || 1, column = error.column || 0, start = Math.max(1, line - 5), end = Math.min(lines.length, line + 4), res = [
+                    color(error.name + ':' + message, 'red', null, 'bold'),
+                    '\tat (' + color(error.filename, 'yellow') + ' : ' + line + ')'
+                ];
             for (var i = start; i <= end; i++) {
                 var cur = lines[i - 1], info;
                 if (i === line) {
@@ -4149,6 +4182,10 @@ var mcss;
         };
     },
     'h': function (require, module, exports, global) {
+        var _ = require('4');
+        module.exports = { remoteFileCache: _.cache(20) };
+    },
+    'i': function (require, module, exports, global) {
         var fs = null;
         var path = null;
         var promise = require('e');
@@ -4156,7 +4193,7 @@ var mcss;
         exports.get = function (path) {
             var pr;
             if (/^http/.test(path) && fs) {
-                var request = require('i').request;
+                var request = require('j').request;
                 pr = promise();
                 request(path, function (err, response, body) {
                     if (err)
@@ -4211,24 +4248,24 @@ var mcss;
             return p;
         };
     },
-    'i': function (require, module, exports, global) {
-        var mcss = module.exports = require('1');
-        mcss.sourcemap = require('j');
-        mcss.request = require('t');
-    },
     'j': function (require, module, exports, global) {
-        exports.SourceMapGenerator = require('k').SourceMapGenerator;
-        exports.SourceMapConsumer = require('q').SourceMapConsumer;
-        exports.SourceNode = require('s').SourceNode;
+        var mcss = module.exports = require('1');
+        mcss.sourcemap = require('k');
+        mcss.request = require('u');
     },
     'k': function (require, module, exports, global) {
+        exports.SourceMapGenerator = require('l').SourceMapGenerator;
+        exports.SourceMapConsumer = require('r').SourceMapConsumer;
+        exports.SourceNode = require('t').SourceNode;
+    },
+    'l': function (require, module, exports, global) {
         if (typeof define !== 'function') {
-            var define = require('l')(module);
+            var define = require('m')(module);
         }
         define(function (require, exports, module) {
-            var base64VLQ = require('m');
-            var util = require('o');
-            var ArraySet = require('p').ArraySet;
+            var base64VLQ = require('n');
+            var util = require('p');
+            var ArraySet = require('q').ArraySet;
             function SourceMapGenerator(aArgs) {
                 this._file = util.getArg(aArgs, 'file');
                 this._sourceRoot = util.getArg(aArgs, 'sourceRoot', null);
@@ -4451,7 +4488,7 @@ var mcss;
             exports.SourceMapGenerator = SourceMapGenerator;
         });
     },
-    'l': function (require, module, exports, global) {
+    'm': function (require, module, exports, global) {
         'use strict';
         var path = null;
         function amdefine(module, require) {
@@ -4644,12 +4681,12 @@ var mcss;
         }
         module.exports = amdefine;
     },
-    'm': function (require, module, exports, global) {
+    'n': function (require, module, exports, global) {
         if (typeof define !== 'function') {
-            var define = require('l')(module);
+            var define = require('m')(module);
         }
         define(function (require, exports, module) {
-            var base64 = require('n');
+            var base64 = require('o');
             var VLQ_BASE_SHIFT = 5;
             var VLQ_BASE = 1 << VLQ_BASE_SHIFT;
             var VLQ_BASE_MASK = VLQ_BASE - 1;
@@ -4699,9 +4736,9 @@ var mcss;
             };
         });
     },
-    'n': function (require, module, exports, global) {
+    'o': function (require, module, exports, global) {
         if (typeof define !== 'function') {
-            var define = require('l')(module);
+            var define = require('m')(module);
         }
         define(function (require, exports, module) {
             var charToIntMap = {};
@@ -4724,9 +4761,9 @@ var mcss;
             };
         });
     },
-    'o': function (require, module, exports, global) {
+    'p': function (require, module, exports, global) {
         if (typeof define !== 'function') {
-            var define = require('l')(module);
+            var define = require('m')(module);
         }
         define(function (require, exports, module) {
             function getArg(aArgs, aName, aDefaultValue) {
@@ -4779,12 +4816,12 @@ var mcss;
             exports.relative = relative;
         });
     },
-    'p': function (require, module, exports, global) {
+    'q': function (require, module, exports, global) {
         if (typeof define !== 'function') {
-            var define = require('l')(module);
+            var define = require('m')(module);
         }
         define(function (require, exports, module) {
-            var util = require('o');
+            var util = require('p');
             function ArraySet() {
                 this._array = [];
                 this._set = {};
@@ -4825,15 +4862,15 @@ var mcss;
             exports.ArraySet = ArraySet;
         });
     },
-    'q': function (require, module, exports, global) {
+    'r': function (require, module, exports, global) {
         if (typeof define !== 'function') {
-            var define = require('l')(module);
+            var define = require('m')(module);
         }
         define(function (require, exports, module) {
-            var util = require('o');
-            var binarySearch = require('r');
-            var ArraySet = require('p').ArraySet;
-            var base64VLQ = require('m');
+            var util = require('p');
+            var binarySearch = require('s');
+            var ArraySet = require('q').ArraySet;
+            var base64VLQ = require('n');
             function SourceMapConsumer(aSourceMap) {
                 var sourceMap = aSourceMap;
                 if (typeof aSourceMap === 'string') {
@@ -5045,9 +5082,9 @@ var mcss;
             exports.SourceMapConsumer = SourceMapConsumer;
         });
     },
-    'r': function (require, module, exports, global) {
+    's': function (require, module, exports, global) {
         if (typeof define !== 'function') {
-            var define = require('l')(module);
+            var define = require('m')(module);
         }
         define(function (require, exports, module) {
             function recursiveSearch(aLow, aHigh, aNeedle, aHaystack, aCompare) {
@@ -5072,13 +5109,13 @@ var mcss;
             };
         });
     },
-    's': function (require, module, exports, global) {
+    't': function (require, module, exports, global) {
         if (typeof define !== 'function') {
-            var define = require('l')(module);
+            var define = require('m')(module);
         }
         define(function (require, exports, module) {
-            var SourceMapGenerator = require('k').SourceMapGenerator;
-            var util = require('o');
+            var SourceMapGenerator = require('l').SourceMapGenerator;
+            var util = require('p');
             function SourceNode(aLine, aColumn, aSource, aChunks, aName) {
                 this.children = [];
                 this.sourceContents = {};
@@ -5288,8 +5325,8 @@ var mcss;
             exports.SourceNode = SourceNode;
         });
     },
-    't': function (require, module, exports, global) {
-        var http = null, https = false, tls = false, url = null, util = null, stream = null, qs = require('u'), querystring = null, crypto = null, oauth = require('v'), hawk = require('w'), aws = require('1c'), httpSignature = require('1d'), uuid = require('1s'), mime = require('1t'), tunnel = require('1u'), safeStringify = require('1v'), ForeverAgent = require('1w'), FormData = require('1x'), Cookie = require('21'), CookieJar = Cookie.Jar, cookieJar = new CookieJar();
+    'u': function (require, module, exports, global) {
+        var http = null, https = false, tls = false, url = null, util = null, stream = null, qs = require('v'), querystring = null, crypto = null, oauth = require('w'), hawk = require('x'), aws = require('1d'), httpSignature = require('1e'), uuid = require('1t'), mime = require('1u'), tunnel = require('1v'), safeStringify = require('1w'), ForeverAgent = require('1x'), FormData = require('1y'), Cookie = require('22'), CookieJar = Cookie.Jar, cookieJar = new CookieJar();
         ;
         try {
             https = null;
@@ -6468,7 +6505,7 @@ var mcss;
         }
         Request.prototype.toJSON = toJSON;
     },
-    'u': function (require, module, exports, global) {
+    'v': function (require, module, exports, global) {
         var toString = Object.prototype.toString;
         var isint = /^[0-9]+$/;
         function promote(parent, key) {
@@ -6630,7 +6667,7 @@ var mcss;
             }
         }
     },
-    'v': function (require, module, exports, global) {
+    'w': function (require, module, exports, global) {
         var crypto = null, qs = null;
         ;
         function sha1(key, body) {
@@ -6658,25 +6695,25 @@ var mcss;
         exports.hmacsign = hmacsign;
         exports.rfc3986 = rfc3986;
     },
-    'w': function (require, module, exports, global) {
-        module.exports = require('x');
-    },
     'x': function (require, module, exports, global) {
-        exports.error = exports.Error = require('y');
-        exports.sntp = require('13');
-        exports.server = require('15');
-        exports.client = require('1a');
-        exports.uri = require('1b');
-        exports.crypto = require('18');
-        exports.utils = require('19');
+        module.exports = require('y');
     },
     'y': function (require, module, exports, global) {
-        module.exports = require('z');
+        exports.error = exports.Error = require('z');
+        exports.sntp = require('14');
+        exports.server = require('16');
+        exports.client = require('1b');
+        exports.uri = require('1c');
+        exports.crypto = require('19');
+        exports.utils = require('1a');
     },
     'z': function (require, module, exports, global) {
+        module.exports = require('10');
+    },
+    '10': function (require, module, exports, global) {
         var Http = null;
         var NodeUtil = null;
-        var Hoek = require('10');
+        var Hoek = require('11');
         var internals = {};
         exports = module.exports = internals.Boom = function () {
             var self = this;
@@ -6797,12 +6834,12 @@ var mcss;
             return err;
         };
     },
-    '10': function (require, module, exports, global) {
-        module.exports = require('11');
-    },
     '11': function (require, module, exports, global) {
+        module.exports = require('12');
+    },
+    '12': function (require, module, exports, global) {
         var Fs = null;
-        var Escape = require('12');
+        var Escape = require('13');
         var internals = {};
         exports.clone = function (obj, seen) {
             if (typeof obj !== 'object' || obj === null) {
@@ -7128,7 +7165,7 @@ var mcss;
             exports.consoleFunc(output);
         };
     },
-    '12': function (require, module, exports, global) {
+    '13': function (require, module, exports, global) {
         var internals = {};
         exports.escapeJavaScript = function (input) {
             if (!input) {
@@ -7209,13 +7246,13 @@ var mcss;
             return safe;
         }();
     },
-    '13': function (require, module, exports, global) {
-        module.exports = require('14');
-    },
     '14': function (require, module, exports, global) {
+        module.exports = require('15');
+    },
+    '15': function (require, module, exports, global) {
         var Dgram = null;
         var Dns = null;
-        var Hoek = require('10');
+        var Hoek = require('11');
         var internals = {};
         exports.time = function (options, callback) {
             if (arguments.length !== 2) {
@@ -7455,12 +7492,12 @@ var mcss;
             return now + internals.last.offset;
         };
     },
-    '15': function (require, module, exports, global) {
-        var Boom = require('y');
-        var Hoek = require('10');
-        var Cryptiles = require('16');
-        var Crypto = require('18');
-        var Utils = require('19');
+    '16': function (require, module, exports, global) {
+        var Boom = require('z');
+        var Hoek = require('11');
+        var Cryptiles = require('17');
+        var Crypto = require('19');
+        var Utils = require('1a');
         var internals = {};
         exports.authenticate = function (req, credentialsFunc, options, callback) {
             options.nonceFunc = options.nonceFunc || function (nonce, ts, callback) {
@@ -7567,12 +7604,12 @@ var mcss;
             return header;
         };
     },
-    '16': function (require, module, exports, global) {
-        module.exports = require('17');
-    },
     '17': function (require, module, exports, global) {
+        module.exports = require('18');
+    },
+    '18': function (require, module, exports, global) {
         var Crypto = null;
-        var Boom = require('y');
+        var Boom = require('z');
         var internals = {};
         exports.randomString = function (size) {
             var buffer = exports.randomBits((size + 1) * 6);
@@ -7606,10 +7643,10 @@ var mcss;
             return mismatch === 0;
         };
     },
-    '18': function (require, module, exports, global) {
+    '19': function (require, module, exports, global) {
         var Crypto = null;
         var Url = null;
-        var Utils = require('19');
+        var Utils = require('1a');
         var internals = {};
         exports.headerVersion = '1';
         exports.algorithms = [
@@ -7647,10 +7684,10 @@ var mcss;
             return hash.digest('base64');
         };
     },
-    '19': function (require, module, exports, global) {
-        var Hoek = require('10');
-        var Sntp = require('13');
-        var Boom = require('y');
+    '1a': function (require, module, exports, global) {
+        var Hoek = require('11');
+        var Sntp = require('14');
+        var Boom = require('z');
         var internals = {};
         internals.import = function () {
             for (var i in Hoek) {
@@ -7756,12 +7793,12 @@ var mcss;
             return attributes;
         };
     },
-    '1a': function (require, module, exports, global) {
+    '1b': function (require, module, exports, global) {
         var Url = null;
-        var Hoek = require('10');
-        var Cryptiles = require('16');
-        var Crypto = require('18');
-        var Utils = require('19');
+        var Hoek = require('11');
+        var Cryptiles = require('17');
+        var Crypto = require('19');
+        var Utils = require('1a');
         var internals = {};
         exports.header = function (uri, method, options) {
             var result = {
@@ -7854,12 +7891,12 @@ var mcss;
             return Cryptiles.fixedTimeComparison(calculatedHash, attributes.hash);
         };
     },
-    '1b': function (require, module, exports, global) {
+    '1c': function (require, module, exports, global) {
         var Url = null;
-        var Boom = require('y');
-        var Cryptiles = require('16');
-        var Crypto = require('18');
-        var Utils = require('19');
+        var Boom = require('z');
+        var Cryptiles = require('17');
+        var Crypto = require('19');
+        var Utils = require('1a');
         var internals = {};
         exports.authenticate = function (req, credentialsFunc, options, callback) {
             var now = Utils.now() + (options.localtimeOffsetMsec || 0);
@@ -7964,7 +8001,7 @@ var mcss;
             return Utils.base64urlEncode(bewit);
         };
     },
-    '1c': function (require, module, exports, global) {
+    '1d': function (require, module, exports, global) {
         var crypto = null, parse = null.parse;
         ;
         var keys = [
@@ -8046,11 +8083,11 @@ var mcss;
         }
         module.exports.canonicalizeResource = canonicalizeResource;
     },
-    '1d': function (require, module, exports, global) {
-        var parser = require('1e');
-        var signer = require('1g');
-        var verify = require('1h');
-        var util = require('1i');
+    '1e': function (require, module, exports, global) {
+        var parser = require('1f');
+        var signer = require('1h');
+        var verify = require('1i');
+        var util = require('1j');
         module.exports = {
             parse: parser.parseRequest,
             parseRequest: parser.parseRequest,
@@ -8062,8 +8099,8 @@ var mcss;
             verifySignature: verify.verifySignature
         };
     },
-    '1e': function (require, module, exports, global) {
-        var assert = require('1f');
+    '1f': function (require, module, exports, global) {
+        var assert = require('1g');
         var util = null;
         var Algorithms = {
                 'rsa-sha1': true,
@@ -8242,7 +8279,7 @@ var mcss;
             }
         };
     },
-    '1f': function (require, module, exports, global) {
+    '1g': function (require, module, exports, global) {
         var assert = null;
         var Stream = null.Stream;
         var util = null;
@@ -8382,8 +8419,8 @@ var mcss;
             };
         });
     },
-    '1g': function (require, module, exports, global) {
-        var assert = require('1f');
+    '1h': function (require, module, exports, global) {
+        var assert = require('1g');
         var crypto = null;
         var http = null;
         var sprintf = null.format;
@@ -8493,8 +8530,8 @@ var mcss;
             }
         };
     },
-    '1h': function (require, module, exports, global) {
-        var assert = require('1f');
+    '1i': function (require, module, exports, global) {
+        var assert = require('1g');
         var crypto = null;
         module.exports = {
             verifySignature: function verifySignature(parsedSignature, key) {
@@ -8515,11 +8552,11 @@ var mcss;
             }
         };
     },
-    '1i': function (require, module, exports, global) {
-        var assert = require('1f');
+    '1j': function (require, module, exports, global) {
+        var assert = require('1g');
         var crypto = null;
-        var asn1 = require('1j');
-        var ctype = require('1p');
+        var asn1 = require('1k');
+        var ctype = require('1q');
         function readNext(buffer, offset) {
             var len = ctype.ruint32(buffer, 'big', offset);
             offset += 4;
@@ -8671,19 +8708,19 @@ var mcss;
             }
         };
     },
-    '1j': function (require, module, exports, global) {
-        var Ber = require('1k');
+    '1k': function (require, module, exports, global) {
+        var Ber = require('1l');
         module.exports = {
             Ber: Ber,
             BerReader: Ber.Reader,
             BerWriter: Ber.Writer
         };
     },
-    '1k': function (require, module, exports, global) {
-        var errors = require('1l');
-        var types = require('1m');
-        var Reader = require('1n');
-        var Writer = require('1o');
+    '1l': function (require, module, exports, global) {
+        var errors = require('1m');
+        var types = require('1n');
+        var Reader = require('1o');
+        var Writer = require('1p');
         module.exports = {
             Reader: Reader,
             Writer: Writer
@@ -8697,7 +8734,7 @@ var mcss;
                 module.exports[e] = errors[e];
         }
     },
-    '1l': function (require, module, exports, global) {
+    '1m': function (require, module, exports, global) {
         module.exports = {
             newInvalidAsn1Error: function (msg) {
                 var e = new Error();
@@ -8707,7 +8744,7 @@ var mcss;
             }
         };
     },
-    '1m': function (require, module, exports, global) {
+    '1n': function (require, module, exports, global) {
         module.exports = {
             EOC: 0,
             Boolean: 1,
@@ -8742,10 +8779,10 @@ var mcss;
             Context: 128
         };
     },
-    '1n': function (require, module, exports, global) {
+    '1o': function (require, module, exports, global) {
         var assert = null;
-        var ASN1 = require('1m');
-        var errors = require('1l');
+        var ASN1 = require('1n');
+        var errors = require('1m');
         var newInvalidAsn1Error = errors.newInvalidAsn1Error;
         function Reader(data) {
             if (!data || !Buffer.isBuffer(data))
@@ -8902,10 +8939,10 @@ var mcss;
         };
         module.exports = Reader;
     },
-    '1o': function (require, module, exports, global) {
+    '1p': function (require, module, exports, global) {
         var assert = null;
-        var ASN1 = require('1m');
-        var errors = require('1l');
+        var ASN1 = require('1n');
+        var errors = require('1m');
         var newInvalidAsn1Error = errors.newInvalidAsn1Error;
         var DEFAULT_OPTS = {
                 size: 1024,
@@ -9140,9 +9177,9 @@ var mcss;
         };
         module.exports = Writer;
     },
-    '1p': function (require, module, exports, global) {
-        var mod_ctf = require('1q');
-        var mod_ctio = require('1r');
+    '1q': function (require, module, exports, global) {
+        var mod_ctf = require('1r');
+        var mod_ctio = require('1s');
         var mod_assert = null;
         var deftypes = {
                 'uint8_t': {
@@ -9690,7 +9727,7 @@ var mcss;
         exports.wfloat = mod_ctio.wfloat;
         exports.wdouble = mod_ctio.wdouble;
     },
-    '1q': function (require, module, exports, global) {
+    '1r': function (require, module, exports, global) {
         var mod_assert = null;
         var ASSERT = mod_assert.ok;
         var ctf_versions = ['1.0'];
@@ -9858,7 +9895,7 @@ var mcss;
         }
         exports.ctfParseJson = ctfParseJson;
     },
-    '1r': function (require, module, exports, global) {
+    '1s': function (require, module, exports, global) {
         var mod_assert = null;
         function ruint8(buffer, endian, offset) {
             if (endian === undefined)
@@ -10508,7 +10545,7 @@ var mcss;
         exports.wfloat = wfloat;
         exports.wdouble = wdouble;
     },
-    '1s': function (require, module, exports, global) {
+    '1t': function (require, module, exports, global) {
         (function () {
             var _global = this;
             var _rng;
@@ -10652,7 +10689,7 @@ var mcss;
             }
         }());
     },
-    '1t': function (require, module, exports, global) {
+    '1u': function (require, module, exports, global) {
         var path = null;
         var fs = null;
         function Mime() {
@@ -10702,7 +10739,7 @@ var mcss;
         };
         module.exports = mime;
     },
-    '1u': function (require, module, exports, global) {
+    '1v': function (require, module, exports, global) {
         'use strict';
         var net = null, tls = null, http = null, https = null, events = null, assert = null, util = null;
         ;
@@ -10891,7 +10928,7 @@ var mcss;
         }
         exports.debug = debug;
     },
-    '1v': function (require, module, exports, global) {
+    '1w': function (require, module, exports, global) {
         module.exports = stringify;
         function getSerialize(fn) {
             var seen = [];
@@ -10913,7 +10950,7 @@ var mcss;
         }
         stringify.getSerialize = getSerialize;
     },
-    '1w': function (require, module, exports, global) {
+    '1x': function (require, module, exports, global) {
         module.exports = ForeverAgent;
         ForeverAgent.SSL = ForeverAgentSSL;
         var util = null, Agent = null.Agent, net = null, tls = null, AgentSSL = null.Agent;
@@ -10994,16 +11031,16 @@ var mcss;
             return tls.connect(options);
         }
     },
-    '1x': function (require, module, exports, global) {
-        var CombinedStream = require('1y');
+    '1y': function (require, module, exports, global) {
+        var CombinedStream = require('1z');
         var util = null;
         var path = null;
         var http = null;
         var https = null;
         var parseUrl = null.parse;
         var fs = null;
-        var mime = require('1t');
-        var async = require('20');
+        var mime = require('1u');
+        var async = require('21');
         module.exports = FormData;
         function FormData() {
             this._overheadLength = 0;
@@ -11187,10 +11224,10 @@ var mcss;
             return dst;
         }
     },
-    '1y': function (require, module, exports, global) {
+    '1z': function (require, module, exports, global) {
         var util = null;
         var Stream = null.Stream;
-        var DelayedStream = require('1z');
+        var DelayedStream = require('20');
         module.exports = CombinedStream;
         function CombinedStream() {
             this.writable = false;
@@ -11331,7 +11368,7 @@ var mcss;
             this.emit('error', err);
         };
     },
-    '1z': function (require, module, exports, global) {
+    '20': function (require, module, exports, global) {
         var Stream = null.Stream;
         var util = null;
         module.exports = DelayedStream;
@@ -11411,7 +11448,7 @@ var mcss;
             this.emit('error', new Error(message));
         };
     },
-    '20': function (require, module, exports, global) {
+    '21': function (require, module, exports, global) {
         (function () {
             var async = {};
             var root, previous_async;
@@ -12285,7 +12322,7 @@ var mcss;
             }
         }());
     },
-    '21': function (require, module, exports, global) {
+    '22': function (require, module, exports, global) {
         var url = null;
         var Cookie = exports = module.exports = function Cookie(str, req) {
                 this.str = str;
@@ -12310,9 +12347,9 @@ var mcss;
         Cookie.prototype.toString = function () {
             return this.str;
         };
-        module.exports.Jar = require('22');
+        module.exports.Jar = require('23');
     },
-    '22': function (require, module, exports, global) {
+    '23': function (require, module, exports, global) {
         var url = null;
         var CookieJar = exports = module.exports = function CookieJar() {
                 this.cookies = [];
@@ -12339,24 +12376,24 @@ var mcss;
             }
         };
     },
-    '23': function (require, module, exports, global) {
-        var Interpreter = require('24');
+    '24': function (require, module, exports, global) {
+        var Interpreter = require('25');
         module.exports = Interpreter;
     },
-    '24': function (require, module, exports, global) {
-        var Walker = require('25');
+    '25': function (require, module, exports, global) {
+        var Walker = require('26');
         var parser = require('2');
         var tree = require('8');
         var symtab = require('g');
-        var state = require('26');
-        var Event = require('27');
+        var state = require('27');
+        var Event = require('28');
         var promise = require('e');
         var path = require('6');
         var u = require('4');
-        var io = require('h');
+        var io = require('i');
         var options = require('f');
         var binop = require('d');
-        var functions = require('28');
+        var functions = require('29');
         var color = require('9');
         var colorify = require('b');
         var error = require('a');
@@ -12943,7 +12980,7 @@ var mcss;
         };
         module.exports = Interpreter;
     },
-    '25': function (require, module, exports, global) {
+    '26': function (require, module, exports, global) {
         var _ = require('4');
         var Walker = function () {
         };
@@ -12992,7 +13029,7 @@ var mcss;
         };
         module.exports = Walker;
     },
-    '26': function (require, module, exports, global) {
+    '27': function (require, module, exports, global) {
         function ex(o1, o2, override) {
             for (var i in o2)
                 if (o1[i] == null || override) {
@@ -13022,7 +13059,7 @@ var mcss;
             ex(obj, API);
         };
     },
-    '27': function (require, module, exports, global) {
+    '28': function (require, module, exports, global) {
         var slice = [].slice, ex = function (o1, o2, override) {
                 for (var i in o2)
                     if (o1[i] == null || override) {
@@ -13087,7 +13124,7 @@ var mcss;
         };
         module.exports = Event;
     },
-    '28': function (require, module, exports, global) {
+    '29': function (require, module, exports, global) {
         var fs = null;
         var path = null;
         var tree = require('8');
@@ -13383,18 +13420,18 @@ var mcss;
             }
         }
     },
-    '29': function (require, module, exports, global) {
-        var Translator = require('2a');
+    '2a': function (require, module, exports, global) {
+        var Translator = require('2b');
         module.exports = Translator;
     },
-    '2a': function (require, module, exports, global) {
-        var Walker = require('25');
+    '2b': function (require, module, exports, global) {
+        var Walker = require('26');
         var tree = require('8');
         var error = require('a');
         var u = require('4');
         var options = require('f');
         var path = null;
-        var buffer = require('2b');
+        var buffer = require('2c');
         function Translator(options) {
             this.options = options || {};
         }
@@ -13610,7 +13647,7 @@ var mcss;
         };
         module.exports = Translator;
     },
-    '2b': function (require, module, exports, global) {
+    '2c': function (require, module, exports, global) {
         var path = null;
         module.exports = function (options) {
             var sourceMap = require('1').sourcemap;
@@ -13672,14 +13709,14 @@ var mcss;
             };
         };
     },
-    '2c': function (require, module, exports, global) {
+    '2d': function (require, module, exports, global) {
         module.exports = {
-            prefixr: require('2d'),
-            csscomb: require('2f')
+            prefixr: require('2e'),
+            csscomb: require('2g')
         };
     },
-    '2d': function (require, module, exports, global) {
-        var prefixs = require('2e').prefixs;
+    '2e': function (require, module, exports, global) {
+        var prefixs = require('2f').prefixs;
         var _ = require('4');
         var tree = require('8');
         var isTestProperties = _.makePredicate('border-radius transition');
@@ -13695,7 +13732,7 @@ var mcss;
             }
         };
     },
-    '2e': function (require, module, exports, global) {
+    '2f': function (require, module, exports, global) {
         exports.orders = {
             'position': 1,
             'z-index': 1,
@@ -13977,8 +14014,8 @@ var mcss;
             'line-height': 7
         };
     },
-    '2f': function (require, module, exports, global) {
-        var orders = require('2e').orders;
+    '2g': function (require, module, exports, global) {
+        var orders = require('2f').orders;
         var times = 0;
         module.exports = {
             'block': function (tree) {
@@ -13991,22 +14028,22 @@ var mcss;
             }
         };
     },
-    '2g': function (require, module, exports, global) {
+    '2h': function (require, module, exports, global) {
         module.exports = {
-            'io': require('h'),
-            'Event': require('27'),
+            'io': require('i'),
+            'Event': require('28'),
             'color': require('b'),
             'options': require('f'),
             'path': require('6'),
             'promise': require('e'),
-            'state': require('26'),
+            'state': require('27'),
             'tpl': require('7'),
             'util': require('4'),
-            'watcher': require('2h')
+            'watcher': require('2i')
         };
     },
-    '2h': function (require, module, exports, global) {
-        var _ = require('4'), options = require('f'), Event = require('27'), fs = null;
+    '2i': function (require, module, exports, global) {
+        var _ = require('4'), options = require('f'), Event = require('28'), fs = null;
         function Watcher(options) {
             this.set({ persistent: false });
             this.set(options);
