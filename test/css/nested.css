@@ -2,10 +2,10 @@
 	display:block;
 }
 .m-home >div,.m-home ul{
-	border:2px solid #cccccc;
+	border:2px solid #ccc;
 }
 .m-home >div a,.m-home ul a{
-	color:#ffffff;
+	color:#fff;
 }
 .m-home >div a:hover,.m-home ul a:hover{
 	text-decoration:none;
@@ -20,7 +20,7 @@
 	left:10px;
 }
 .m-news li{
-	border-bottom:1px dotted #dddddd;
+	border-bottom:1px dotted #ddd;
 }
 @media (min-width: 1442px){
 	.m-news li{
@@ -28,6 +28,6 @@
 		float:left;
 	}
 	.m-news li:nth-child(2n){
-		border-left:1px dashed #dddddd;
+		border-left:1px dashed #ddd;
 	}
 }

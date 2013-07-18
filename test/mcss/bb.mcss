@@ -1,3 +1,7 @@
+color{
+  left: #fff;
+  test: #f1c40f;
+}
 .m-home{
   a:hover #class a{
     left:10px;

@@ -4,15 +4,15 @@ valueType{
 	dimension:10px,10em,10pt,10em;
 	color-hsl:#31382e;
 	color-hsla:rgba(49,56,46,0.1);
-	color-rgb:#64aa14;
+	color-rgb:#640a14;
 	color-rgba:rgba(100,255,20,0.1);
-	color-hash:#ccddee;
+	color-hash:#cde;
 	text:hello-mcss;
 	unicode:\5b3b 宋体;
 	oq-string:"hello-mcss";
 	tq-string:"hello-mcss";
-	values:10px #ffffff hello;
-	valueslist:10px #ffffff,hello,20px;
+	values:10px #fff hello;
+	valueslist:10px #fff,hello,20px;
 	range:-1,0,1,2,3,4,5,6,7,8,9,10;
 	range:-1,0,1,2;
 }
