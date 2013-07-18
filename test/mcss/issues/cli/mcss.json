@@ -1,0 +1,6 @@
+{
+  "input": "./",
+  "outport": "./css",
+  "include": "./include",
+  "exclude": "(\/|\\\\)_|^_|include"
+}

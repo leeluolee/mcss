@@ -38,15 +38,26 @@ ubuntu-10:12 ~ $ mcss -h
     -h, --help                print usage information
     -v, --version             print the version number
     -f, --format <n>          the outport format, 1: common | 2: compress | 3:online
-    -w, --watch               watch the file change and build
-    -s, --sourcemap           generate the sourcemap(if the outport is specify)
-    -o, --outport <filename>  the outport filename or dirname
-    -i, --indent <indent>     the indent string default "\t"
-    -t, --test                just for test , ignored or underscore started file
+    -c, --config <file>          the config filepath. [optional]
+    ..........省略请输入 mcss -h 查看详情............
 
 ```
 
 __注意__: 当file参数为文件夹时, 会compile目录下的所有.mcss文件, 此时outport参数会视为是一个文件夹, 并将所有css输入到此文件夹
+
+当参数略多时，你会感觉筋疲力竭, 这时你可以建立一个配置的JSON文件, 其中JSON中的input参数代表输入文件 file, 其它与命令行打印的参数全名一致 并使用-c 参数指定这个配置文件,默认情况下mcss会寻找 __当前路径下的mcss.json__ 作为配置文件, 配置文件与命令的参数会进行合并(命令行优先)
+
+```javascript
+{
+  "input": "./",  
+  "outport": "./css",
+  "include": "./include",
+  "exclude": "(\/|\\\\)_|^_|include"
+}
+```
+
+__注意__: 使用config文件之后，程序的current word dir 切换到config文件的所在目录!!!
+
 
 
 ### 浏览器端
@@ -163,9 +174,7 @@ __输出__
   display:block;
 }
 ```
-和类似[NEC](http://nec.netease.com/)的解决方案相契合，当微调
-通常我们
-
+和类似[NEC](http://nec.netease.com/)的解决方案相契合
 
 
 
@@ -1380,12 +1389,20 @@ body{
 通道的取值范围分别是
 
 1. red green blue:   0~ 255
-2. saturation      0 ~ 360
+2. hue      0 ~ 360
 3. lightness saturation 0% ~ 100%
 4. alpha   0 ~ 1
 
-单位不符会报错，取值不符会被截断到范围内
+单位不符会报错，取值不符会被截断到范围内(例外 hue会取 与360的余数，因为色相为一个圈)
 
+
+mcss也支持一些其它的Color函数, 比如 
+
+__mix__: 
+
+```
+$color = mix(#ccc, #def, 50%);
+```
 
 
 
@@ -1821,6 +1838,9 @@ MCSS目前仍在开发阶段, 如果你能提出宝贵意见甚至贡献代码, 
 ### 0.2.x
 
 1. 增加对 Named param的支持  `2013/7/14 18:09:55`
+2. 色值输出三位#fff  六位#fffaaa 而不是同一个6位
+3. 支持远程import，最多缓存远程文件20个(内存中)
+4. 支持配置文件
 
 
 ### >= 0.1.8

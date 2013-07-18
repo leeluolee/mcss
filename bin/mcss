@@ -7,56 +7,104 @@ var fs = require('fs'),
   color = require('../lib/helper/color'),
   promise = require('../lib/helper/promise'),
   cwd = process.cwd(),
+  isWin = process.platform === 'win32',
   version = JSON.parse(fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8')).version;
 
-var isWin = process.platform === 'win32';
-
-
+var ensureArray = function(host, keys){
+  if(typeof keys === 'string') keys = keys.split(' ');
+  keys.forEach(function(key){
+    if(host[key]){
+      if(!Array.isArray(host[key])) host[key] = [host[key]];
+    }else{
+      host[key] = []
+    }
+  })
+}
+//process mcss.json
 var program = require('commander')
   .version(version || '0.0.1')
-  .usage('[options] <file>')
-  .option('-f, --format <n>', 'the outport format, 1: common | 2: compress | 3:online', parseInt)
-  .option('-w, --watch', 'watch the file change and build')
-  .option('-s, --sourcemap', 'generate the sourcemap')
-  .option('-o, --outport <filename>', 'the outport filename or dirname')
-  .option('-i, --indent <indent>', 'the indent string default "\\t"')
-  .option('-t, --test', 'just for test , forbit underscore file')
-  .option('--include <folder>', 'include path')
+  .usage('[options] <files>')
+  .option('-f, --format <n>', 'the outport format, 1: common | 2: compress | 3:online. [optional] defualt 1', parseInt)
+  .option('-w, --watch', 'watch the file change and build .[optional] default false')
+  .option('-s, --sourcemap', 'generate the sourcemap. [optional] default false')
+  .option('-o, --outport <filename>', 'the outport filename or dirname. [optional] (if not passed ,the result will out port at console)')
+  .option('-i, --indent <indent>', 'the indent string. [optional] default "\\t"')
+  .option('-c, --config <file>', 'the config filepath. [optional]')
+  .option('--exclude <regexp>', 'a passed regexp to avoid any file match it been compiled.[optional]')
+  .option('--include <folder>', 'add path to include pathes. [optional]')
   .parse(process.argv);
 
-if(!program.args.length) throw 'the <file> arguments to build is required'
 
 
 
+
+var config = (function configJSON(){
+  if(program.config){
+    program.config = path.resolve(cwd, program.config)
+  }
+  try{
+    var config = JSON.parse(fs.readFileSync(program.config || path.resolve(cwd, 'mcss.json')))
+    if(program.config) cwd = path.dirname(program.config);
+  }catch(e){
+    if(e.errno != 34) console.log(color('you have a mcss.json in pwd, but has Error: ' + e.message, 'red'))
+  }
+  config = config || {};
+  // input file conver to array
+  ensureArray(config, 'input include')
+  return config;
+})();
+
+
+
+// init param
+mcss.helper.util.extend(program, config)
 var watch = program.watch;
 var sourceMap = program.sourcemap;
 if(program.outport)  var outport = path.resolve(cwd, program.outport);
-if(program.include)  var include = path.resolve(cwd, program.include);
-
-var file = path.resolve(cwd, program.args[0]);
-
-var stat = fs.statSync(file); 
-// is directory
-if(stat.isDirectory()){
-  var files = globule.find(path.join(file , '**/*.mcss'))
-  .filter(function(item){
-    if(program.test) return path.basename(item).indexOf('_') !== 0
-    return true;
-  })
-  .map(function(rpath){
-    return path.resolve(cwd, rpath);
-  });
-  var inputDir = file;
-}else if(stat.isFile()){
-  var files = [file];
-}else{
-  throw 'unsupported <file> type'
+if(program.exclude)  var exclude = new RegExp(program.exclude);
+if(program.include){
+    if(!Array.isArray(program.include)) program.include = [program.include]
+    var include = program.include.map(function(p){
+      return path.resolve(cwd, p)
+    })
 }
+
+
+
+// if(!program.args.length) throw 'the <file> arguments to build is required'
+
+// get the valid file
+var inputDir,
+  files = (function getFiles(){
+  var files = [];
+  program.args.concat(config.input).forEach(function(file){
+    if(inputDir) throw "<file> type error, you call only passed single folder"
+    file = path.resolve(cwd, file);
+    var stat = fs.statSync(file);
+    // is directory
+    if(stat.isDirectory()){
+      files = files.concat(globule.find(path.join(file , '**/*.mcss'))
+      .map(function(rpath){
+        return path.resolve(cwd, rpath);
+      }))
+      inputDir = file;
+    }else if(stat.isFile()){
+      files.push(file)
+    }else{
+      throw 'unsupported <file> type:' + file
+    }
+  })
+  return files;
+})().filter(function(file){
+    if(exclude && exclude.test(file))  return false;
+    else return true;
+});
 
 if(!files.length) throw 'no matched mcss file';
 
 
 
+// start building
 var building;
 var build = _.restrict(function(fullpath, first){
   var imports = [];
@@ -108,6 +156,7 @@ var build = _.restrict(function(fullpath, first){
       })
     })
   }).filter(promise.isPromise);
+  if(!promises.length) console.log('No file matched to be compiled, or you can checkout your exclude param')
   mcss.promise.when.apply(mcss.promise, promises).always(function(){
     console.log(color('building complete in ' + (Date.now() - start) + 'ms', 'green'))
     building = false;

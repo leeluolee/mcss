@@ -89,12 +89,7 @@ var mcss;
         }
         var m = options.mixTo(Mcss);
         m.include = function (path) {
-            var pathes = this.get('pathes');
-            if (Array.isArray(path)) {
-                this.set('pathes', pathes.concat(path));
-            } else {
-                pathes.push(path);
-            }
+            this.get('pathes').push(path);
             return this;
         };
         m.walk = function (type) {
