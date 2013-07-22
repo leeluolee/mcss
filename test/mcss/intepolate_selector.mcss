@@ -178,3 +178,13 @@ $basesize = 24px;
 /**
  * create
  */
+
+#{name}-#{hello}{
+    left:10px;
+}
+
+body{
+  ##{name}-#{hello} {
+    left:10px;
+  }
+}
