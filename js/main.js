@@ -20,7 +20,7 @@
         mode: 'css',
         theme: 'solarized',
         tabSize: 2,
-        readOnly: 'nocursor',
+        // readOnly: 'nocursor',
         lineNumbers: true
     })
     var compile = function(value){
