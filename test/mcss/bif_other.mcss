@@ -4,4 +4,20 @@ $a = ($b){
   }
 }
 
+$c = $a(($one, $two){
+  @debug $one;
+  @debug $two;
+});
 
+$c(1,2,3);
+
+
+// $d = ($name){
+//   define('haha', (){
+//     @debug $name;
+//   }, true);
+// }
+
+// $d('hello');
+
+// haha();
