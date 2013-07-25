@@ -75,9 +75,10 @@ if(program.include){
 
 // get the valid file
 var inputDir,
+
   files = (function getFiles(){
   var files = [];
-  program.args.concat(config.input).forEach(function(file){
+  ;(program.args.length? program.args: config.input).forEach(function(file){
     if(inputDir) throw "<file> type error, you call only passed single folder"
     file = path.resolve(cwd, file);
     var stat = fs.statSync(file);

@@ -1,5 +1,5 @@
 {
-  "input": "./",
+  "input": "./test.mcss",
   "outport": "./css",
   "include": "./include",
   "exclude": "(\/|\\\\)_|^_|include"
