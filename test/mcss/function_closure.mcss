@@ -8,8 +8,6 @@ $btn = ($color){
         color: s-adjust($color, 10%);
         // $text-aligh from outer function scope
         text-align: $text-align;
-        vertical-align: middle;
-        cursor: pointer;
         // $function from argument
         @if $function{
             $function($radius);
@@ -17,7 +15,7 @@ $btn = ($color){
     }
 }
 
-//basic function
+// //basic function
 $border-radius = ($radius){
     -webkit-border-radius: $radius;
        -moz-border-radius: $radius;
@@ -49,6 +47,8 @@ $d = $c(b);
 body{
   left: $d(c);
 }
+
+
 
 
 
