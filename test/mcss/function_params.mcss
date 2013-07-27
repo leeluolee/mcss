@@ -58,6 +58,7 @@ body-rest-2{
 
 body-rest-3{
     $rest-param-3(1, 2, 3, 4);
+    $rest-param-3(1);
 }
 body-rest-4{
     $rest-param-4(1, 2, 3, 4);

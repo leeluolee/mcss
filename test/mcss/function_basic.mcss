@@ -1,0 +1,6 @@
+$-add = ($a, $b){
+  @return $a + $b;
+}
+body{
+  left: 10 $-add(1, 2);
+}
