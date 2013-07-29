@@ -33,3 +33,13 @@ $h = $f('name2');
 $h();
 $global();
 
+//match
+body{
+  @if match('webkit-border-radius|hello', 'hello'){
+  }@else{
+    error('must match hello');
+  }
+}
+
+
+
