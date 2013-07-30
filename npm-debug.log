@@ -1,25 +1,49 @@
 0 info it worked if it ends with ok
 1 verbose cli [ 'c:\\Program Files (x86)\\nodejs\\node.exe',
 1 verbose cli   'c:\\Program Files (x86)\\nodejs\\node_modules\\npm\\bin\\npm-cli.js',
-1 verbose cli   'test',
-1 verbose cli   '1' ]
+1 verbose cli   'install',
+1 verbose cli   '-g',
+1 verbose cli   'slnode' ]
 2 info using npm@1.1.48
 3 info using node@v0.8.6
 4 verbose config file C:\Users\萝卜\.npmrc
 5 verbose config file c:\Program Files (x86)\nodejs\etc\npmrc
 6 verbose config file c:\Program Files (x86)\nodejs\node_modules\npm\npmrc
-7 verbose read json f:\code\mcss\node_modules\1\package.json
-8 error Error: ENOENT, open 'f:\code\mcss\node_modules\1\package.json'
-9 error If you need help, you may report this log at:
-9 error     <http://github.com/isaacs/npm/issues>
-9 error or email it to:
-9 error     <npm-@googlegroups.com>
-10 error System Windows_NT 6.1.7600
-11 error command "c:\\Program Files (x86)\\nodejs\\node.exe" "c:\\Program Files (x86)\\nodejs\\node_modules\\npm\\bin\\npm-cli.js" "test" "1"
-12 error cwd f:\code\mcss
-13 error node -v v0.8.6
-14 error npm -v 1.1.48
-15 error path f:\code\mcss\node_modules\1\package.json
-16 error code ENOENT
-17 error errno 34
-18 verbose exit [ 34, true ]
+7 verbose read json C:\Users\萝卜\AppData\Roaming\npm\package.json
+8 verbose read json C:\Users\萝卜\AppData\Roaming\npm\package.json
+9 verbose cache add [ 'slnode', null ]
+10 silly cache add name=undefined spec="slnode" args=["slnode",null]
+11 verbose parsed url { pathname: 'slnode', path: 'slnode', href: 'slnode' }
+12 silly lockFile 4215f61f-slnode slnode
+13 verbose lock slnode C:\Users\萝卜\AppData\Roaming\npm-cache\4215f61f-slnode.lock
+14 silly lockFile 4215f61f-slnode slnode
+15 verbose addNamed [ 'slnode', '' ]
+16 verbose addNamed [ null, '' ]
+17 silly lockFile c37efadf-slnode slnode@
+18 verbose lock slnode@ C:\Users\萝卜\AppData\Roaming\npm-cache\c37efadf-slnode.lock
+19 silly addNameRange { name: 'slnode', range: '', hasData: false }
+20 verbose url raw slnode
+21 verbose url resolving [ 'http://registry.npmjs.org/', './slnode' ]
+22 verbose url resolved http://registry.npmjs.org/slnode
+23 info retry registry request attempt 1 at 00:18:18
+24 http GET http://registry.npmjs.org/slnode
+25 http 404 http://registry.npmjs.org/slnode
+26 silly registry.get cb [ 404,
+26 silly registry.get   { server: 'CouchDB/1.3.0 (Erlang OTP/R15B03)',
+26 silly registry.get     date: 'Thu, 25 Jul 2013 16:18:21 GMT',
+26 silly registry.get     'content-type': 'application/json',
+26 silly registry.get     'content-length': '52',
+26 silly registry.get     'cache-control': 'must-revalidate' } ]
+27 silly lockFile c37efadf-slnode slnode@
+28 error 404 'slnode' is not in the npm registry.
+28 error 404 You should bug the author to publish it
+28 error 404
+28 error 404 Note that you can also install from a
+28 error 404 tarball, folder, or http url, or git url.
+29 error System Windows_NT 6.1.7600
+30 error command "c:\\Program Files (x86)\\nodejs\\node.exe" "c:\\Program Files (x86)\\nodejs\\node_modules\\npm\\bin\\npm-cli.js" "install" "-g" "slnode"
+31 error cwd f:\code\mcss
+32 error node -v v0.8.6
+33 error npm -v 1.1.48
+34 error code E404
+35 verbose exit [ 1, true ]
