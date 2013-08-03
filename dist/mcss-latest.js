@@ -1359,7 +1359,7 @@ var mcss;
                 }
             },
             {
-                regexp: $(/(?:\$?-?[-_A-Za-z][-_\w]*)(?=\()/),
+                regexp: $(/(?:\$?-?[_A-Za-z][-_\w]*)(?=\()/),
                 action: function (yytext) {
                     this.yyval = yytext;
                     return 'FUNCTION';
