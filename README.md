@@ -223,8 +223,14 @@ body{
 由于mcss有严格作用域划分，所以有时候你想跳脱作用域限制时'^='这个赋值符可以解决一些封装的问题, 让几乎所有形式的组件都可以封装成函数的形式，比如
 
 ```
-$btn = ($padding, )
+$import-raw = false;
 
+$reset-var = (){
+  $import-raw = true;
+}
+body{
+  left: $import-raw;
+}
 ```
 
 

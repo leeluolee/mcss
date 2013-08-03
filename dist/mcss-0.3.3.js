@@ -216,6 +216,11 @@ var mcss;
                 DECLARION_FAIL: 2,
                 FILE_NOT_FOUND: 3
             };
+        var assignMap = {
+                '=': 1,
+                '?=': 2,
+                '^=': 3
+            };
         var combos = [
                 'WS',
                 '>',
@@ -428,6 +433,7 @@ var mcss;
                         break;
                     case '=':
                     case '?=':
+                    case '^=':
                         node = this.assign();
                         if (node.value.type !== 'func') {
                             this.matchSemiColonIfNoBlock();
@@ -840,9 +846,9 @@ var mcss;
             assign: function () {
                 var ll = this.ll(), la, name = ll.value, value;
                 this.match('VAR');
-                var op = this.match('=', '?=').type;
+                var op = this.match('=', '?=', '^=').type;
                 value = this.assignExpr(true);
-                return new tree.Assign(name, value, op === '?=' ? false : true);
+                return new tree.Assign(name, value, assignMap[op] || 1);
             },
             assignExpr: function (hasComma) {
                 var la = this.la(), node, fn = hasComma ? 'valuesList' : 'values';
@@ -2306,14 +2312,14 @@ var mcss;
             var clone = new Unknown(this.name);
             return clone;
         };
-        function Assign(name, value, override) {
+        function Assign(name, value, mode) {
             this.type = 'assign';
             this.name = name;
             this.value = value;
-            this.override = override === undefined ? true : override;
+            this.mode = mode === undefined ? 1 : mode;
         }
         Assign.prototype.clone = function (name) {
-            var clone = new Assign(this.name, cloneNode(this.value), this.override);
+            var clone = new Assign(this.name, cloneNode(this.value), this.mode);
             return clone;
         };
         function Func(params, block, name) {
@@ -4478,12 +4484,13 @@ var mcss;
             }
         };
         _.walk_assign = function (ast) {
-            if (!ast.override) {
+            if (ast.mode == 2) {
                 var ref = this.resolve(ast.name);
                 if (ref && ref.type !== 'NULL')
                     return;
             }
-            this.define(ast.name, this.walk(ast.value));
+            ;
+            (ast.mode == 3 ? this.globalScope : this).define(ast.name, this.walk(ast.value));
         };
         _.walk_var = function (ast) {
             var symbol = this.resolve(ast.value);
