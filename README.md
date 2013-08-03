@@ -226,13 +226,23 @@ body{
 $import-raw = false;
 
 $reset-var = (){
-  $import-raw = true;
+  $import-raw ^= true; //这个会影响到外层
 }
+
+$reset-var();//调用
+
 body{
   left: $import-raw;
 }
 ```
 
+__输出__:
+
+```css
+body{
+  left:true;
+}
+```
 
 
 
@@ -1421,10 +1431,118 @@ $color = mix(#ccc, #def, 50%);
 ```
 
 
+#### 列表相关
 
+mcss中有两种列表（其它预处理器可能是一种类型，把`，`作为元素的一种，比如Sass 这难免会引起误区）, 一种`values`，如`1px solid #fff` 另一种`valueslist`,如`color .1s ease-in-out, height`。它们分别对应css规范中的componentValues与 commaSepValues。它们都可以使用数据相关的方法，都可以使用@for遍历等等。
+
+
+
+__push、unshift、shift、pop__
+对传入的列表参数进行相关操作, 作用与js的同名方法一致, 如
+
+```
+$fn = (){
+unshift($arguments, 2);
+unshift2: $arguments;
+
+}
+
+body{
+  $fn: 1,2,3,4,5;
+}
+
+```
+
+__输出__
+
+```css
+$fn = (){
+unshift($arguments, 2);
+unshift2: $arguments;
+
+}
+
+body{
+  $fn: 1,2,3,4,5;
+}
+
+```
+
+另外几个函数也是类似
+
+
+__index(list, n, [value])__: 
+获得列表类型(values valueslist)的第n个值， 如果没有则为null
+如果传入了第三个参数则对第n个元素进行复写
+
+```
+$list = 1px 2em 3pt;
+$list2 = 1px, 2em 2pt, 3%;
+p{
+  left: index($list, 0);
+  right: index($list2, 1);
+}
+```
+
+__输出__
+```css
+p{
+  left:1px;
+  right:2em 2pt;
+}
+```
+
+__len(list)__ : 获得列表的长度
+
+略...
+
+
+__args(n)__ : 获得函数中$arguments的第n个参数
+实际是 __index(list, n)__ 的包装而已，只能在函数中使用
 
 
 #### 常用类
+
+
+__define(name, value, isGlobal=false)__
+注册变量，与使用`$var = value` 等价， 区别是name是字符串，即是动态的，这让你通过动态绝对函数名成为可能, 如
+
+```
+
+$prefix = ($name){
+  @return (){
+    -webkit-#{$name}: $arguments;
+    -moz-#{$name}: $arguments;
+    -o-#{$name}: $arguments;
+    #{$name}: $arguments;
+  }
+}
+@for $name of border-radius, box-sizing {
+  define('$' + $name, $prefix($name));
+  
+}
+
+// 动态生成了$border-radius等方法.
+
+p{
+  $border-radius: 5px;
+}
+
+```
+
+__输出__
+
+```css
+p{
+  -webkit-border-radius:5px;
+  -moz-border-radius:5px;
+  -o-border-radius:5px;
+  border-radius:5px;
+}
+```
+
+这个例子来自于基于mcss构建的官方函数库[`mass`](https://github.com/leeluolee/mass)的css3 部分的简单版，你会惊讶于mcss的强大特性。
+
 
 __error(message)__ : 
 主动抛出异常, 一般在函数中使用, 例如:
@@ -1491,38 +1609,12 @@ p{
 
 
 
-__index(list, n)__: 
-获得列表类型(values valueslist)的第n个值， 如果没有则为null
-
-```
-$list = 1px 2em 3pt;
-$list2 = 1px, 2em 2pt, 3%;
-p{
-  left: index($list, 0);
-  right: index($list2, 1);
-}
-```
-
-__输出__
-```css
-p{
-  left:1px;
-  right:2em 2pt;
-}
-```
-
-__len(list)__ : 获得列表的长度
-
-略...
-
-
-__args(n)__ : 获得函数中$arguments的第n个参数
-实际是 __index(list, n)__ 的包装而已，只能在函数中使用
 
 范例略
 
 
 __js(string)__: 运行一个js的表达式并返回其值
+
 
 __data-uri()__: 将一个图片转换为base64格式(前提小于5kb，并且图片存在)
 
