@@ -449,7 +449,6 @@ body{
 ```
 
 
-__解释__:  所谓作为值的function 初衷是为了实现块级内容的传递(类似SCSS的@content)，而MCSS中block设计为是可以通过函数产生，为了保证mixin时的变量解析(符合预期)，才引入了所谓`闭包`的特性, 实际应用中还是尽量避免带参数的 function的传递.
 
 #### 6. $arguments以及其他
 在进入function block时, mcss会在当前作用域定义一个变量叫$arguments(Type: `valueslist`), 代表传入的所有参数
@@ -916,9 +915,6 @@ $hashmap = key1 value1, key2 value2 ..., keyn value
  
 
 
-### Auto Prefixr
-
-实验性质前缀一直是个噩梦，也是阻碍我们使用css3的罪魁祸首，除了使用function 封装差异之外，mcss也支持自动的 prefixr, 目前的版本prefixr只提供declration和atrule的自动前缀, 你可以通过function,封装类似gradient这种前缀
 
 ### Operator
 mcss支持一元运算符(- ! +), 二元运算符( + - * / %), 逻辑运算符(|| 和 &&), 关系运算符(== >= <= > < !=)以及括号'()' 运算符优先级与javascript完全一致
@@ -1942,6 +1938,11 @@ MCSS目前仍在开发阶段, 如果你能提出宝贵意见甚至贡献代码, 
 
 
 ## Changelog
+
+### 0.3.x
+
+增加了 `^=` 操作符, 
+
 
 ### 0.2.x
 
