@@ -896,9 +896,58 @@ __输出__:
 利用'by'关键字控制step,  step 可以是一个负值 实现后序遍历.
 
 ```css
+@for $item, $indx by -1 of one, two, three{
+  .m-module-#{$item} {
+    left: $index * 30px + 20px;
+  }
+}
 
 ```
-__结合range__ (valueslist的简写方式, mcss本身并没有range这种数据结构)__:
+
+__Outport__
+
+```css
+.m-module-three{
+  left:80px;
+}
+.m-module-two{
+  left:50px;
+}
+.m-module-one{
+  left:20px;
+}
+```
+
+
+__结合range实现@while__ (valueslist的简写方式, mcss本身并没有range这种数据结构)__:
+
+```
+$max = 12;
+@for $item of 1...$max{
+  span-#{$item} {
+    left: 30px * $item;
+  }
+}
+
+```
+
+__Outport__
+
+```css
+span-1{
+  left:30px;
+}
+span-2{
+  left:60px;
+}
+span-3{
+  left:90px;
+}
+span-4{
+  left:120px;
+}
+```
+
 
 
 
@@ -911,8 +960,30 @@ __结合range__ (valueslist的简写方式, mcss本身并没有range这种数据
 ```
 $hashmap = key1 value1, key2 value2 ..., keyn value
 ```
+
 为避免格式冲突，你可以使用()将list类型的值包裹起来
+
+__Exmaple__
+
+```
+$fakehash = left 20px, top 30px, width 40px;
+
+body{
+  @for $item, $prop in $fakehash {
+    #{$prop} : $item;
+  }
+}
+
+```
  
+__Outport__
+```
+body{
+  left:20px;
+  top:30px;
+  width:40px;
+}
+```
 
 
 
