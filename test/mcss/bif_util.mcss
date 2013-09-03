@@ -12,9 +12,9 @@
  */
 body{
     background: data-uri('vendors/small.jpg') repeat ;    
-    background: data-uri('/home/luobo/code/mcss/test/mcss/vendors/small.jpg') repeat ;    
+    // background: data-uri('/home/luobo/code/mcss/test/mcss/vendors/small.jpg') repeat ;    
     // size > 6k will not export base64
-    background: data-uri('vendors/large.jpg');    
+    background: data-uri('vendors/large.jpg');
 }
 
 // args 
