@@ -690,8 +690,6 @@ var mcss;
                 var keyword = this.match('AT_KEYWORD');
                 this.eat('WS');
                 var selector = this.complexSelector().string;
-                if (/^:[-a-zA-Z]+$/.test(selector) === false)
-                    this.error('@page only accpet PSEUDO_CLASS', keyword.lineno);
                 this.eat('WS');
                 var block = this.block();
                 return tree.directive('page', tk.createToken('TEXT', selector, keyword.lineno), block);
@@ -762,11 +760,7 @@ var mcss;
                             break;
                         }
                     } else if (isSelectorSep(ll.type)) {
-                        if (ll.type === 'DIMENSION') {
-                            if (ll.unit !== '%')
-                                this.error('UNEXPECT: ' + ll.type, ll.lineno);
-                        }
-                        value = ll.type === 'DIMENSION' ? ll.value + '%' : ll.value || (ll.type === 'WS' ? ' ' : ll.type);
+                        value = ll.type === 'DIMENSION' ? tree.toStr(ll) : ll.value || (ll.type === 'WS' ? ' ' : ll.type);
                         selectorString += value;
                         this.next();
                     } else {
@@ -1442,7 +1436,7 @@ var mcss;
                 }
             },
             {
-                regexp: $('\\[\\s*(?:{nmchar}+)\\s*(?:([*^$|~!]?=)\\s*[\'"]?(?:[^\'"\\[]+)[\'"]?)?\\s*\\]'),
+                regexp: $('\\[\\s*(?:{nmchar}+)\\s*(?:([*^$|~!]?=)\\s*[\'"]?(?:[^\'"\\[]*)[\'"]?)?\\s*\\]'),
                 action: function (yytext) {
                     this.yyval = yytext;
                     return 'ATTRIBUTE';
@@ -5307,7 +5301,10 @@ var mcss;
             'round',
             'abs',
             'max',
-            'min'
+            'min',
+            'sin',
+            'cos',
+            'tan'
         ].forEach(function (name) {
             _[name] = function (d) {
                 if (arguments.length < 1)
@@ -5382,9 +5379,11 @@ var mcss;
             if (path && this.options.sourceMap && this.options.dest) {
                 var base64 = new Buffer(this.buffer.getMap()).toString('base64');
                 text += '/*@ sourceMappingURL= ' + path.basename(this.get('dest'), '.css') + '.css.map */';
-                u.writeFile(this.get('dest') + '.map', this.buffer.getMap(), function (err) {
+                var sfilepath = this.get('dest') + '.map';
+                u.writeFile(sfilepath, this.buffer.getMap(), function (err) {
                     if (err)
                         console.error('sourcemap wirte fail');
+                    console.log(sfilepath + ' sourcemap generated');
                 });
             }
             return text;
