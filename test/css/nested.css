@@ -13,6 +13,9 @@
 .m-home-name  >div a,.m-home-name  ul a{
 	content:".m-home-name in %";
 }
+.m-home-1{
+	left:10px;
+}
 .btn,.m-hoem p a{
 	color:10px;
 }

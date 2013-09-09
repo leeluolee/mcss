@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+
+
 var fs = require('fs'),
   globule = require('globule'),
   path = require('path'),
@@ -174,7 +176,4 @@ var build = _.restrict(function(fullpath, first){
     }
   })
 },200)
-
-
-
 build(null,true);
