@@ -1,8 +1,4 @@
 body{
-	background:url("vendors/small.jpg") repeat;
-	background:url("vendors/large.jpg");
-}
-body{
 	arg0:1;
 	arg1:2 200px;
 	arg2:rgba(1,1,1,0.1);

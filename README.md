@@ -185,8 +185,7 @@ __输出__
 mcss中的variable与以 `$` 开头(与SCSS一致如$length), 这也是mcss引入的唯一一个非css规范的词法类型, 目的是 __防止潜在冲突__ 和 __视觉上更易识别__
 mcss支持三种赋值操作`^=`, `=` 与 `?=`, 其中`?=` 只在变量未赋值或null时生效, 所有的值类型都可以被赋值,包括函数, `^=` 表示将赋值操作提升到全局作用域, 
 
-<!-- {{assign.md}} -->
-```scss
+```css
 // $variable has scope
 $a = 10px;
 $a ?= 20px;
@@ -255,7 +254,6 @@ mcss中函数可以是一个block, 它可以有参数列表也可以没有
 #### 1. 作为mixin混入使用
 当function没有返回值时，函数成为一个mixin, 会将解释后的 function block输出，实现SCSS中的@include, 这也是最常用的方式
 
-<!-- {{function_basic.md}} -->
 ```
 // 带参数
 $size = ($width, $height){
@@ -325,7 +323,6 @@ $min = (){
 
 mcss支持类似 **stylus** 的transparent call (只适用于作为mixin使用的function)的调用方式 
 
-<!-- {{function_transparent.mcss}} -->
 ```
 $border-radius = ($args...){
     @if !len($args) { 
@@ -360,7 +357,6 @@ body{
 
 mcss支持丰富的参数类型: __rest param__ 以及 __default param__ 、__named param__;
 
-<!-- {{function_param.md}} -->
 ```
 
 // 缺省值
@@ -414,7 +410,8 @@ body{
 
 
 __函数可以被返回__:
-```
+
+```css
 $pos = ($position, $top, $left){
     @if len($arguments) == 1{
         // 返回函数
@@ -454,6 +451,7 @@ body{
 在进入function block时, mcss会在当前作用域定义一个变量叫$arguments(Type: `valueslist`), 代表传入的所有参数
 
 mcss不支持类似`arguments[0]`下标操作, 不过你可以通过[内建函数](#bif) `args(0)`来得到同样的效果
+
 ```
 $foo = {
   first: args(0);
@@ -549,6 +547,7 @@ div.body-4 class-1,.other-body class-1,div.body-4,.other-body{
 #### 3. 支持多重extend
 
 多个complex以 `,` 分割(selectorlist),视为多重@extend;
+
 ```css
 .class-1{
     name: class-1 in global;
@@ -565,6 +564,7 @@ body{
 ```
 
 __输出__:
+
 ```css
 .class-1,body{
   name:class-1 in global;
@@ -580,6 +580,7 @@ body .class-3,body{
 
 #### 4. 支持nested extend
 mcss的extend支持层级继承， 输出符合预期的结构
+
 ```css
 // nested @extend
 .class-3{
@@ -600,6 +601,7 @@ body{
 ```
 
 __输出__:
+
 ```css
 .class-3,.class-2,.class-1,body{
   name:class-3 in global;
@@ -620,6 +622,7 @@ __输出__:
 mcss中的import很灵活，可以在各个block中引入. 如果引入文件为`.css`后缀 则不做修改，原样输出.
 
 考虑有如下文件 `_markdown.mcss`
+
 ```css
 body {
     font-family: "Avenir Next", Helvetica, Arial, sans-serif;
@@ -649,6 +652,7 @@ h1, h2, h3, h4, h5, h6 {
 // import raw css
 @import './_raw.css';
 ```
+
 输出
 
 ```css
@@ -694,6 +698,7 @@ h1,h2,h3,h4,h5,h6{
 作用如其名, 被修饰的ruleset成为抽象ruleset, 不会输出, 但是仍然可以被@extend; 
 
 如
+
 ```css
 // simple @abstract ruleset
 @abstract abs1{
@@ -705,6 +710,7 @@ body{
     left: 10px;
 }
 ```
+
 __输出__
 
 ```css
@@ -716,6 +722,7 @@ body{
 }
 
 ```
+
 即原selector消失 只留@extend 它的selector
 
 
@@ -741,7 +748,9 @@ body{
 }
 
 ```
+
 __输出__ :
+
 
 ```
 body{
@@ -752,6 +761,7 @@ body{
   left:20px;
 }
 ```
+
 即abstract block中只有被@extend 的class的内容被输出了
 
 
@@ -791,7 +801,9 @@ body2{
     }
 }
 ```
+
 __输出__:
+
 
 ```
 body2{
@@ -977,6 +989,7 @@ body{
 ```
  
 __Outport__
+
 ```
 body{
   left:20px;
@@ -989,6 +1002,7 @@ body{
 
 ### Operator
 mcss支持一元运算符(- ! +), 二元运算符( + - * / %), 逻辑运算符(|| 和 &&), 关系运算符(== >= <= > < !=)以及括号'()' 运算符优先级与javascript完全一致
+
 ```css
 // simple + - 
 body{
@@ -1057,6 +1071,7 @@ body{
 ```
 
 __输出__:
+
 ```css
 body{
   add1:30;
@@ -1111,9 +1126,9 @@ body{
   complex2:1px;
 }
 ```
-<!-- {{operator.md}} -->
 
 在使用时，需要注意的是 `-` ， `/`, `'%'` 两个作为二元操作符时， 由于在css中 分数(14px/12) 以及 负数(10px -10px) 以及10%  都是一种合法的输出。mcss中定义操作符周围留空视为算术操作， 而取消空格则保留原输出.
+
 ```css
 body{
     // beacuse css support neg number 
@@ -1146,9 +1161,9 @@ body{
 }
 
 ```
-<!-- {{operator_conflict.md}} -->
 
 __输出__: 
+
 ```css
 body{
   sub1:-10;
@@ -1244,6 +1259,7 @@ $basesize = -24px;
 
 
 __输出__:
+
 ```css
 [class*=icon-]{
   background-image:url("http://www.163.com/path/to/icon.png") -9999px -9999px;
@@ -1353,6 +1369,7 @@ body{
 
 
 __输出__:
+
 ```css
 .local-1{
   name:local-1;
@@ -1552,6 +1569,7 @@ p{
 ```
 
 __输出__
+
 ```css
 p{
   left:1px;
@@ -1623,6 +1641,7 @@ $fn();
 ```
 
 报错
+
 ```bash
 McssError:$required is needed!!!
   at (/home/luobo/code/mcss/test/mcss/bif_util.mcss : 3)
@@ -1647,6 +1666,7 @@ p{
 ```
 
 __输出__:
+
 ```css
 p{
   _filter:progid:DXImageTransform.Microsoft.BasicImage(rotation=3);;
@@ -1666,6 +1686,7 @@ p{
 ```
 
 输出
+
 ```css
 p{
   type1:"text" "string" "values";
@@ -1726,13 +1747,8 @@ DEBUG rgba(28,24,23,0.2)  (color)
 DEBUG 'texttext'  (STRING)
 
 ```
+
 括号中为节点类型
-
-
-<!-- #### @css
-@css 会对block中的内容不做任何处理输出(连词法分析都不做), 所以不会有sourcemap 之类的信息产生 
-
- -->
 
 
 ### 友好的error输出
@@ -1749,6 +1765,7 @@ MCSS的sourcemap 不是类似stylus、less是基于@sass-debug-info的伪装形�
 mcss默认支持三种输出格式 1. 常规; 2. 压缩 ; 3. 单行
 
 对应如下这段mcss
+
 ```css
 .m-home{
   display: block;
@@ -1770,6 +1787,7 @@ mcss默认支持三种输出格式 1. 常规; 2. 压缩 ; 3. 单行
 
 
 __1. 常规__
+
 ```css
 .m-home{
   display:block;
@@ -1789,11 +1807,13 @@ __1. 常规__
 ```
 
 __2. 压缩__ : 无空格压缩到一行
+
 ```css
 .m-home{display:block;}.m-home div,.m-home ul{border:2px solid #cccccc;}.m-home div a,.m-home ul a{color:#ffffff;}.m-home div a:hover,.m-home ul a:hover{text-decoration:none;}.m-home div a span,.m-home ul a span{display:block;}
 ```
 
 __3. 隔行__ : [NEC](http://nec.netease.com/)的推荐css书写格式
+
 ```css
 .m-home{display:block;}
 .m-home div,.m-home ul{border:2px solid #cccccc;}
@@ -1865,7 +1885,9 @@ MCSS天生就是一个CSS parser, 你可以在构建mcss实例时 传入walker�
 mcss的walker作用在interpret的上升阶段，此时经过解释后的节点类型已经全部是CSS的节点类型(即不存在 操作符、参数等信息)
 
 例如[test/parser.js](https://github.com/leeluolee/mcss/blob/master/test/parser.js) 中的例子, 你只需传入一个节点名和对应的action;
+
 ```
+
 var path = require('path');
 //每次生成都修改后缀
 var instance = mcss({
@@ -1966,10 +1988,13 @@ $s = 1...5;  // ==   1,2,3,4,5
 
 __注意__, mcss中的直接量只包含类型1,2,3,4,5, 如果要values与 valueslist成为一个直接量，请用()包裹，会强制成为一个直接量
 比如你想要传入一个valueslist参数时,
+
 ```
  foo((1,2,3,4)) // 强制成为一个直接量 ,因为单个参数只支持values(为了避免与valueslist的'，'冲突)
 ```
+
 再比如
+
 ```
 body: '%d %d' % (10 100);
 ```
