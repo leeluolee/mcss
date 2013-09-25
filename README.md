@@ -9,9 +9,12 @@ MCSS完全使用javascript构建, 你可以分别在browser(ES5 support needed)�
 
 目前主页正在建设中，这是临时性介绍页, 你可以先 __[动手试试](http://leeluolee.github.io/mcss/)__ 
 
+> 有兴趣可以查看下mcss的[实例函数库(类似compass)](https://github.com/leeluolee/mass)，你会发现几乎所有在mcss中都可以封装成函数的形势，如果你愿意
+
 ## 安装
 
 ### Nodejs
+
 ```bash
 npm install -g mcss
 ```
@@ -25,9 +28,11 @@ npm install -g mcss
 
 
 ## 使用
+
 API请参考([API使用指南](dada))
 
 ### 命令行
+
 ```bash
 ubuntu-10:12 ~ $ mcss -h
 
@@ -47,11 +52,12 @@ __注意__: 当file参数为文件夹时, 会compile目录下的所有.mcss文�
 
 
 ####配置文件
+
 当参数略多时，你会感觉筋疲力竭, 这时你可以建立一个配置的JSON文件, 其中JSON中的input参数代表输入文件 file, 其它与命令行打印的参数全名一致 并使用-c 参数指定这个配置文件,默认情况下mcss会寻找 __当前路径下的mcss.json__ 作为配置文件, 配置文件与命令的参数会进行合并(命令行优先)
 
 ```javascript
 {
-  "input": "./",  
+  "input": "./",
   "outport": "./css",
   "include": "./include",
   "exclude": "(\/|\\\\)_|^_|include"
@@ -1280,7 +1286,6 @@ __输出__:
 
 ```
 
-选择器列表插值通常在构建`sprite`，`font-icon`、`grid`等比较有用
 
 
 __字符串插值 and printf__
