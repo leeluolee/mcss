@@ -27,7 +27,7 @@ var program = require('commander')
   .version(version || '0.0.1')
   .usage('[options] <files>')
   .option('-f, --format <n>', 'the outport format, 1: common | 2: compress | 3:oneline. [optional] defualt 1', parseInt)
-  .option('-w, --watch', 'watch the file change and build .[optional] default false')
+  .option('-w, --watch [flag]', 'watch the file change and build. 0: close | 1: open | 2: open and beep,[optional] default 0')
   .option('-s, --sourcemap', 'generate the sourcemap. [optional] default false')
   .option('-o, --outport <filename>', 'the outport filename or dirname. [optional] (if not passed ,the result will out port at console)')
   .option('-i, --indent <indent>', 'the indent string. [optional] default "\\t"')
@@ -112,7 +112,10 @@ var building;
 var importsMap = {};
 var imports = [];
 var build = _.restrict(function(fullpaths, first){
-  fullpaths = fullpaths || files;
+  fullpaths = (fullpaths || files).filter(function(file){
+    if(exclude && exclude.test(file))  return false;
+    else return true;
+  });
   if(building){
     console.log('is busy building')
     return;
@@ -155,6 +158,11 @@ var build = _.restrict(function(fullpaths, first){
       })
     }).fail(function(err){
       mcss.error.format(err)
+      // beep if (watch flag === 2)
+      if(String(watch) === '2'){
+        console.log('\u0007');
+      }
+      
       console.log(err.message);
     }).always(function(){
       Object.keys(instance.get('imports')).forEach(function(ipt){
@@ -162,9 +170,8 @@ var build = _.restrict(function(fullpaths, first){
           if(!~imports.indexOf(ipt)) imports.push(ipt);
           // 这里放置ipt的顶层父文件
           var parents = importsMap[ipt] || (importsMap[ipt]=[]);
-          if(!parents.indexOf(fullpath)) parents.push(fullpath);
+          if(!~parents.indexOf(fullpath)) parents.push(fullpath);
         }
-        
       })
     })
   }).filter(promise.isPromise);
