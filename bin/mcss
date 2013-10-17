@@ -156,14 +156,6 @@ var build = _.restrict(function(fullpaths, first){
         if(err) return console.log(err)
         console.log(dest + ' writed')
       })
-    }).fail(function(err){
-      mcss.error.format(err)
-      // beep if (watch flag === 2)
-      if(String(watch) === '2'){
-        console.log('\u0007');
-      }
-      
-      console.log(err.message);
     }).always(function(){
       Object.keys(instance.get('imports')).forEach(function(ipt){
         if(first){
@@ -197,6 +189,20 @@ var build = _.restrict(function(fullpaths, first){
           build(files)
         })
       })
+    }
+  }).fail(function(){
+    var errors = {};
+    for(var i =0 ;i<arguments.length;i++){
+      var error = arguments[0];
+      if(!errors[error.filename]) errors[error.filename] = error;
+    }
+    if(String(watch) === '2'){
+      console.log('\u0007');
+    }
+    for(var i in errors){
+      var err = errors[i]
+      mcss.error.format(err)
+      console.log(err.message);
     }
   })
 },200)

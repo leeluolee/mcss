@@ -1,6 +1,6 @@
 {
   "name": "mcss",
-  "version": "0.3.7",
+  "version": "0.4.2",
   "main": "./lib/main.js",
   "bin": {
     "mcss": "./bin/mcss"
