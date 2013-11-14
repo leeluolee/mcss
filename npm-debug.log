@@ -1,49 +1,46 @@
 0 info it worked if it ends with ok
-1 verbose cli [ 'c:\\Program Files (x86)\\nodejs\\node.exe',
-1 verbose cli   'c:\\Program Files (x86)\\nodejs\\node_modules\\npm\\bin\\npm-cli.js',
-1 verbose cli   'install',
-1 verbose cli   '-g',
-1 verbose cli   'slnode' ]
-2 info using npm@1.1.48
-3 info using node@v0.8.6
-4 verbose config file C:\Users\萝卜\.npmrc
-5 verbose config file c:\Program Files (x86)\nodejs\etc\npmrc
-6 verbose config file c:\Program Files (x86)\nodejs\node_modules\npm\npmrc
-7 verbose read json C:\Users\萝卜\AppData\Roaming\npm\package.json
-8 verbose read json C:\Users\萝卜\AppData\Roaming\npm\package.json
-9 verbose cache add [ 'slnode', null ]
-10 silly cache add name=undefined spec="slnode" args=["slnode",null]
-11 verbose parsed url { pathname: 'slnode', path: 'slnode', href: 'slnode' }
-12 silly lockFile 4215f61f-slnode slnode
-13 verbose lock slnode C:\Users\萝卜\AppData\Roaming\npm-cache\4215f61f-slnode.lock
-14 silly lockFile 4215f61f-slnode slnode
-15 verbose addNamed [ 'slnode', '' ]
-16 verbose addNamed [ null, '' ]
-17 silly lockFile c37efadf-slnode slnode@
-18 verbose lock slnode@ C:\Users\萝卜\AppData\Roaming\npm-cache\c37efadf-slnode.lock
-19 silly addNameRange { name: 'slnode', range: '', hasData: false }
-20 verbose url raw slnode
-21 verbose url resolving [ 'http://registry.npmjs.org/', './slnode' ]
-22 verbose url resolved http://registry.npmjs.org/slnode
-23 info retry registry request attempt 1 at 00:18:18
-24 http GET http://registry.npmjs.org/slnode
-25 http 404 http://registry.npmjs.org/slnode
-26 silly registry.get cb [ 404,
-26 silly registry.get   { server: 'CouchDB/1.3.0 (Erlang OTP/R15B03)',
-26 silly registry.get     date: 'Thu, 25 Jul 2013 16:18:21 GMT',
-26 silly registry.get     'content-type': 'application/json',
-26 silly registry.get     'content-length': '52',
-26 silly registry.get     'cache-control': 'must-revalidate' } ]
-27 silly lockFile c37efadf-slnode slnode@
-28 error 404 'slnode' is not in the npm registry.
-28 error 404 You should bug the author to publish it
-28 error 404
-28 error 404 Note that you can also install from a
-28 error 404 tarball, folder, or http url, or git url.
-29 error System Windows_NT 6.1.7600
-30 error command "c:\\Program Files (x86)\\nodejs\\node.exe" "c:\\Program Files (x86)\\nodejs\\node_modules\\npm\\bin\\npm-cli.js" "install" "-g" "slnode"
-31 error cwd f:\code\mcss
-32 error node -v v0.8.6
-33 error npm -v 1.1.48
-34 error code E404
-35 verbose exit [ 1, true ]
+1 verbose cli [ '/home/luobo/nvm/v0.8.22/bin/node',
+1 verbose cli   '/home/luobo/nvm/v0.8.22/bin/npm',
+1 verbose cli   'version',
+1 verbose cli   'patch' ]
+2 info using npm@1.2.14
+3 info using node@v0.8.22
+4 silly exec git "status" "--porcelain"
+5 silly git,status,--porcelain, spawning
+6 error Error: Git working directory not clean.
+6 error M dist/mcss-latest.js
+6 error D npm-debug.log
+6 error M package.json
+6 error D test/css/_import1.css
+6 error D test/css/_import2.css
+6 error D test/css/nested.mcss
+6 error D test/data/import1.mcss
+6 error D test/data/import2.mcss
+6 error D test/data/import3.mcss
+6 error D test/data/interpolate.mcss
+6 error D test/data/parse.mcss
+6 error D test/data/sample.css
+6 error D test/data/simple.mcss
+6 error D test/mcss/aa.mcss
+6 error D test/mcss/function_color.mcss
+6 error D test/mcss/mcss.json
+6 error D test/mcss/vendors/large.jpg
+6 error D test/mcss/vendors/small.jpg
+6 error     at /home/luobo/nvm/v0.8.22/lib/node_modules/npm/lib/version.js:82:33
+6 error     at ChildProcess.<anonymous> (/home/luobo/nvm/v0.8.22/lib/node_modules/npm/lib/utils/exec.js:61:5)
+6 error     at ChildProcess.EventEmitter.emit (events.js:99:17)
+6 error     at maybeClose (child_process.js:638:16)
+6 error     at Socket.ChildProcess.spawn.stdin (child_process.js:815:11)
+6 error     at Socket.EventEmitter.emit (events.js:96:17)
+6 error     at Socket._destroy.destroyed (net.js:358:10)
+6 error     at process.startup.processNextTick.process._tickCallback (node.js:245:9)
+7 error If you need help, you may report this log at:
+7 error     <http://github.com/isaacs/npm/issues>
+7 error or email it to:
+7 error     <npm-@googlegroups.com>
+8 error System Linux 3.2.0-39-generic
+9 error command "/home/luobo/nvm/v0.8.22/bin/node" "/home/luobo/nvm/v0.8.22/bin/npm" "version" "patch"
+10 error cwd /home/luobo/code/mcss
+11 error node -v v0.8.22
+12 error npm -v 1.2.14
+13 verbose exit [ 1, true ]
