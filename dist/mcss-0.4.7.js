@@ -2780,7 +2780,7 @@ var mcss;
             this[1] = channels[1];
             this[2] = channels[2];
             Color.limit(this);
-            this.alpha = alpha || 1;
+            this.alpha = alpha == null ? 1 : alpha;
             this.lineno = lineno;
         }
         var c = Color.prototype;
@@ -2789,7 +2789,7 @@ var mcss;
         };
         c.toCSS = function (argb) {
             var r = Math.round(this[0]), g = Math.round(this[1]), b = Math.round(this[2]);
-            if (!this.alpha || this.alpha === 1 || argb) {
+            if (this.alpha == null || this.alpha === 1 || argb) {
                 var rs = r.toString(16), gs = g.toString(16), bs = b.toString(16), as = Math.floor(this.alpha * 255).toString(16);
                 if (rs.length === 1)
                     rs = '0' + rs;
@@ -3658,7 +3658,7 @@ var mcss;
         };
         exports.format = function (error) {
             if (!exports.isMcssError(error)) {
-                throw error;
+                return error;
             }
             var source = error.source, lines = source.split(/\r\n|[\r\f\n]/), pos = error.pos, message = error.message, line = error.line || 1, column = error.column || 0, start = Math.max(1, line - 5), end = Math.min(lines.length, line + 4), res = [
                     color(error.name + ':' + message, 'red', null, 'bold'),
@@ -5036,14 +5036,16 @@ var mcss;
         var Color = tree.Color;
         var _ = module.exports = {
                 rgba: function (r, g, b, a) {
+                    if (arguments.length < 2)
+                        this.error('param error');
                     if (r.type === 'color') {
-                        return new Color(r, g && g.value);
+                        return new Color(r, getAlpha(g));
                     } else {
                         return new Color([
                             r.value,
                             g.value,
                             b.value
-                        ], a && a.value);
+                        ], getAlpha(a));
                     }
                 }.__accept([
                     'DIMENSION color',
@@ -5343,6 +5345,12 @@ var mcss;
             } catch (e) {
                 return false;
             }
+        }
+        function getAlpha(node) {
+            if (node) {
+                var res = node.unit === '%' ? node.value / 100 : node.value;
+            }
+            return res;
         }
     },
     'p': function (require, module, exports, global) {
