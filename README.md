@@ -2041,6 +2041,11 @@ MCSS目前仍在开发阶段, 如果你能提出宝贵意见甚至贡献代码, 
 2. __you...__
 
 
+## 工具
+
+1. [mcss的sublime语法高亮（保存成MCSS.tmLanguage文件并放入你的User目录）](https://gist.github.com/leeluolee/6421229)
+
+
 ## Changelog
 
 ### 0.4.x
