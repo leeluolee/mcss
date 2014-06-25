@@ -116,7 +116,7 @@ if(!files.length) throw 'no matched mcss file';
 var building;
 var importsMap = {};
 var imports = [];
-var build = _.restrict(function(fullpaths, first){
+var build = function(fullpaths, first){
   fullpaths = (fullpaths || files).filter(function(file){
     if(exclude && exclude.test(file))  return false;
     else return true;
@@ -210,5 +210,5 @@ var build = _.restrict(function(fullpaths, first){
       console.log(err.message);
     }
   })
-},200)
+}
 build(null,true);
