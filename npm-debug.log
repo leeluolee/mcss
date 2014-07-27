@@ -1,0 +1,49 @@
+0 info it worked if it ends with ok
+1 verbose cli [ 'node', '/usr/local/bin/npm', 'publish', '.' ]
+2 info using npm@1.4.16
+3 info using node@v0.10.25
+4 verbose node symlink /usr/bin/node
+5 verbose publish [ '.' ]
+6 verbose cache add [ '.', null ]
+7 verbose cache add name=undefined spec="." args=[".",null]
+8 verbose parsed url { protocol: null,
+8 verbose parsed url   slashes: null,
+8 verbose parsed url   auth: null,
+8 verbose parsed url   host: null,
+8 verbose parsed url   port: null,
+8 verbose parsed url   hostname: null,
+8 verbose parsed url   hash: null,
+8 verbose parsed url   search: null,
+8 verbose parsed url   query: null,
+8 verbose parsed url   pathname: '.',
+8 verbose parsed url   path: '.',
+8 verbose parsed url   href: '.' }
+9 silly lockFile 3a52ce78- .
+10 verbose lock . /home/luobo/.npm/3a52ce78-.lock
+11 verbose tar pack [ '/home/luobo/.npm/mcss/0.4.9/package.tgz', '.' ]
+12 verbose tarball /home/luobo/.npm/mcss/0.4.9/package.tgz
+13 verbose folder .
+14 info prepublish mcss@0.4.9
+15 verbose unsafe-perm in lifecycle true
+16 info mcss@0.4.9 Failed to exec prepublish script
+17 error addLocalDirectory Could not pack "." to "/home/luobo/.npm/mcss/0.4.9/package.tgz"
+18 silly lockFile 3a52ce78- .
+19 silly lockFile 3a52ce78- .
+20 error addLocal Could not install .
+21 error mcss@0.4.9 prepublish: `cake -t build`
+21 error Exit status 8
+22 error Failed at the mcss@0.4.9 prepublish script.
+22 error This is most likely a problem with the mcss package,
+22 error not with npm itself.
+22 error Tell the author that this fails on your system:
+22 error     cake -t build
+22 error You can get their info via:
+22 error     npm owner ls mcss
+22 error There is likely additional logging output above.
+23 error System Linux 3.13.0-24-generic
+24 error command "node" "/usr/local/bin/npm" "publish" "."
+25 error cwd /home/code/mcss
+26 error node -v v0.10.25
+27 error npm -v 1.4.16
+28 error code ELIFECYCLE
+29 verbose exit [ 1, true ]
