@@ -17,8 +17,24 @@
   <body>
     <div class='m-editor'>
       <div class="input">
-        <textarea>.btn-#{small, base, large, huge}{
-    font-size: 12px + $i * 4px;
+
+        <textarea>$brand-color = #da3412;
+
+$opacity = ($opt = 0){
+   filter:  alpha(opacity = round($opt * 100));
+   opacity: $opt;
+}
+
+.link{
+  color: $brand-color;
+  &:hover{
+      color: l-adjust($brand-color, 5%);
+      $opacity: .9;
+  }
+  &:active{
+      color: l-adjust($brand-color, -5%);
+      $opacity: 1;
+  }
 }</textarea>
       <div class="tooltip right">
         <div class="arrow"></div>
