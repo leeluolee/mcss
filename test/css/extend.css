@@ -1,7 +1,7 @@
 .class-1 span,.body-1{
 	name:class-1 in global;
 }
-.class-2,p,.body-2,.body-3{
+.class-2,p,.body-2,.body-3,.class-1,body{
 	name:class-2;
 }
 div.body-4 .class-1,.other-body .class-1,div.body-4,.other-body{
