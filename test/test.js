@@ -28,7 +28,8 @@ describe('MCSS TEST', function(){
         }
     it(fullpath + 'compile result should equal css outport', function(done){
         mcss({
-            filename: fullpath
+            filename: fullpath,
+            units: [ 'rpx' ]
         }).include(__dirname+'/mcss/include')
             .translate(content)
             .done(function(content){
@@ -46,6 +47,3 @@ describe('MCSS TEST', function(){
 
     })
 })
-
-
-

@@ -36,18 +36,24 @@ API请参考([API使用指南](dada))
 一般就输入 ` mcss 输入目录或文件  -o  输出目录或文件  -w`即可开启监听并编译了， 其他参数请参考`mcss -h`
 
 ```bash
-ubuntu-10:12 ~ $ mcss -h
+$ mcss -h
 
-  Usage: mcss [options] <file>
+Usage: mcss [options]
 
-  Options:
+Options:
 
-    -h, --help                print usage information
-    -v, --version             print the version number
-    -f, --format <n>          the outport format, 1: common | 2: compress | 3:online
-    -c, --config <file>          the config filepath. [optional]
-    ..........省略请输入 mcss -h 查看详情............
-
+  -h, --help               output usage information
+  -V, --version            output the version number
+  -i, --input <filename>   the input filename or folder. required!
+  -o, --output <filename>  the output filename or dirname. [optional] (if not passed ,the result will be printed on the console)
+  -f, --format <n>         the output format, 1: common | 2: compress | 3:oneline. [optional] defualt 1
+  -w, --watch [flag]       watch the file change and build. 0: close | 1: open | 2: open and beep,[optional] default 0
+  -s, --sourcemap          generate the sourcemap. [optional] default false
+  -c, --config <file>      the config filepath. [optional]
+  --indent <indent>        the indent string. [optional] default "\t"
+  --exclude <regexp>       a passed regexp to avoid any file match it been compiled.[optional]
+  --include <folder>       add path to include pathes. [optional]
+  --units <units>          extra units, use `,` as separator. [optional]
 ```
 
 __注意__: 当file参数为文件夹时, 会compile目录下的所有.mcss文件, 此时outport参数会视为是一个文件夹, 并将所有css输入到此文件夹
@@ -63,7 +69,8 @@ __注意__: 当file参数为文件夹时, 会compile目录下的所有.mcss文�
   "outport": "../css",  //输出目录(如果输入为单文件可以是一个具体的文件名)
   "format": 1,
   "watch": 2, //检测文件变化并build，并有报警声(1监听但无报警), 0为不watch
-  "exclude": "(\/|\\\\)_|^_|include"
+  "exclude": "(\/|\\\\)_|^_|include",
+  "units": [ "rpx" ] // 让mcss支持用户自定义的单位，比如小程序中的特殊单位rpx
 }
 ```
 
@@ -1854,7 +1861,7 @@ var instance = mcss({
 // filename 主要是用来error信息和sourcemap, 也是后续import的准则
 // 是最重要的参数
   filename: '/absolute/path/to/xx.file'
-  options.....
+  // ...
 })// get a mcss instance
 
 .set('filename', '/path/to/foo.mcss')// 后续修改options
@@ -1942,6 +1949,7 @@ var instance = mcss({
   format: 1,       // 输出格式,如上面所示 1. common  2. compress, 3. lines mode
   sourcemap:false, //是否输出sourcemap(css同一目录)
   indent: '\t'     //缩进符号, 默认是制表符
+  units: [ 'rpx' ] // 用户自定义单位
 })
 
 //所有的参数都可以后续通过instance.set来进行赋值
